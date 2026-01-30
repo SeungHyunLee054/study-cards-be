@@ -1,0 +1,52 @@
+spring:
+  config:
+    activate:
+      on-profile: dev
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/study_cards
+    username: study_cards
+    password: study_cards
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    properties:
+      hibernate:
+        format_sql: true
+        jdbc:
+          time_zone: Asia/Seoul
+    open-in-view: false
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 2s
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.security: INFO
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
+  server:
+    url: http://localhost:8080
+
+app:
+  security:
+    jwt:
+      # dev에서는 환경변수 없어도 동작하게 기본값 제공(운영에서는 반드시 환경변수)
+      secret: ${APP_JWT_SECRET:dev-secret-change-me}

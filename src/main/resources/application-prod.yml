@@ -1,0 +1,69 @@
+# src/main/resources/application-prod.yml
+spring:
+  config:
+    activate:
+      on-profile: prod
+
+  datasource:
+    url: jdbc:postgresql://${DB_HOST}:${DB_PORT:5432}/${DB_NAME}
+    username: ${DB_USER}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      idle-timeout: 30000
+      connection-timeout: 20000
+      max-lifetime: 1800000
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        jdbc:
+          time_zone: Asia/Seoul
+    open-in-view: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2s
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 2
+          max-wait: 1s
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
+
+# 운영에서는 Swagger 끄는 것을 기본값으로 권장
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  server:
+    url: ${SPRINGDOC_SERVER_URL:https://api.example.com}
+
+# 운영에서는 actuator 노출 최소화 권장(필요한 것만)
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never
+
+app:
+  security:
+    jwt:
+      # 운영은 무조건 환경변수로 주입
+      secret: ${APP_JWT_SECRET}

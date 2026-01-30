@@ -1,0 +1,70 @@
+plugins {
+    id 'java'
+    id 'org.springframework.boot' version '3.5.10'
+    id 'io.spring.dependency-management' version '1.1.7'
+    id 'org.asciidoctor.jvm.convert' version '4.0.5'
+}
+
+group = 'com.example'
+version = '0.0.1-SNAPSHOT'
+description = 'study_cards'
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+}
+
+configurations {
+    compileOnly {
+        extendsFrom annotationProcessor
+    }
+}
+
+repositories {
+    mavenCentral()
+}
+
+ext {
+    set('snippetsDir', file("build/generated-snippets"))
+}
+
+dependencies {
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    implementation 'org.springframework.boot:spring-boot-starter-data-jpa'
+    implementation 'org.springframework.boot:spring-boot-starter-data-redis'
+    implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
+    implementation 'org.springframework.boot:spring-boot-starter-security'
+    implementation 'org.springframework.boot:spring-boot-starter-validation'
+    implementation 'org.springframework.boot:spring-boot-starter-web'
+    implementation 'org.springframework.boot:spring-boot-starter-aop'
+    compileOnly 'org.projectlombok:lombok'
+    runtimeOnly 'org.postgresql:postgresql'
+    annotationProcessor 'org.projectlombok:lombok'
+    testImplementation 'org.springframework.boot:spring-boot-starter-test'
+    testImplementation 'org.springframework.boot:spring-boot-testcontainers'
+    testImplementation 'org.springframework.restdocs:spring-restdocs-mockmvc'
+    testImplementation 'org.springframework.security:spring-security-test'
+    testImplementation 'org.testcontainers:junit-jupiter'
+    testImplementation 'org.testcontainers:postgresql'
+    testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+
+    implementation 'io.jsonwebtoken:jjwt:0.12.6'
+    implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:2.8.15'
+    annotationProcessor 'org.springframework.boot:spring-boot-configuration-processor'
+    developmentOnly 'org.springframework.boot:spring-boot-devtools'
+    implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.1'
+    annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.1:jpa'
+    testRuntimeOnly("org.junit.platform:junit-platform-launcher:{version}")
+    testImplementation "com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.15"
+}
+
+tasks.named('test') {
+    outputs.dir snippetsDir
+    useJUnitPlatform()
+}
+
+tasks.named('asciidoctor') {
+    inputs.dir snippetsDir
+    dependsOn test
+}

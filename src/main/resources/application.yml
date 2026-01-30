@@ -1,0 +1,35 @@
+spring:
+  application:
+    name: study-cards
+  profiles:
+    default: dev
+
+server:
+  port: 8080
+
+logging:
+  level:
+    root: INFO
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: when_authorized
+
+# 공통 커스텀 설정
+app:
+  security:
+    jwt:
+      issuer: study-cards
+      # dev/prod에서 각각 override
+      secret: ${APP_JWT_SECRET:change-me}
+      access-token-expire-minutes: 15
+      refresh-token-expire-days: 14
+    refresh-token:
+      redis-prefix: "refresh:"
+    blacklist:
+      redis-prefix: "bl:"
