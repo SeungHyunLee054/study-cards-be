@@ -30,6 +30,9 @@
             <maxHistory>30</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
         </rollingPolicy>
+        <filter class="ch.qos.logback.classic.filter.ThresholdFilter">
+            <level>INFO</level>
+        </filter>
         <encoder>
             <pattern>${FILE_PATTERN}</pattern>
             <charset>UTF-8</charset>
@@ -58,9 +61,11 @@
     <!-- ========================= -->
     <springProfile name="dev">
 
-        <!-- 애플리케이션 로그: 개발은 콘솔 중심 -->
+        <!-- 애플리케이션 로그: 콘솔은 DEBUG, 파일은 INFO -->
         <logger name="com.example.study_cards" level="DEBUG" additivity="false">
             <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
         </logger>
 
         <!-- 스프링/하이버네이트: 필요한 것만 -->
@@ -77,6 +82,8 @@
 
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
+            <appender-ref ref="FILE"/>
+            <appender-ref ref="ERROR_FILE"/>
         </root>
     </springProfile>
 
