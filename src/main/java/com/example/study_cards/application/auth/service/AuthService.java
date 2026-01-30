@@ -2,9 +2,17 @@ package com.example.study_cards.application.auth.service;
 
 import com.example.study_cards.application.auth.dto.request.SignInRequest;
 import com.example.study_cards.application.auth.dto.request.SignUpRequest;
-import com.example.study_cards.application.auth.dto.response.SignInResponse;
+import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.dto.response.UserResponse;
+import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
+import com.example.study_cards.infra.security.exception.JwtErrorCode;
+import com.example.study_cards.infra.security.exception.JwtException;
+import com.example.study_cards.infra.security.jwt.JwtTokenProvider;
+import com.example.study_cards.infra.redis.service.RefreshTokenService;
+import com.example.study_cards.infra.redis.service.TokenBlacklistService;
+import com.example.study_cards.infra.redis.service.UserCacheService;
+import com.example.study_cards.infra.redis.vo.UserVo;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -14,21 +22,68 @@ import org.springframework.transaction.annotation.Transactional;
 public class AuthService {
 
     private final UserDomainService userDomainService;
+    private final JwtTokenProvider jwtTokenProvider;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final UserCacheService userCacheService;
 
     @Transactional
     public UserResponse signUp(SignUpRequest request) {
-        // TODO: userDomainService 호출
-        return null;
+        User user = userDomainService.registerUser(
+                request.email(),
+                request.password(),
+                request.nickname()
+        );
+        return UserResponse.from(user);
     }
 
     @Transactional(readOnly = true)
-    public SignInResponse signIn(SignInRequest request) {
-        // TODO: userDomainService 호출, JWT 토큰 생성
-        return null;
+    public TokenResult signIn(SignInRequest request) {
+        User user = userDomainService.findByEmail(request.email());
+        userDomainService.validatePassword(request.password(), user.getPassword());
+
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole());
+        String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
+
+        long accessTokenExpiresIn = jwtTokenProvider.getAccessTokenExpirationMs();
+        long refreshTokenExpiresIn = jwtTokenProvider.getRefreshTokenExpirationMs();
+
+        refreshTokenService.saveRefreshToken(user.getId(), refreshToken, refreshTokenExpiresIn);
+        userCacheService.cacheUser(UserVo.from(user), accessTokenExpiresIn);
+
+        return new TokenResult(accessToken, refreshToken, accessTokenExpiresIn);
     }
 
     @Transactional
-    public void signOut(String accessToken) {
-        // TODO: Redis 블랙리스트 처리
+    public void signOut(Long userId, String accessToken) {
+        long remainingMs = jwtTokenProvider.getRemainingExpiration(accessToken);
+        tokenBlacklistService.blacklistToken(accessToken, remainingMs);
+        refreshTokenService.deleteRefreshToken(userId);
+        userCacheService.evictUser(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public TokenResult refreshToken(String refreshToken) {
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new JwtException(JwtErrorCode.REFRESH_TOKEN_NOT_FOUND);
+        }
+
+        jwtTokenProvider.validateToken(refreshToken);
+
+        Long userId = jwtTokenProvider.getUserId(refreshToken);
+
+        if (!refreshTokenService.validateRefreshToken(userId, refreshToken)) {
+            throw new JwtException(JwtErrorCode.INVALID_REFRESH_TOKEN);
+        }
+
+        User user = userDomainService.findById(userId);
+
+        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole());
+
+        long accessTokenExpiresIn = jwtTokenProvider.getAccessTokenExpirationMs();
+
+        userCacheService.cacheUser(UserVo.from(user), accessTokenExpiresIn);
+
+        return new TokenResult(newAccessToken, refreshToken, accessTokenExpiresIn);
     }
 }

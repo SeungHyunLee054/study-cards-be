@@ -1,5 +1,8 @@
 package com.example.study_cards.domain.user.service;
 
+import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.user.exception.UserErrorCode;
+import com.example.study_cards.domain.user.exception.UserException;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -12,11 +15,33 @@ public class UserDomainService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
-    // TODO: 회원가입 로직
+    public User registerUser(String email, String password, String nickname) {
+        if (userRepository.existsByEmail(email)) {
+            throw new UserException(UserErrorCode.DUPLICATE_EMAIL);
+        }
 
-    // TODO: 이메일로 사용자 조회
+        User user = User.builder()
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .nickname(nickname)
+                .build();
 
-    // TODO: 비밀번호 검증
+        return userRepository.save(user);
+    }
 
-    // TODO: 사용자 통계 업데이트 (streak, masteryRate)
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    public User findById(Long userId) {
+        return userRepository.findById(userId)
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
+    }
+
+    public void validatePassword(String rawPassword, String encodedPassword) {
+        if (!passwordEncoder.matches(rawPassword, encodedPassword)) {
+            throw new UserException(UserErrorCode.INVALID_PASSWORD);
+        }
+    }
 }
