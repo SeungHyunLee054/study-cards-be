@@ -60,6 +60,128 @@ PostgreSQL과 Redis는 로컬 또는 Docker 환경에 별도로 준비되어 있
 
 ---
 
+## 테스트 코드 작성 규칙
+
+### 테스트 구조
+
+```
+src/test/java/com/example/study_cards/
+├── support/                          # 테스트 인프라
+│   ├── BaseUnitTest.java             # 단위 테스트 베이스
+│   ├── BaseIntegrationTest.java      # 통합 테스트 베이스
+│   └── WithMockCustomUser.java       # Security 테스트 어노테이션
+├── application/{도메인}/
+│   ├── controller/
+│   │   └── {도메인}ControllerTest.java
+│   └── service/
+│       ├── {도메인}ServiceUnitTest.java
+│       └── {도메인}ServiceIntegrationTest.java
+├── domain/{도메인}/
+│   └── service/
+│       └── {도메인}DomainServiceTest.java
+└── infra/
+    └── {모듈}/
+        └── {클래스}Test.java 또는 {클래스}IntegrationTest.java
+```
+
+### 베이스 클래스 상속
+
+| 테스트 유형 | 상속 클래스 | 설명 |
+|------------|------------|------|
+| 단위 테스트 | `BaseUnitTest` | Mockito + FixtureMonkey |
+| 통합 테스트 | `BaseIntegrationTest` | Testcontainers + 트랜잭션 + FixtureMonkey |
+
+### 네이밍 규칙
+
+- 단위 테스트: `*UnitTest.java` 또는 `*Test.java`
+- 통합 테스트: `*IntegrationTest.java`
+- 컨트롤러 테스트: `*ControllerTest.java` (통합 테스트)
+
+### 테스트 메서드 구조
+
+```java
+@Nested
+@DisplayName("메서드명")
+class MethodNameTest {
+
+    @Test
+    @DisplayName("한글로 테스트 설명")
+    void methodName_조건_결과() {
+        // given
+
+        // when
+
+        // then
+    }
+}
+```
+
+### FixtureMonkey 사용
+
+```java
+// DTO 생성
+SignUpRequest request = fixtureMonkey.giveMeBuilder(SignUpRequest.class)
+        .set("email", "test@example.com")
+        .set("password", "password123")
+        .sample();
+
+// 엔티티는 Builder + Reflection 사용 (protected 생성자인 경우)
+User user = User.builder()
+        .email(EMAIL)
+        .password(PASSWORD)
+        .build();
+// ID 설정이 필요한 경우 Reflection 사용
+```
+
+### 컨트롤러 테스트 + REST Docs
+
+```java
+@AutoConfigureMockMvc
+@AutoConfigureRestDocs
+class SomeControllerTest extends BaseIntegrationTest {
+
+    @Test
+    void someMethod_success() throws Exception {
+        mockMvc.perform(post("/api/some")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(request)))
+                .andExpect(status().isOk())
+                .andDo(document("some/method",
+                        preprocessRequest(prettyPrint()),
+                        preprocessResponse(prettyPrint()),
+                        requestFields(...),
+                        responseFields(...)
+                ));
+    }
+}
+```
+
+### 인증이 필요한 테스트
+
+```java
+// 방법 1: 실제 토큰 사용
+TokenResult tokenResult = authService.signIn(signInRequest);
+mockMvc.perform(post("/api/some")
+        .header("Authorization", "Bearer " + tokenResult.accessToken()))
+
+// 방법 2: @WithMockCustomUser 사용 (단위 테스트)
+@Test
+@WithMockCustomUser(userId = 1L, email = "test@example.com")
+void someMethod_withAuth() { }
+```
+
+### 비동기/TTL 테스트
+
+```java
+// awaitility 사용
+await().atMost(3, TimeUnit.SECONDS)
+        .untilAsserted(() -> {
+            assertThat(result).isEmpty();
+        });
+```
+
+---
+
 ## 아키텍처 개요 (Light DDD)
 
 이 프로젝트는 라이트 DDD(Light Domain Driven Design) 구조를 따릅니다.
