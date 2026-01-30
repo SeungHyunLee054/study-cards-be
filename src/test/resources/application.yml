@@ -1,0 +1,32 @@
+spring:
+  application:
+    name: study-cards-test
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+
+logging:
+  level:
+    root: INFO
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  server:
+    url: http://localhost:8081
+
+app:
+  security:
+    jwt:
+      issuer: study-cards-test
+      # HMAC-SHA256은 최소 256비트(32바이트) 키 필요
+      secret: test-jwt-secret-key-must-be-at-least-32-bytes-long-for-hmac-sha256
+      access-token-expire-minutes: 15
+      refresh-token-expire-days: 14
