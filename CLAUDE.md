@@ -206,3 +206,57 @@ public class CardException extends BaseException {
 ## API 문서
 
 Swagger UI: `/swagger-ui.html`
+
+---
+
+## Git 커밋 규칙
+
+### 커밋 메시지 구조
+
+```
+Type: Subject
+
+Body
+```
+
+### Type
+
+| Type | 설명 |
+|------|------|
+| Feat | 새로운 기능 추가 |
+| Fix | 버그 수정 |
+| Docs | 문서 수정 |
+| Style | 코드 포맷팅, 세미콜론 누락 등 (코드 변경 없음) |
+| Refactor | 코드 리팩토링 |
+| Test | 테스트 코드 추가/수정 |
+| Chore | 빌드, 패키지 매니저 설정 등 |
+| Design | UI/UX 디자인 변경 |
+| Comment | 주석 추가/수정 |
+| Rename | 파일/폴더명 수정 또는 이동 |
+| Remove | 파일 삭제 |
+
+### Subject (제목)
+
+- 50글자 이내
+- 첫 문자는 대문자
+- 끝에 마침표 및 특수문자 사용 금지
+- 콜론 뒤에만 스페이스 사용
+
+```
+// bad
+feat : 로그인 기능 추가.
+
+// good
+Feat: 로그인 기능 추가
+```
+
+### Body (본문)
+
+- 한 줄 당 72자 이내
+- **무엇을**, **왜** 변경했는지 설명 (어떻게 X)
+- 상세히 작성
+
+### 기타 규칙
+
+- 커밋 메시지에 `Co-Authored-By` 추가 금지
+- 기능 단위로 커밋 분리
