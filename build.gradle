@@ -56,6 +56,7 @@ dependencies {
     implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.1'
     annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.1:jpa'
     testImplementation "com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.15"
+    testImplementation 'org.awaitility:awaitility:4.2.2'
 }
 
 tasks.named('test') {
