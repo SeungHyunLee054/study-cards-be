@@ -55,7 +55,6 @@ dependencies {
     developmentOnly 'org.springframework.boot:spring-boot-devtools'
     implementation 'io.github.openfeign.querydsl:querydsl-jpa:7.1'
     annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.1:jpa'
-    testRuntimeOnly("org.junit.platform:junit-platform-launcher:{version}")
     testImplementation "com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.15"
 }
 

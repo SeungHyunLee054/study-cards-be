@@ -4,7 +4,7 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/study_cards
+    url: jdbc:postgresql://localhost:5433/study_cards
     username: study_cards
     password: study_cards
     driver-class-name: org.postgresql.Driver
@@ -43,10 +43,11 @@ springdoc:
     enabled: true
     path: /swagger-ui.html
   server:
-    url: http://localhost:8080
+    url: http://localhost:8081
 
 app:
   security:
     jwt:
       # dev에서는 환경변수 없어도 동작하게 기본값 제공(운영에서는 반드시 환경변수)
-      secret: ${APP_JWT_SECRET:dev-secret-change-me}
+      # HMAC-SHA256은 최소 256비트(32바이트) 키 필요
+      secret: ${APP_JWT_SECRET:dev-jwt-secret-key-must-be-at-least-32-bytes-long}
