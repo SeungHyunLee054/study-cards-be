@@ -38,3 +38,10 @@ out/
 
 ### Logs ###
 logs/
+
+### Claude Code ###
+.claude/
+nul
+
+### Generated Docs ###
+src/main/resources/static/docs/
