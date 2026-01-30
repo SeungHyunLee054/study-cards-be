@@ -78,3 +78,13 @@ tasks.named('asciidoctor') {
 
     baseDirFollowsSourceFile()
 }
+
+tasks.register('copyDocs', Copy) {
+    dependsOn asciidoctor
+    from "${asciidoctor.outputDir}"
+    into "${projectDir}/src/main/resources/static/docs"
+}
+
+tasks.named('bootJar') {
+    dependsOn copyDocs
+}
