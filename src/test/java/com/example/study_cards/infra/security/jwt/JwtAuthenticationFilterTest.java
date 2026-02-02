@@ -18,6 +18,7 @@ import org.springframework.mock.web.MockHttpServletResponse;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -43,7 +44,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
     private static final String VALID_TOKEN = "valid.jwt.token";
     private static final Long USER_ID = 1L;
     private static final String EMAIL = "test@example.com";
-    private static final Role ROLE = Role.ROLE_USER;
+    private static final Set<Role> ROLES = Set.of(Role.ROLE_USER);
 
     @BeforeEach
     void setUp() {
@@ -65,7 +66,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
             given(tokenBlacklistService.isBlacklisted(VALID_TOKEN)).willReturn(false);
             given(jwtTokenProvider.getUserId(VALID_TOKEN)).willReturn(USER_ID);
             given(jwtTokenProvider.getEmail(VALID_TOKEN)).willReturn(EMAIL);
-            given(jwtTokenProvider.getRole(VALID_TOKEN)).willReturn(ROLE);
+            given(jwtTokenProvider.getRoles(VALID_TOKEN)).willReturn(ROLES);
 
             // when
             jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -81,7 +82,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
             CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
             assertThat(userDetails.userId()).isEqualTo(USER_ID);
             assertThat(userDetails.email()).isEqualTo(EMAIL);
-            assertThat(userDetails.role()).isEqualTo(ROLE);
+            assertThat(userDetails.roles()).isEqualTo(ROLES);
         }
 
         @Test
@@ -153,7 +154,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
             given(tokenBlacklistService.isBlacklisted(expectedToken)).willReturn(false);
             given(jwtTokenProvider.getUserId(expectedToken)).willReturn(USER_ID);
             given(jwtTokenProvider.getEmail(expectedToken)).willReturn(EMAIL);
-            given(jwtTokenProvider.getRole(expectedToken)).willReturn(ROLE);
+            given(jwtTokenProvider.getRoles(expectedToken)).willReturn(ROLES);
 
             // when
             jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);

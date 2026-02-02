@@ -17,6 +17,7 @@ import org.mockito.Mock;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.*;
 import static org.mockito.BDDMockito.given;
@@ -55,16 +56,16 @@ class JwtTokenProviderTest extends BaseUnitTest {
             // given
             Long userId = 1L;
             String email = "test@example.com";
-            Role role = Role.ROLE_USER;
+            Set<Role> roles = Set.of(Role.ROLE_USER);
 
             // when
-            String token = jwtTokenProvider.createAccessToken(userId, email, role);
+            String token = jwtTokenProvider.createAccessToken(userId, email, roles);
 
             // then
             assertThat(token).isNotBlank();
             assertThat(jwtTokenProvider.getUserId(token)).isEqualTo(userId);
             assertThat(jwtTokenProvider.getEmail(token)).isEqualTo(email);
-            assertThat(jwtTokenProvider.getRole(token)).isEqualTo(role);
+            assertThat(jwtTokenProvider.getRoles(token)).isEqualTo(roles);
         }
 
         @ParameterizedTest
@@ -74,12 +75,13 @@ class JwtTokenProviderTest extends BaseUnitTest {
             // given
             Long userId = 1L;
             String email = "test@example.com";
+            Set<Role> roles = Set.of(role);
 
             // when
-            String token = jwtTokenProvider.createAccessToken(userId, email, role);
+            String token = jwtTokenProvider.createAccessToken(userId, email, roles);
 
             // then
-            assertThat(jwtTokenProvider.getRole(token)).isEqualTo(role);
+            assertThat(jwtTokenProvider.getRoles(token)).contains(role);
         }
     }
 
@@ -110,7 +112,7 @@ class JwtTokenProviderTest extends BaseUnitTest {
         @DisplayName("유효한 토큰은 검증을 통과한다")
         void validateToken_withValidToken() {
             // given
-            String token = jwtTokenProvider.createAccessToken(1L, "test@example.com", Role.ROLE_USER);
+            String token = jwtTokenProvider.createAccessToken(1L, "test@example.com", Set.of(Role.ROLE_USER));
 
             // when & then
             assertThatCode(() -> jwtTokenProvider.validateToken(token))
@@ -187,7 +189,7 @@ class JwtTokenProviderTest extends BaseUnitTest {
         void getUserId_extractsUserId() {
             // given
             Long userId = 123L;
-            String token = jwtTokenProvider.createAccessToken(userId, "test@example.com", Role.ROLE_USER);
+            String token = jwtTokenProvider.createAccessToken(userId, "test@example.com", Set.of(Role.ROLE_USER));
 
             // when
             Long extractedUserId = jwtTokenProvider.getUserId(token);
@@ -206,7 +208,7 @@ class JwtTokenProviderTest extends BaseUnitTest {
         void getEmail_extractsEmail() {
             // given
             String email = "test@example.com";
-            String token = jwtTokenProvider.createAccessToken(1L, email, Role.ROLE_USER);
+            String token = jwtTokenProvider.createAccessToken(1L, email, Set.of(Role.ROLE_USER));
 
             // when
             String extractedEmail = jwtTokenProvider.getEmail(token);
@@ -217,21 +219,21 @@ class JwtTokenProviderTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("getRole")
-    class GetRoleTest {
+    @DisplayName("getRoles")
+    class GetRolesTest {
 
         @Test
-        @DisplayName("토큰에서 role을 추출한다")
-        void getRole_extractsRole() {
+        @DisplayName("토큰에서 roles를 추출한다")
+        void getRoles_extractsRoles() {
             // given
-            Role role = Role.ROLE_ADMIN;
-            String token = jwtTokenProvider.createAccessToken(1L, "test@example.com", role);
+            Set<Role> roles = Set.of(Role.ROLE_ADMIN, Role.ROLE_USER);
+            String token = jwtTokenProvider.createAccessToken(1L, "test@example.com", roles);
 
             // when
-            Role extractedRole = jwtTokenProvider.getRole(token);
+            Set<Role> extractedRoles = jwtTokenProvider.getRoles(token);
 
             // then
-            assertThat(extractedRole).isEqualTo(role);
+            assertThat(extractedRoles).containsExactlyInAnyOrderElementsOf(roles);
         }
     }
 
@@ -243,7 +245,7 @@ class JwtTokenProviderTest extends BaseUnitTest {
         @DisplayName("토큰의 남은 만료 시간을 반환한다")
         void getRemainingExpiration_returnsRemainingTime() {
             // given
-            String token = jwtTokenProvider.createAccessToken(1L, "test@example.com", Role.ROLE_USER);
+            String token = jwtTokenProvider.createAccessToken(1L, "test@example.com", Set.of(Role.ROLE_USER));
 
             // when
             long remainingExpiration = jwtTokenProvider.getRemainingExpiration(token);

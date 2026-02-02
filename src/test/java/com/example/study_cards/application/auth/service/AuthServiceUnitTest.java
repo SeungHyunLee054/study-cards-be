@@ -23,6 +23,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 
+import java.util.Set;
+
+import com.example.study_cards.application.auth.exception.AuthErrorCode;
+import com.example.study_cards.application.auth.exception.AuthException;
+
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
@@ -70,6 +75,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
         signUpRequest = fixtureMonkey.giveMeBuilder(SignUpRequest.class)
                 .set("email", EMAIL)
                 .set("password", PASSWORD)
+                .set("passwordConfirm", PASSWORD)
                 .set("nickname", NICKNAME)
                 .sample();
 
@@ -84,7 +90,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
                 .email(EMAIL)
                 .password(ENCODED_PASSWORD)
                 .nickname(NICKNAME)
-                .role(Role.ROLE_USER)
+                .roles(Set.of(Role.ROLE_USER))
                 .build();
 
         try {
@@ -117,6 +123,26 @@ class AuthServiceUnitTest extends BaseUnitTest {
             assertThat(response.nickname()).isEqualTo(NICKNAME);
             verify(userDomainService).registerUser(EMAIL, PASSWORD, NICKNAME);
         }
+
+        @Test
+        @DisplayName("비밀번호와 비밀번호 확인이 일치하지 않으면 예외가 발생한다")
+        void signUp_passwordMismatch_throwsException() {
+            // given
+            SignUpRequest mismatchRequest = fixtureMonkey.giveMeBuilder(SignUpRequest.class)
+                    .set("email", EMAIL)
+                    .set("password", PASSWORD)
+                    .set("passwordConfirm", "differentPassword")
+                    .set("nickname", NICKNAME)
+                    .sample();
+
+            // when & then
+            assertThatThrownBy(() -> authService.signUp(mismatchRequest))
+                    .isInstanceOf(AuthException.class)
+                    .satisfies(exception -> {
+                        AuthException authException = (AuthException) exception;
+                        assertThat(authException.getErrorCode()).isEqualTo(AuthErrorCode.PASSWORD_MISMATCH);
+                    });
+        }
     }
 
     @Nested
@@ -128,7 +154,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
         void signIn_returnsTokenResult() {
             // given
             given(userDomainService.findByEmail(EMAIL)).willReturn(testUser);
-            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Role.ROLE_USER)).willReturn(ACCESS_TOKEN);
+            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Set.of(Role.ROLE_USER))).willReturn(ACCESS_TOKEN);
             given(jwtTokenProvider.createRefreshToken(USER_ID)).willReturn(REFRESH_TOKEN);
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(ACCESS_TOKEN_EXPIRATION_MS);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(REFRESH_TOKEN_EXPIRATION_MS);
@@ -147,7 +173,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
         void signIn_validatesPassword() {
             // given
             given(userDomainService.findByEmail(EMAIL)).willReturn(testUser);
-            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Role.ROLE_USER)).willReturn(ACCESS_TOKEN);
+            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Set.of(Role.ROLE_USER))).willReturn(ACCESS_TOKEN);
             given(jwtTokenProvider.createRefreshToken(USER_ID)).willReturn(REFRESH_TOKEN);
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(ACCESS_TOKEN_EXPIRATION_MS);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(REFRESH_TOKEN_EXPIRATION_MS);
@@ -164,7 +190,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
         void signIn_savesRefreshTokenToRedis() {
             // given
             given(userDomainService.findByEmail(EMAIL)).willReturn(testUser);
-            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Role.ROLE_USER)).willReturn(ACCESS_TOKEN);
+            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Set.of(Role.ROLE_USER))).willReturn(ACCESS_TOKEN);
             given(jwtTokenProvider.createRefreshToken(USER_ID)).willReturn(REFRESH_TOKEN);
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(ACCESS_TOKEN_EXPIRATION_MS);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(REFRESH_TOKEN_EXPIRATION_MS);
@@ -181,7 +207,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
         void signIn_cachesUser() {
             // given
             given(userDomainService.findByEmail(EMAIL)).willReturn(testUser);
-            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Role.ROLE_USER)).willReturn(ACCESS_TOKEN);
+            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Set.of(Role.ROLE_USER))).willReturn(ACCESS_TOKEN);
             given(jwtTokenProvider.createRefreshToken(USER_ID)).willReturn(REFRESH_TOKEN);
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(ACCESS_TOKEN_EXPIRATION_MS);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(REFRESH_TOKEN_EXPIRATION_MS);
@@ -256,7 +282,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
             given(jwtTokenProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
             given(refreshTokenService.validateRefreshToken(USER_ID, REFRESH_TOKEN)).willReturn(true);
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Role.ROLE_USER)).willReturn(newAccessToken);
+            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Set.of(Role.ROLE_USER))).willReturn(newAccessToken);
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(ACCESS_TOKEN_EXPIRATION_MS);
 
             // when
@@ -314,7 +340,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
             given(jwtTokenProvider.getUserId(REFRESH_TOKEN)).willReturn(USER_ID);
             given(refreshTokenService.validateRefreshToken(USER_ID, REFRESH_TOKEN)).willReturn(true);
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Role.ROLE_USER)).willReturn(ACCESS_TOKEN);
+            given(jwtTokenProvider.createAccessToken(USER_ID, EMAIL, Set.of(Role.ROLE_USER))).willReturn(ACCESS_TOKEN);
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(ACCESS_TOKEN_EXPIRATION_MS);
 
             // when

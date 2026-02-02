@@ -7,16 +7,24 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.test.context.support.WithSecurityContextFactory;
 
+import java.util.Arrays;
+import java.util.Set;
+import java.util.stream.Collectors;
+
 public class WithMockCustomUserSecurityContextFactory implements WithSecurityContextFactory<WithMockCustomUser> {
 
     @Override
     public SecurityContext createSecurityContext(WithMockCustomUser annotation) {
         SecurityContext context = SecurityContextHolder.createEmptyContext();
 
+        Set<Role> roles = Arrays.stream(annotation.roles())
+                .map(Role::valueOf)
+                .collect(Collectors.toSet());
+
         CustomUserDetails userDetails = new CustomUserDetails(
                 annotation.userId(),
                 annotation.email(),
-                Role.valueOf(annotation.role())
+                roles
         );
 
         UsernamePasswordAuthenticationToken authentication =

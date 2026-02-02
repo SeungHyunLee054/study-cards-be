@@ -65,6 +65,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         signUpRequest = fixtureMonkey.giveMeBuilder(SignUpRequest.class)
                 .set("email", "test@example.com")
                 .set("password", "password123")
+                .set("passwordConfirm", "password123")
                 .set("nickname", "testUser")
                 .sample();
 
@@ -110,6 +111,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
             SignUpRequest duplicateRequest = fixtureMonkey.giveMeBuilder(SignUpRequest.class)
                     .set("email", signUpRequest.email())
                     .set("password", "different123")
+                    .set("passwordConfirm", "different123")
                     .set("nickname", "different")
                     .sample();
 
@@ -152,7 +154,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
             jwtTokenProvider.validateToken(result.refreshToken());
 
             assertThat(jwtTokenProvider.getEmail(result.accessToken())).isEqualTo(signUpRequest.email());
-            assertThat(jwtTokenProvider.getRole(result.accessToken())).isEqualTo(Role.ROLE_USER);
+            assertThat(jwtTokenProvider.getRoles(result.accessToken())).contains(Role.ROLE_USER);
         }
 
         @Test
