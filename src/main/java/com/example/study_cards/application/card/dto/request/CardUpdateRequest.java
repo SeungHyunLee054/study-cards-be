@@ -4,7 +4,7 @@ import com.example.study_cards.domain.card.entity.Category;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 
-public record CardCreateRequest(
+public record CardUpdateRequest(
         @NotBlank(message = "영문 질문은 필수입니다.")
         String questionEn,
 
