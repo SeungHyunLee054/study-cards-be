@@ -3,6 +3,7 @@ package com.example.study_cards.domain.study.entity;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.common.audit.BaseEntity;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.usercard.entity.UserCard;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -27,8 +28,12 @@ public class StudyRecord extends BaseEntity {
     private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "card_id", nullable = false)
+    @JoinColumn(name = "card_id")
     private Card card;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_card_id")
+    private UserCard userCard;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "session_id")
@@ -46,14 +51,45 @@ public class StudyRecord extends BaseEntity {
     @Column(nullable = false)
     private Integer repetitionCount;
 
+    @Column(nullable = false)
+    private Integer interval;
+
+    @Column(nullable = false)
+    private Double efFactor;
+
     @Builder
-    public StudyRecord(User user, Card card, StudySession session, Boolean isCorrect, LocalDate nextReviewDate) {
+    public StudyRecord(User user, Card card, UserCard userCard, StudySession session, Boolean isCorrect, LocalDate nextReviewDate, Integer interval, Double efFactor) {
         this.user = user;
         this.card = card;
+        this.userCard = userCard;
         this.session = session;
         this.studiedAt = LocalDateTime.now();
         this.isCorrect = isCorrect;
         this.nextReviewDate = nextReviewDate;
         this.repetitionCount = 1;
+        this.interval = interval != null ? interval : 1;
+        this.efFactor = efFactor;
+    }
+
+    public boolean isForPublicCard() {
+        return this.card != null;
+    }
+
+    public boolean isForUserCard() {
+        return this.userCard != null;
+    }
+
+    public void updateEfFactor(boolean isCorrect) {
+        int quality = isCorrect ? 4 : 2;
+        double delta = 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
+        this.efFactor = Math.max(this.efFactor + delta, 1.3);
+    }
+
+    public void updateForReview(Boolean isCorrect, LocalDate newNextReviewDate, Integer newInterval) {
+        this.studiedAt = LocalDateTime.now();
+        this.isCorrect = isCorrect;
+        this.nextReviewDate = newNextReviewDate;
+        this.interval = newInterval;
+        this.repetitionCount++;
     }
 }

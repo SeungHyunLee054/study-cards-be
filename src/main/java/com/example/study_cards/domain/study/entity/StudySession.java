@@ -42,4 +42,16 @@ public class StudySession extends BaseEntity {
         this.totalCards = 0;
         this.correctCount = 0;
     }
+
+    public void endSession() {
+        this.endedAt = LocalDateTime.now();
+    }
+
+    public void incrementTotalCards() {
+        this.totalCards++;
+    }
+
+    public void incrementCorrectCount() {
+        this.correctCount++;
+    }
 }
