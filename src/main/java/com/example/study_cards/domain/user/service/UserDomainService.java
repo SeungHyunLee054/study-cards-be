@@ -44,4 +44,12 @@ public class UserDomainService {
             throw new UserException(UserErrorCode.INVALID_PASSWORD);
         }
     }
+
+    public void changePassword(User user, String newPassword) {
+        user.updatePassword(passwordEncoder.encode(newPassword));
+    }
+
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
 }

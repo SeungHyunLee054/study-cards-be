@@ -6,7 +6,13 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
 
-public interface CardRepository extends JpaRepository<Card, Long> {
+public interface CardRepository extends JpaRepository<Card, Long>, CardRepositoryCustom {
 
     List<Card> findByCategory(Category category);
+
+    List<Card> findAllByOrderByEfFactorAsc();
+
+    List<Card> findByCategoryOrderByEfFactorAsc(Category category);
+
+    long countByCategory(Category category);
 }

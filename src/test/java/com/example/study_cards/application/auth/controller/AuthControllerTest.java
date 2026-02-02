@@ -57,6 +57,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         signUpRequest = fixtureMonkey.giveMeBuilder(SignUpRequest.class)
                 .set("email", "test@example.com")
                 .set("password", "password123")
+                .set("passwordConfirm", "password123")
                 .set("nickname", "testUser")
                 .sample();
 
@@ -85,12 +86,14 @@ class AuthControllerTest extends BaseIntegrationTest {
                             requestFields(
                                     fieldWithPath("email").type(JsonFieldType.STRING).description("이메일"),
                                     fieldWithPath("password").type(JsonFieldType.STRING).description("비밀번호 (8자 이상)"),
+                                    fieldWithPath("passwordConfirm").type(JsonFieldType.STRING).description("비밀번호 확인"),
                                     fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임")
                             ),
                             responseFields(
                                     fieldWithPath("id").type(JsonFieldType.NUMBER).description("사용자 ID"),
                                     fieldWithPath("email").type(JsonFieldType.STRING).description("이메일"),
                                     fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임"),
+                                    fieldWithPath("roles").type(JsonFieldType.ARRAY).description("사용자 역할"),
                                     fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수").optional(),
                                     fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도").optional()
                             )
@@ -100,7 +103,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("이메일이 비어있으면 400 Bad Request를 반환한다")
         void signUp_withBlankEmail_returns400() throws Exception {
-            SignUpRequest invalidRequest = new SignUpRequest("", "password123", "nickname");
+            SignUpRequest invalidRequest = new SignUpRequest("", "password123", "password123", "nickname");
 
             mockMvc.perform(post("/api/auth/signup")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -111,7 +114,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("잘못된 이메일 형식이면 400 Bad Request를 반환한다")
         void signUp_withInvalidEmail_returns400() throws Exception {
-            SignUpRequest invalidRequest = new SignUpRequest("invalid-email", "password123", "nickname");
+            SignUpRequest invalidRequest = new SignUpRequest("invalid-email", "password123", "password123", "nickname");
 
             mockMvc.perform(post("/api/auth/signup")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -122,7 +125,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("비밀번호가 8자 미만이면 400 Bad Request를 반환한다")
         void signUp_withShortPassword_returns400() throws Exception {
-            SignUpRequest invalidRequest = new SignUpRequest("test@example.com", "short", "nickname");
+            SignUpRequest invalidRequest = new SignUpRequest("test@example.com", "short", "short", "nickname");
 
             mockMvc.perform(post("/api/auth/signup")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -133,7 +136,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("닉네임이 비어있으면 400 Bad Request를 반환한다")
         void signUp_withBlankNickname_returns400() throws Exception {
-            SignUpRequest invalidRequest = new SignUpRequest("test@example.com", "password123", "");
+            SignUpRequest invalidRequest = new SignUpRequest("test@example.com", "password123", "password123", "");
 
             mockMvc.perform(post("/api/auth/signup")
                             .contentType(MediaType.APPLICATION_JSON)

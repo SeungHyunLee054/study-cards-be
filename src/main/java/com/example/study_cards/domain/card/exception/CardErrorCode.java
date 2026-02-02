@@ -10,7 +10,8 @@ import org.springframework.http.HttpStatus;
 public enum CardErrorCode implements ErrorCode {
 
     CARD_NOT_FOUND(HttpStatus.NOT_FOUND, "카드를 찾을 수 없습니다."),
-    INVALID_CATEGORY(HttpStatus.BAD_REQUEST, "유효하지 않은 카테고리입니다.");
+    INVALID_CATEGORY(HttpStatus.BAD_REQUEST, "유효하지 않은 카테고리입니다."),
+    RATE_LIMIT_EXCEEDED(HttpStatus.TOO_MANY_REQUESTS, "일일 학습 한도를 초과했습니다.");
 
     private final HttpStatus status;
     private final String message;

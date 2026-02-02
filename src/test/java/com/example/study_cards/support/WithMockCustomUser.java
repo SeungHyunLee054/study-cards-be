@@ -16,5 +16,5 @@ public @interface WithMockCustomUser {
 
     String email() default "test@example.com";
 
-    String role() default "ROLE_USER";
+    String[] roles() default {"ROLE_USER"};
 }

@@ -18,10 +18,16 @@ public class Card extends BaseEntity {
     private Long id;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String question;
+    private String questionEn;
+
+    @Column(columnDefinition = "TEXT")
+    private String questionKo;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String answer;
+    private String answerEn;
+
+    @Column(columnDefinition = "TEXT")
+    private String answerKo;
 
     @Column(nullable = false)
     private Double efFactor;
@@ -31,10 +37,21 @@ public class Card extends BaseEntity {
     private Category category;
 
     @Builder
-    public Card(String question, String answer, Double efFactor, Category category) {
-        this.question = question;
-        this.answer = answer;
+    public Card(String questionEn, String questionKo, String answerEn, String answerKo,
+                Double efFactor, Category category) {
+        this.questionEn = questionEn;
+        this.questionKo = questionKo;
+        this.answerEn = answerEn;
+        this.answerKo = answerKo;
         this.efFactor = efFactor != null ? efFactor : 2.5;
+        this.category = category;
+    }
+
+    public void update(String questionEn, String questionKo, String answerEn, String answerKo, Category category) {
+        this.questionEn = questionEn;
+        this.questionKo = questionKo;
+        this.answerEn = answerEn;
+        this.answerKo = answerKo;
         this.category = category;
     }
 }

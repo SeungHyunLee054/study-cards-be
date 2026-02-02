@@ -4,12 +4,13 @@ import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 
 import java.io.Serializable;
+import java.util.Set;
 
 public record UserVo(
         Long id,
         String email,
         String nickname,
-        Role role
+        Set<Role> roles
 ) implements Serializable {
 
     public static UserVo from(User user) {
@@ -17,7 +18,7 @@ public record UserVo(
                 user.getId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getRole()
+                user.getRoles()
         );
     }
 }

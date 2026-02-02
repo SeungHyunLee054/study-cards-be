@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -27,14 +28,14 @@ class UserCacheServiceIntegrationTest extends BaseIntegrationTest {
     private static final Long USER_ID = 1L;
     private static final String EMAIL = "test@example.com";
     private static final String NICKNAME = "testUser";
-    private static final Role ROLE = Role.ROLE_USER;
+    private static final Set<Role> ROLES = Set.of(Role.ROLE_USER);
     private static final long TTL_MS = 5000L;
 
     private UserVo testUserVo;
 
     @BeforeEach
     void setUp() {
-        testUserVo = new UserVo(USER_ID, EMAIL, NICKNAME, ROLE);
+        testUserVo = new UserVo(USER_ID, EMAIL, NICKNAME, ROLES);
         redisTemplate.delete("user:" + USER_ID);
     }
 

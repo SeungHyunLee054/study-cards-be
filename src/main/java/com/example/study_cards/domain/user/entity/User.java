@@ -7,6 +7,10 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
+
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -20,7 +24,6 @@ public class User extends BaseEntity {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @Column(nullable = false)
     private String password;
 
     @Column(nullable = false)
@@ -28,7 +31,15 @@ public class User extends BaseEntity {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private Role role;
+    private OAuthProvider provider;
+
+    private String providerId;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "role")
+    private Set<Role> roles = new HashSet<>();
 
     @Column(nullable = false)
     private Integer streak;
@@ -36,13 +47,55 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Double masteryRate;
 
+    private LocalDate lastStudyDate;
+
     @Builder
-    public User(String email, String password, String nickname, Role role) {
+    public User(String email, String password, String nickname, Set<Role> roles,
+                OAuthProvider provider, String providerId) {
         this.email = email;
         this.password = password;
         this.nickname = nickname;
-        this.role = role != null ? role : Role.ROLE_USER;
+        this.roles = roles != null && !roles.isEmpty() ? new HashSet<>(roles) : new HashSet<>(Set.of(Role.ROLE_USER));
+        this.provider = provider != null ? provider : OAuthProvider.LOCAL;
+        this.providerId = providerId;
         this.streak = 0;
         this.masteryRate = 0.0;
+    }
+
+    public boolean isOAuthUser() {
+        return this.provider != OAuthProvider.LOCAL;
+    }
+
+    public void addRole(Role role) {
+        this.roles.add(role);
+    }
+
+    public void removeRole(Role role) {
+        this.roles.remove(role);
+    }
+
+    public boolean hasRole(Role role) {
+        return this.roles.contains(role);
+    }
+
+    public void updateStreak(LocalDate today) {
+        if (lastStudyDate == null) {
+            this.streak = 1;
+        } else if (lastStudyDate.equals(today)) {
+            return;
+        } else if (lastStudyDate.equals(today.minusDays(1))) {
+            this.streak++;
+        } else {
+            this.streak = 1;
+        }
+        this.lastStudyDate = today;
+    }
+
+    public void updateNickname(String nickname) {
+        this.nickname = nickname;
+    }
+
+    public void updatePassword(String password) {
+        this.password = password;
     }
 }

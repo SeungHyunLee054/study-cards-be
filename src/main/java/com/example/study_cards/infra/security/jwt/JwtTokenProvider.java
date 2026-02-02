@@ -13,6 +13,9 @@ import org.springframework.stereotype.Component;
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
 @Component
@@ -26,15 +29,19 @@ public class JwtTokenProvider {
         this.secretKey = Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 
-    public String createAccessToken(Long userId, String email, Role role) {
+    public String createAccessToken(Long userId, String email, Set<Role> roles) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + jwtProperties.getAccessTokenExpireMinutes() * 60 * 1000L);
+
+        List<String> roleNames = roles.stream()
+                .map(Role::name)
+                .toList();
 
         return Jwts.builder()
                 .issuer(jwtProperties.getIssuer())
                 .subject(userId.toString())
                 .claim("email", email)
-                .claim("role", role.name())
+                .claim("roles", roleNames)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(secretKey)
@@ -80,9 +87,12 @@ public class JwtTokenProvider {
         return parseToken(token).get("email", String.class);
     }
 
-    public Role getRole(String token) {
-        String roleName = parseToken(token).get("role", String.class);
-        return Role.valueOf(roleName);
+    @SuppressWarnings("unchecked")
+    public Set<Role> getRoles(String token) {
+        List<String> roleNames = parseToken(token).get("roles", List.class);
+        return roleNames.stream()
+                .map(Role::valueOf)
+                .collect(Collectors.toSet());
     }
 
     public long getRemainingExpiration(String token) {

@@ -1,5 +1,6 @@
 package com.example.study_cards.domain.user.repository;
 
+import com.example.study_cards.domain.user.entity.OAuthProvider;
 import com.example.study_cards.domain.user.entity.User;
 import org.springframework.data.jpa.repository.JpaRepository;
 
@@ -10,4 +11,6 @@ public interface UserRepository extends JpaRepository<User, Long> {
     Optional<User> findByEmail(String email);
 
     boolean existsByEmail(String email);
+
+    Optional<User> findByProviderAndProviderId(OAuthProvider provider, String providerId);
 }

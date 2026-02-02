@@ -1,11 +1,18 @@
 package com.example.study_cards.application.auth.service;
 
+import com.example.study_cards.application.auth.dto.request.PasswordResetRequest;
+import com.example.study_cards.application.auth.dto.request.PasswordResetVerifyRequest;
 import com.example.study_cards.application.auth.dto.request.SignInRequest;
 import com.example.study_cards.application.auth.dto.request.SignUpRequest;
 import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.dto.response.UserResponse;
+import com.example.study_cards.application.auth.exception.AuthErrorCode;
+import com.example.study_cards.application.auth.exception.AuthException;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
+// TODO: 메일 서비스 활성화 시 주석 해제
+// import com.example.study_cards.infra.mail.service.EmailService;
+import com.example.study_cards.infra.redis.service.PasswordResetCodeService;
 import com.example.study_cards.infra.security.exception.JwtErrorCode;
 import com.example.study_cards.infra.security.exception.JwtException;
 import com.example.study_cards.infra.security.jwt.JwtTokenProvider;
@@ -19,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 @RequiredArgsConstructor
 @Service
+@Transactional(readOnly = true)
 public class AuthService {
 
     private final UserDomainService userDomainService;
@@ -26,9 +34,16 @@ public class AuthService {
     private final RefreshTokenService refreshTokenService;
     private final TokenBlacklistService tokenBlacklistService;
     private final UserCacheService userCacheService;
+    private final PasswordResetCodeService passwordResetCodeService;
+    // TODO: 메일 서비스 활성화 시 주석 해제
+    // private final EmailService emailService;
 
     @Transactional
     public UserResponse signUp(SignUpRequest request) {
+        if (!request.password().equals(request.passwordConfirm())) {
+            throw new AuthException(AuthErrorCode.PASSWORD_MISMATCH);
+        }
+
         User user = userDomainService.registerUser(
                 request.email(),
                 request.password(),
@@ -37,12 +52,11 @@ public class AuthService {
         return UserResponse.from(user);
     }
 
-    @Transactional(readOnly = true)
     public TokenResult signIn(SignInRequest request) {
         User user = userDomainService.findByEmail(request.email());
         userDomainService.validatePassword(request.password(), user.getPassword());
 
-        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole());
+        String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRoles());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
 
         long accessTokenExpiresIn = jwtTokenProvider.getAccessTokenExpirationMs();
@@ -54,7 +68,6 @@ public class AuthService {
         return new TokenResult(accessToken, refreshToken, accessTokenExpiresIn);
     }
 
-    @Transactional
     public void signOut(Long userId, String accessToken) {
         long remainingMs = jwtTokenProvider.getRemainingExpiration(accessToken);
         tokenBlacklistService.blacklistToken(accessToken, remainingMs);
@@ -62,7 +75,6 @@ public class AuthService {
         userCacheService.evictUser(userId);
     }
 
-    @Transactional(readOnly = true)
     public TokenResult refreshToken(String refreshToken) {
         if (refreshToken == null || refreshToken.isBlank()) {
             throw new JwtException(JwtErrorCode.REFRESH_TOKEN_NOT_FOUND);
@@ -78,12 +90,36 @@ public class AuthService {
 
         User user = userDomainService.findById(userId);
 
-        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRole());
+        String newAccessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRoles());
 
         long accessTokenExpiresIn = jwtTokenProvider.getAccessTokenExpirationMs();
 
         userCacheService.cacheUser(UserVo.from(user), accessTokenExpiresIn);
 
         return new TokenResult(newAccessToken, refreshToken, accessTokenExpiresIn);
+    }
+
+    public void requestPasswordReset(PasswordResetRequest request) {
+        if (!userDomainService.existsByEmail(request.email())) {
+            return;
+        }
+
+        String code = passwordResetCodeService.generateAndSaveCode(request.email());
+        // TODO: 메일 서비스 활성화 시 주석 해제
+        // emailService.sendPasswordResetCode(request.email(), code);
+    }
+
+    @Transactional
+    public void verifyAndResetPassword(PasswordResetVerifyRequest request) {
+        if (passwordResetCodeService.hasExceededAttempts(request.email())) {
+            throw new AuthException(AuthErrorCode.TOO_MANY_ATTEMPTS);
+        }
+
+        if (!passwordResetCodeService.verifyCode(request.email(), request.code())) {
+            throw new AuthException(AuthErrorCode.INVALID_RESET_CODE);
+        }
+
+        User user = userDomainService.findByEmail(request.email());
+        userDomainService.changePassword(user, request.newPassword());
     }
 }
