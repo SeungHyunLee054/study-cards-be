@@ -1,5 +1,7 @@
 package com.example.study_cards.application.auth.controller;
 
+import com.example.study_cards.application.auth.dto.request.PasswordResetRequest;
+import com.example.study_cards.application.auth.dto.request.PasswordResetVerifyRequest;
 import com.example.study_cards.application.auth.dto.request.SignInRequest;
 import com.example.study_cards.application.auth.dto.request.SignUpRequest;
 import com.example.study_cards.application.auth.dto.response.SignInResponse;
@@ -55,5 +57,17 @@ public class AuthController {
         String refreshToken = cookieProvider.extractRefreshToken(request).orElse(null);
         TokenResult result = authService.refreshToken(refreshToken);
         return ResponseEntity.ok(new SignInResponse(result.accessToken(), result.accessTokenExpiresIn()));
+    }
+
+    @PostMapping("/password-reset/request")
+    public ResponseEntity<Void> requestPasswordReset(@Valid @RequestBody PasswordResetRequest request) {
+        authService.requestPasswordReset(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/password-reset/verify")
+    public ResponseEntity<Void> verifyPasswordReset(@Valid @RequestBody PasswordResetVerifyRequest request) {
+        authService.verifyAndResetPassword(request);
+        return ResponseEntity.noContent().build();
     }
 }
