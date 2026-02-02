@@ -285,6 +285,8 @@ common → (의존성 없음, 단 exception은 Spring 의존)
 - 비즈니스 로직은 domain 또는 application에만 위치
 - Repository 인터페이스는 domain, 구현체는 infra
 - `@Transactional`은 application 서비스에만 사용
+  - 클래스 레벨: `@Transactional(readOnly = true)`
+  - 메서드 레벨: DB 쓰기가 필요한 메서드만 `@Transactional`
 - 성공 응답은 `ResponseEntity<T>`로 반환
 - 에러 응답은 `CommonResponse`로 통일 (GlobalExceptionHandler)
 
