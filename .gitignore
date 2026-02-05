@@ -48,3 +48,8 @@ src/main/resources/static/docs/
 
 ### Firebase ###
 src/main/resources/firebase-service-account.json
+
+### Environment Variables ###
+.env
+.env.local
+.env.prod
