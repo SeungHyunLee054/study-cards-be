@@ -3,7 +3,8 @@ package com.example.study_cards.application.usercard.service;
 import com.example.study_cards.application.usercard.dto.request.UserCardCreateRequest;
 import com.example.study_cards.application.usercard.dto.request.UserCardUpdateRequest;
 import com.example.study_cards.application.usercard.dto.response.UserCardResponse;
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.domain.usercard.entity.UserCard;
@@ -15,6 +16,11 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
@@ -33,6 +39,9 @@ class UserCardServiceUnitTest extends BaseUnitTest {
     @Mock
     private UserDomainService userDomainService;
 
+    @Mock
+    private CategoryDomainService categoryDomainService;
+
     @InjectMocks
     private UserCardService userCardService;
 
@@ -40,14 +49,14 @@ class UserCardServiceUnitTest extends BaseUnitTest {
     private UserCard testUserCard;
     private UserCardCreateRequest createRequest;
     private UserCardUpdateRequest updateRequest;
+    private Category testCategory;
 
     private static final Long USER_ID = 1L;
     private static final Long USER_CARD_ID = 1L;
-    private static final String QUESTION_EN = "What is JPA?";
-    private static final String QUESTION_KO = "JPA란 무엇인가요?";
-    private static final String ANSWER_EN = "Java Persistence API";
-    private static final String ANSWER_KO = "자바 영속성 API";
-    private static final Category CATEGORY = Category.CS;
+    private static final String QUESTION = "JPA란 무엇인가요?";
+    private static final String QUESTION_SUB = "What is JPA?";
+    private static final String ANSWER = "자바 영속성 API";
+    private static final String ANSWER_SUB = "Java Persistence API";
 
     @BeforeEach
     void setUp() {
@@ -58,31 +67,38 @@ class UserCardServiceUnitTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(testUser, "id", USER_ID);
 
+        testCategory = Category.builder()
+                .code("CS")
+                .name("CS")
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(testCategory, "id", 1L);
+
         testUserCard = UserCard.builder()
                 .user(testUser)
-                .questionEn(QUESTION_EN)
-                .questionKo(QUESTION_KO)
-                .answerEn(ANSWER_EN)
-                .answerKo(ANSWER_KO)
-                .category(CATEGORY)
+                .question(QUESTION)
+                .questionSub(QUESTION_SUB)
+                .answer(ANSWER)
+                .answerSub(ANSWER_SUB)
+                .category(testCategory)
                 .build();
         ReflectionTestUtils.setField(testUserCard, "id", USER_CARD_ID);
 
-        createRequest = fixtureMonkey.giveMeBuilder(UserCardCreateRequest.class)
-                .set("questionEn", QUESTION_EN)
-                .set("questionKo", QUESTION_KO)
-                .set("answerEn", ANSWER_EN)
-                .set("answerKo", ANSWER_KO)
-                .set("category", CATEGORY)
-                .sample();
+        createRequest = new UserCardCreateRequest(
+                QUESTION,
+                QUESTION_SUB,
+                ANSWER,
+                ANSWER_SUB,
+                "CS"
+        );
 
-        updateRequest = fixtureMonkey.giveMeBuilder(UserCardUpdateRequest.class)
-                .set("questionEn", "Updated question")
-                .set("questionKo", QUESTION_KO)
-                .set("answerEn", "Updated answer")
-                .set("answerKo", ANSWER_KO)
-                .set("category", CATEGORY)
-                .sample();
+        updateRequest = new UserCardUpdateRequest(
+                "수정된 질문",
+                QUESTION_SUB,
+                "수정된 답변",
+                ANSWER_SUB,
+                "CS"
+        );
     }
 
     @Nested
@@ -90,19 +106,22 @@ class UserCardServiceUnitTest extends BaseUnitTest {
     class GetUserCardsTest {
 
         @Test
-        @DisplayName("사용자의 전체 카드 목록을 조회한다")
+        @DisplayName("사용자의 전체 카드 목록을 페이지네이션하여 조회한다")
         void getUserCards_success() {
             // given
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Page<UserCard> userCardPage = new PageImpl<>(List.of(testUserCard), pageable, 1);
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(userCardDomainService.findByUser(testUser)).willReturn(List.of(testUserCard));
+            given(userCardDomainService.findByUser(testUser, pageable)).willReturn(userCardPage);
 
             // when
-            List<UserCardResponse> result = userCardService.getUserCards(USER_ID);
+            Page<UserCardResponse> result = userCardService.getUserCards(USER_ID, pageable);
 
             // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).id()).isEqualTo(USER_CARD_ID);
-            assertThat(result.get(0).questionEn()).isEqualTo(QUESTION_EN);
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).id()).isEqualTo(USER_CARD_ID);
+            assertThat(result.getContent().get(0).question()).isEqualTo(QUESTION);
+            assertThat(result.getTotalElements()).isEqualTo(1);
         }
     }
 
@@ -111,18 +130,22 @@ class UserCardServiceUnitTest extends BaseUnitTest {
     class GetUserCardsByCategoryTest {
 
         @Test
-        @DisplayName("사용자의 카테고리별 카드 목록을 조회한다")
+        @DisplayName("사용자의 카테고리별 카드 목록을 페이지네이션하여 조회한다")
         void getUserCardsByCategory_success() {
             // given
+            Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+            Page<UserCard> userCardPage = new PageImpl<>(List.of(testUserCard), pageable, 1);
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(userCardDomainService.findByUserAndCategory(testUser, CATEGORY)).willReturn(List.of(testUserCard));
+            given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
+            given(userCardDomainService.findByUserAndCategory(testUser, testCategory, pageable)).willReturn(userCardPage);
 
             // when
-            List<UserCardResponse> result = userCardService.getUserCardsByCategory(USER_ID, CATEGORY);
+            Page<UserCardResponse> result = userCardService.getUserCardsByCategory(USER_ID, "CS", pageable);
 
             // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).category()).isEqualTo(CATEGORY);
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).category().code()).isEqualTo("CS");
+            assertThat(result.getTotalElements()).isEqualTo(1);
         }
     }
 
@@ -142,7 +165,7 @@ class UserCardServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(result.id()).isEqualTo(USER_CARD_ID);
-            assertThat(result.questionEn()).isEqualTo(QUESTION_EN);
+            assertThat(result.question()).isEqualTo(QUESTION);
         }
     }
 
@@ -155,8 +178,9 @@ class UserCardServiceUnitTest extends BaseUnitTest {
         void createUserCard_success() {
             // given
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
+            given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(userCardDomainService.createUserCard(
-                    eq(testUser), eq(QUESTION_EN), eq(QUESTION_KO), eq(ANSWER_EN), eq(ANSWER_KO), eq(CATEGORY)))
+                    eq(testUser), eq(QUESTION), eq(QUESTION_SUB), eq(ANSWER), eq(ANSWER_SUB), eq(testCategory)))
                     .willReturn(testUserCard);
 
             // when
@@ -164,9 +188,9 @@ class UserCardServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(result.id()).isEqualTo(USER_CARD_ID);
-            assertThat(result.questionEn()).isEqualTo(QUESTION_EN);
+            assertThat(result.question()).isEqualTo(QUESTION);
             verify(userCardDomainService).createUserCard(
-                    eq(testUser), eq(QUESTION_EN), eq(QUESTION_KO), eq(ANSWER_EN), eq(ANSWER_KO), eq(CATEGORY));
+                    eq(testUser), eq(QUESTION), eq(QUESTION_SUB), eq(ANSWER), eq(ANSWER_SUB), eq(testCategory));
         }
     }
 
@@ -180,15 +204,16 @@ class UserCardServiceUnitTest extends BaseUnitTest {
             // given
             UserCard updatedCard = UserCard.builder()
                     .user(testUser)
-                    .questionEn("Updated question")
-                    .questionKo(QUESTION_KO)
-                    .answerEn("Updated answer")
-                    .answerKo(ANSWER_KO)
-                    .category(CATEGORY)
+                    .question("수정된 질문")
+                    .questionSub(QUESTION_SUB)
+                    .answer("수정된 답변")
+                    .answerSub(ANSWER_SUB)
+                    .category(testCategory)
                     .build();
             ReflectionTestUtils.setField(updatedCard, "id", USER_CARD_ID);
 
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
+            given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(userCardDomainService.updateUserCard(
                     eq(USER_CARD_ID), eq(testUser), any(), any(), any(), any(), any()))
                     .willReturn(updatedCard);
@@ -197,8 +222,8 @@ class UserCardServiceUnitTest extends BaseUnitTest {
             UserCardResponse result = userCardService.updateUserCard(USER_ID, USER_CARD_ID, updateRequest);
 
             // then
-            assertThat(result.questionEn()).isEqualTo("Updated question");
-            assertThat(result.answerEn()).isEqualTo("Updated answer");
+            assertThat(result.question()).isEqualTo("수정된 질문");
+            assertThat(result.answer()).isEqualTo("수정된 답변");
         }
     }
 

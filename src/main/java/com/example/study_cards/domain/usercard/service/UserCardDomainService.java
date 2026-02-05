@@ -1,15 +1,18 @@
 package com.example.study_cards.domain.usercard.service;
 
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.exception.UserCardErrorCode;
 import com.example.study_cards.domain.usercard.exception.UserCardException;
 import com.example.study_cards.domain.usercard.repository.UserCardRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 
 @RequiredArgsConstructor
 @Service
@@ -17,14 +20,18 @@ public class UserCardDomainService {
 
     private final UserCardRepository userCardRepository;
 
-    public UserCard createUserCard(User user, String questionEn, String questionKo,
-                                   String answerEn, String answerKo, Category category) {
+    public UserCard createUserCard(User user, String question, String questionSub,
+                                   String answer, String answerSub, Category category) {
+        Objects.requireNonNull(user, "user must not be null");
+        Objects.requireNonNull(question, "question must not be null");
+        Objects.requireNonNull(answer, "answer must not be null");
+
         UserCard userCard = UserCard.builder()
                 .user(user)
-                .questionEn(questionEn)
-                .questionKo(questionKo)
-                .answerEn(answerEn)
-                .answerKo(answerKo)
+                .question(question)
+                .questionSub(questionSub)
+                .answer(answer)
+                .answerSub(answerSub)
                 .category(category)
                 .build();
         return userCardRepository.save(userCard);
@@ -59,15 +66,44 @@ public class UserCardDomainService {
         return userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category);
     }
 
-    public UserCard updateUserCard(Long id, User user, String questionEn, String questionKo,
-                                   String answerEn, String answerKo, Category category) {
+    public UserCard updateUserCard(Long id, User user, String question, String questionSub,
+                                   String answer, String answerSub, Category category) {
+        Objects.requireNonNull(id, "id must not be null");
+        Objects.requireNonNull(user, "user must not be null");
+        Objects.requireNonNull(question, "question must not be null");
+        Objects.requireNonNull(answer, "answer must not be null");
+
         UserCard userCard = findByIdAndValidateOwner(id, user);
-        userCard.update(questionEn, questionKo, answerEn, answerKo, category);
+        userCard.update(question, questionSub, answer, answerSub, category);
         return userCard;
     }
 
     public void deleteUserCard(Long id, User user) {
         UserCard userCard = findByIdAndValidateOwner(id, user);
         userCardRepository.delete(userCard);
+    }
+
+    public Page<UserCard> findByUser(User user, Pageable pageable) {
+        return userCardRepository.findByUserWithCategory(user, pageable);
+    }
+
+    public Page<UserCard> findByUserAndCategory(User user, Category category, Pageable pageable) {
+        return userCardRepository.findByUserAndCategoryWithCategory(user, category, pageable);
+    }
+
+    public Page<UserCard> findUserCardsForStudy(User user, Pageable pageable) {
+        return userCardRepository.findByUserOrderByEfFactorAsc(user, pageable);
+    }
+
+    public Page<UserCard> findUserCardsForStudyByCategory(User user, Category category, Pageable pageable) {
+        return userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category, pageable);
+    }
+
+    public long countByUser(User user) {
+        return userCardRepository.countByUser(user);
+    }
+
+    public long countByUserAndCategory(User user, Category category) {
+        return userCardRepository.countByUserAndCategory(user, category);
     }
 }

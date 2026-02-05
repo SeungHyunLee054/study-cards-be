@@ -1,6 +1,6 @@
 package com.example.study_cards.domain.usercard.service;
 
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.exception.UserCardErrorCode;
@@ -35,15 +35,15 @@ class UserCardDomainServiceTest extends BaseUnitTest {
     private User testUser;
     private User otherUser;
     private UserCard testUserCard;
+    private Category testCategory;
 
     private static final Long USER_ID = 1L;
     private static final Long OTHER_USER_ID = 2L;
     private static final Long USER_CARD_ID = 1L;
-    private static final String QUESTION_EN = "What is JPA?";
-    private static final String QUESTION_KO = "JPA란 무엇인가요?";
-    private static final String ANSWER_EN = "Java Persistence API";
-    private static final String ANSWER_KO = "자바 영속성 API";
-    private static final Category CATEGORY = Category.CS;
+    private static final String QUESTION = "JPA란 무엇인가요?";
+    private static final String QUESTION_SUB = "What is JPA?";
+    private static final String ANSWER = "자바 영속성 API";
+    private static final String ANSWER_SUB = "Java Persistence API";
 
     @BeforeEach
     void setUp() {
@@ -61,13 +61,20 @@ class UserCardDomainServiceTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(otherUser, "id", OTHER_USER_ID);
 
+        testCategory = Category.builder()
+                .code("CS")
+                .name("CS")
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(testCategory, "id", 1L);
+
         testUserCard = UserCard.builder()
                 .user(testUser)
-                .questionEn(QUESTION_EN)
-                .questionKo(QUESTION_KO)
-                .answerEn(ANSWER_EN)
-                .answerKo(ANSWER_KO)
-                .category(CATEGORY)
+                .question(QUESTION)
+                .questionSub(QUESTION_SUB)
+                .answer(ANSWER)
+                .answerSub(ANSWER_SUB)
+                .category(testCategory)
                 .build();
         ReflectionTestUtils.setField(testUserCard, "id", USER_CARD_ID);
     }
@@ -84,12 +91,12 @@ class UserCardDomainServiceTest extends BaseUnitTest {
 
             // when
             UserCard result = userCardDomainService.createUserCard(
-                    testUser, QUESTION_EN, QUESTION_KO, ANSWER_EN, ANSWER_KO, CATEGORY);
+                    testUser, QUESTION, QUESTION_SUB, ANSWER, ANSWER_SUB, testCategory);
 
             // then
-            assertThat(result.getQuestionEn()).isEqualTo(QUESTION_EN);
-            assertThat(result.getAnswerEn()).isEqualTo(ANSWER_EN);
-            assertThat(result.getCategory()).isEqualTo(CATEGORY);
+            assertThat(result.getQuestion()).isEqualTo(QUESTION);
+            assertThat(result.getAnswer()).isEqualTo(ANSWER);
+            assertThat(result.getCategory().getCode()).isEqualTo("CS");
             verify(userCardRepository).save(any(UserCard.class));
         }
     }
@@ -185,14 +192,14 @@ class UserCardDomainServiceTest extends BaseUnitTest {
         void findByUserAndCategory_success() {
             // given
             List<UserCard> cards = List.of(testUserCard);
-            given(userCardRepository.findByUserAndCategory(testUser, CATEGORY)).willReturn(cards);
+            given(userCardRepository.findByUserAndCategory(testUser, testCategory)).willReturn(cards);
 
             // when
-            List<UserCard> result = userCardDomainService.findByUserAndCategory(testUser, CATEGORY);
+            List<UserCard> result = userCardDomainService.findByUserAndCategory(testUser, testCategory);
 
             // then
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getCategory()).isEqualTo(CATEGORY);
+            assertThat(result.get(0).getCategory().getCode()).isEqualTo("CS");
         }
     }
 
@@ -205,16 +212,16 @@ class UserCardDomainServiceTest extends BaseUnitTest {
         void updateUserCard_success() {
             // given
             given(userCardRepository.findById(USER_CARD_ID)).willReturn(Optional.of(testUserCard));
-            String newQuestionEn = "Updated question";
-            String newAnswerEn = "Updated answer";
+            String newQuestion = "수정된 질문";
+            String newAnswer = "수정된 답변";
 
             // when
             UserCard result = userCardDomainService.updateUserCard(
-                    USER_CARD_ID, testUser, newQuestionEn, QUESTION_KO, newAnswerEn, ANSWER_KO, CATEGORY);
+                    USER_CARD_ID, testUser, newQuestion, QUESTION_SUB, newAnswer, ANSWER_SUB, testCategory);
 
             // then
-            assertThat(result.getQuestionEn()).isEqualTo(newQuestionEn);
-            assertThat(result.getAnswerEn()).isEqualTo(newAnswerEn);
+            assertThat(result.getQuestion()).isEqualTo(newQuestion);
+            assertThat(result.getAnswer()).isEqualTo(newAnswer);
         }
 
         @Test
@@ -225,7 +232,7 @@ class UserCardDomainServiceTest extends BaseUnitTest {
 
             // when & then
             assertThatThrownBy(() -> userCardDomainService.updateUserCard(
-                    USER_CARD_ID, otherUser, QUESTION_EN, QUESTION_KO, ANSWER_EN, ANSWER_KO, CATEGORY))
+                    USER_CARD_ID, otherUser, QUESTION, QUESTION_SUB, ANSWER, ANSWER_SUB, testCategory))
                     .isInstanceOf(UserCardException.class)
                     .extracting("errorCode")
                     .isEqualTo(UserCardErrorCode.USER_CARD_NOT_OWNER);

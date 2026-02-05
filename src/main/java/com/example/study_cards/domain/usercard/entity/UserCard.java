@@ -1,6 +1,6 @@
 package com.example.study_cards.domain.usercard.entity;
 
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.common.audit.BaseEntity;
 import com.example.study_cards.domain.user.entity.User;
 import jakarta.persistence.*;
@@ -12,7 +12,10 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "user_cards")
+@Table(name = "user_cards", indexes = {
+        @Index(name = "idx_user_card_user", columnList = "user_id"),
+        @Index(name = "idx_user_card_category", columnList = "category_id")
+})
 public class UserCard extends BaseEntity {
 
     @Id
@@ -24,41 +27,44 @@ public class UserCard extends BaseEntity {
     private User user;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String questionEn;
+    private String question;
 
     @Column(columnDefinition = "TEXT")
-    private String questionKo;
+    private String questionSub;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String answerEn;
+    private String answer;
 
     @Column(columnDefinition = "TEXT")
-    private String answerKo;
+    private String answerSub;
 
     @Column(nullable = false)
     private Double efFactor;
 
-    @Enumerated(EnumType.STRING)
-    @Column(nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @Version
+    private Long version;
+
     @Builder
-    public UserCard(User user, String questionEn, String questionKo, String answerEn, String answerKo,
+    public UserCard(User user, String question, String questionSub, String answer, String answerSub,
                     Double efFactor, Category category) {
         this.user = user;
-        this.questionEn = questionEn;
-        this.questionKo = questionKo;
-        this.answerEn = answerEn;
-        this.answerKo = answerKo;
+        this.question = question;
+        this.questionSub = questionSub;
+        this.answer = answer;
+        this.answerSub = answerSub;
         this.efFactor = efFactor != null ? efFactor : 2.5;
         this.category = category;
     }
 
-    public void update(String questionEn, String questionKo, String answerEn, String answerKo, Category category) {
-        this.questionEn = questionEn;
-        this.questionKo = questionKo;
-        this.answerEn = answerEn;
-        this.answerKo = answerKo;
+    public void update(String question, String questionSub, String answer, String answerSub, Category category) {
+        this.question = question;
+        this.questionSub = questionSub;
+        this.answer = answer;
+        this.answerSub = answerSub;
         this.category = category;
     }
 
