@@ -1,5 +1,7 @@
 package com.example.study_cards.application.auth.controller;
 
+import com.example.study_cards.application.auth.dto.request.EmailVerificationRequest;
+import com.example.study_cards.application.auth.dto.request.EmailVerificationVerifyRequest;
 import com.example.study_cards.application.auth.dto.request.PasswordResetRequest;
 import com.example.study_cards.application.auth.dto.request.PasswordResetVerifyRequest;
 import com.example.study_cards.application.auth.dto.request.SignInRequest;
@@ -68,6 +70,18 @@ public class AuthController {
     @PostMapping("/password-reset/verify")
     public ResponseEntity<Void> verifyPasswordReset(@Valid @RequestBody PasswordResetVerifyRequest request) {
         authService.verifyAndResetPassword(request);
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/email-verification/request")
+    public ResponseEntity<Void> requestEmailVerification(@Valid @RequestBody EmailVerificationRequest request) {
+        authService.requestEmailVerification(request);
+        return ResponseEntity.ok().build();
+    }
+
+    @PostMapping("/email-verification/verify")
+    public ResponseEntity<Void> verifyEmail(@Valid @RequestBody EmailVerificationVerifyRequest request) {
+        authService.verifyEmail(request);
         return ResponseEntity.noContent().build();
     }
 }

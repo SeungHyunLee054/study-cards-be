@@ -1,5 +1,7 @@
 package com.example.study_cards.application.auth.service;
 
+import com.example.study_cards.application.auth.dto.request.EmailVerificationRequest;
+import com.example.study_cards.application.auth.dto.request.EmailVerificationVerifyRequest;
 import com.example.study_cards.application.auth.dto.request.PasswordResetRequest;
 import com.example.study_cards.application.auth.dto.request.PasswordResetVerifyRequest;
 import com.example.study_cards.application.auth.dto.request.SignInRequest;
@@ -10,8 +12,8 @@ import com.example.study_cards.application.auth.exception.AuthErrorCode;
 import com.example.study_cards.application.auth.exception.AuthException;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
-// TODO: 메일 서비스 활성화 시 주석 해제
-// import com.example.study_cards.infra.mail.service.EmailService;
+import com.example.study_cards.infra.mail.service.EmailService;
+import com.example.study_cards.infra.redis.service.EmailVerificationCodeService;
 import com.example.study_cards.infra.redis.service.PasswordResetCodeService;
 import com.example.study_cards.infra.security.exception.JwtErrorCode;
 import com.example.study_cards.infra.security.exception.JwtException;
@@ -35,8 +37,8 @@ public class AuthService {
     private final TokenBlacklistService tokenBlacklistService;
     private final UserCacheService userCacheService;
     private final PasswordResetCodeService passwordResetCodeService;
-    // TODO: 메일 서비스 활성화 시 주석 해제
-    // private final EmailService emailService;
+    private final EmailVerificationCodeService emailVerificationCodeService;
+    private final EmailService emailService;
 
     @Transactional
     public UserResponse signUp(SignUpRequest request) {
@@ -49,12 +51,20 @@ public class AuthService {
                 request.password(),
                 request.nickname()
         );
+
+        String code = emailVerificationCodeService.generateAndSaveCode(user.getEmail());
+        emailService.sendVerificationCode(user.getEmail(), code);
+
         return UserResponse.from(user);
     }
 
     public TokenResult signIn(SignInRequest request) {
         User user = userDomainService.findByEmail(request.email());
         userDomainService.validatePassword(request.password(), user.getPassword());
+
+        if (!user.getEmailVerified()) {
+            throw new AuthException(AuthErrorCode.EMAIL_NOT_VERIFIED);
+        }
 
         String accessToken = jwtTokenProvider.createAccessToken(user.getId(), user.getEmail(), user.getRoles());
         String refreshToken = jwtTokenProvider.createRefreshToken(user.getId());
@@ -105,8 +115,7 @@ public class AuthService {
         }
 
         String code = passwordResetCodeService.generateAndSaveCode(request.email());
-        // TODO: 메일 서비스 활성화 시 주석 해제
-        // emailService.sendPasswordResetCode(request.email(), code);
+        emailService.sendPasswordResetCode(request.email(), code);
     }
 
     @Transactional
@@ -121,5 +130,36 @@ public class AuthService {
 
         User user = userDomainService.findByEmail(request.email());
         userDomainService.changePassword(user, request.newPassword());
+    }
+
+    public void requestEmailVerification(EmailVerificationRequest request) {
+        if (!userDomainService.existsByEmail(request.email())) {
+            return;
+        }
+
+        User user = userDomainService.findByEmail(request.email());
+
+        if (user.getEmailVerified()) {
+            return;
+        }
+
+        String code = emailVerificationCodeService.generateAndSaveCode(request.email());
+        emailService.sendVerificationCode(request.email(), code);
+    }
+
+    @Transactional
+    public void verifyEmail(EmailVerificationVerifyRequest request) {
+        if (emailVerificationCodeService.hasExceededAttempts(request.email())) {
+            throw new AuthException(AuthErrorCode.TOO_MANY_ATTEMPTS);
+        }
+
+        if (!emailVerificationCodeService.verifyCode(request.email(), request.code())) {
+            throw new AuthException(AuthErrorCode.INVALID_VERIFICATION_CODE);
+        }
+
+        User user = userDomainService.findByEmail(request.email());
+        user.verifyEmail();
+
+        emailVerificationCodeService.deleteCode(request.email());
     }
 }
