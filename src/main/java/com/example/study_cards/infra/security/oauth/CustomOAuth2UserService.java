@@ -55,6 +55,8 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
                 .providerId(userInfo.getProviderId())
                 .build();
 
+        user.verifyEmail();
+
         return userRepository.save(user);
     }
 }

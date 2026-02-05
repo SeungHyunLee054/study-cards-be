@@ -2,6 +2,8 @@ package com.example.study_cards.infra.ai.service;
 
 import com.example.study_cards.domain.generation.exception.GenerationErrorCode;
 import com.example.study_cards.domain.generation.exception.GenerationException;
+
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
@@ -16,7 +18,8 @@ public class AiGenerationService {
 
     private final ChatClient chatClient;
 
-    @Value("${spring.ai.google.genai.chat.options.model:gemini-2.0-flash}")
+    @Getter
+	@Value("${spring.ai.google.genai.chat.options.model:gemini-2.0-flash}")
     private String defaultModel;
 
     public String generateContent(String prompt) {
@@ -41,7 +44,4 @@ public class AiGenerationService {
         }
     }
 
-    public String getDefaultModel() {
-        return defaultModel;
-    }
 }

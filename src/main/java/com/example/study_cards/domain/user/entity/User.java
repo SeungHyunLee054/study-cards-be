@@ -56,6 +56,9 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Boolean pushEnabled = true;
 
+    @Column(nullable = false)
+    private Boolean emailVerified = false;
+
     @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
     private Subscription subscription;
 
@@ -74,6 +77,7 @@ public class User extends BaseEntity {
         this.streak = 0;
         this.masteryRate = 0.0;
         this.pushEnabled = true;
+        this.emailVerified = false;
     }
 
     public boolean isOAuthUser() {
@@ -123,6 +127,10 @@ public class User extends BaseEntity {
 
     public void updatePushEnabled(Boolean pushEnabled) {
         this.pushEnabled = pushEnabled;
+    }
+
+    public void verifyEmail() {
+        this.emailVerified = true;
     }
 
     public SubscriptionPlan getSubscriptionPlan() {

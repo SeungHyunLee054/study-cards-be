@@ -256,7 +256,7 @@ public class GenerationService {
         String question = getRequiredField(json, "question");
         JsonNode optionsNode = json.get("options");
         String answer = getRequiredField(json, "answer");
-        String explanation = getFieldOrDefault(json, "explanation", "");
+        String explanation = getFieldOrDefault(json, "explanation");
 
         StringBuilder questionSub = new StringBuilder();
         if (optionsNode != null && optionsNode.isArray()) {
@@ -282,9 +282,9 @@ public class GenerationService {
     private GeneratedCard parseQaResponse(JsonNode json, Card sourceCard,
                                            Category category, String model, String prompt) {
         String question = getRequiredField(json, "question");
-        String questionSub = getFieldOrDefault(json, "questionSub", "");
+        String questionSub = getFieldOrDefault(json, "questionSub");
         String answer = getRequiredField(json, "answer");
-        String answerSub = getFieldOrDefault(json, "answerSub", "");
+        String answerSub = getFieldOrDefault(json, "answerSub");
 
         return GeneratedCard.builder()
                 .model(model)
@@ -307,17 +307,17 @@ public class GenerationService {
         return node.asText();
     }
 
-    private String getFieldOrDefault(JsonNode json, String fieldName, String defaultValue) {
+    private String getFieldOrDefault(JsonNode json, String fieldName) {
         JsonNode node = json.get(fieldName);
         if (node == null || node.isNull()) {
-            return defaultValue;
+            return "";
         }
         return node.asText();
     }
 
     private String stripMarkdownCodeBlock(String response) {
         if (response == null) {
-            return response;
+            return null;
         }
 
         String trimmed = response.trim();

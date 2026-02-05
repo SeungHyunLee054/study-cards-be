@@ -1,23 +1,23 @@
 package com.example.study_cards.application.generation.service;
 
-import com.example.study_cards.application.generation.dto.request.ApprovalRequest;
-import com.example.study_cards.application.generation.dto.response.GeneratedCardResponse;
-import com.example.study_cards.domain.card.entity.Card;
-import com.example.study_cards.domain.card.service.CardDomainService;
-import com.example.study_cards.domain.category.entity.Category;
-import com.example.study_cards.domain.generation.entity.GeneratedCard;
-import com.example.study_cards.domain.generation.entity.GenerationStatus;
-import com.example.study_cards.domain.generation.service.GeneratedCardDomainService;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.List;
+
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import com.example.study_cards.application.generation.dto.request.ApprovalRequest;
+import com.example.study_cards.application.generation.dto.response.GeneratedCardResponse;
+import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.service.CardDomainService;
+import com.example.study_cards.domain.generation.entity.GeneratedCard;
+import com.example.study_cards.domain.generation.entity.GenerationStatus;
+import com.example.study_cards.domain.generation.service.GeneratedCardDomainService;
 
-import org.springframework.data.domain.PageRequest;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @RequiredArgsConstructor
