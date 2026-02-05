@@ -45,3 +45,6 @@ nul
 
 ### Generated Docs ###
 src/main/resources/static/docs/
+
+### Firebase ###
+src/main/resources/firebase-service-account.json

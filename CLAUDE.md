@@ -36,6 +36,7 @@
 - Redis (캐시, TTL, JWT 블랙리스트)
 - Spring Security + JWT
 - Spring Data JPA + QueryDSL
+- Firebase Cloud Messaging (푸시 알림)
 - SpringDoc OpenAPI (Swagger)
 - Lombok
 - Testcontainers (통합 테스트용)
@@ -215,6 +216,7 @@ com.example.study_cards/
 │
 ├── infra/                    # 인프라 레이어
 │   ├── redis/
+│   ├── fcm/                  # Firebase Cloud Messaging
 │   └── security/
 │       ├── config/
 │       ├── filter/
@@ -253,6 +255,7 @@ com.example.study_cards/
 - Repository 구현체 (QueryDSL 등)
 - Redis 접근
 - Security (JWT, 필터)
+- FCM (푸시 알림 발송)
 - 외부 시스템 연동
 
 **common**

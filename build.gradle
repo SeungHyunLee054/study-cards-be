@@ -27,6 +27,13 @@ repositories {
 
 ext {
     set('snippetsDir', file("build/generated-snippets"))
+    set('springAiVersion', '1.1.1')
+}
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.ai:spring-ai-bom:${springAiVersion}"
+    }
 }
 
 dependencies {
@@ -58,6 +65,17 @@ dependencies {
     annotationProcessor 'io.github.openfeign.querydsl:querydsl-apt:7.1:jpa'
     testImplementation "com.navercorp.fixturemonkey:fixture-monkey-starter:1.1.15"
     testImplementation 'org.awaitility:awaitility:4.2.2'
+
+    // Firebase Admin SDK
+    implementation 'com.google.firebase:firebase-admin:9.2.0'
+
+    // Spring AI (AI 설정 완료 후 사용할 provider만 주석 해제)
+    // OpenAI (GPT) - 기본 추천
+    // implementation 'org.springframework.ai:spring-ai-starter-model-openai'
+    // Google Vertex AI (Gemini) - GCP 프로젝트 필요
+    // implementation 'org.springframework.ai:spring-ai-vertex-ai-gemini-spring-boot-starter'
+    // Google AI Studio (Gemini) - API 키만 필요, 한국어/일본어 품질 우수
+    implementation 'org.springframework.ai:spring-ai-starter-model-google-genai'
 }
 
 tasks.named('test') {
