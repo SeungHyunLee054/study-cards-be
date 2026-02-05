@@ -1,5 +1,6 @@
 package com.example.study_cards.application.auth.dto.response;
 
+import com.example.study_cards.domain.user.entity.OAuthProvider;
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 
@@ -10,6 +11,7 @@ public record UserResponse(
         String email,
         String nickname,
         Set<Role> roles,
+        OAuthProvider provider,
         Integer streak,
         Double masteryRate
 ) {
@@ -19,6 +21,7 @@ public record UserResponse(
                 user.getEmail(),
                 user.getNickname(),
                 user.getRoles(),
+                user.getProvider(),
                 user.getStreak(),
                 user.getMasteryRate()
         );
