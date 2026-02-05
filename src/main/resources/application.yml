@@ -47,7 +47,7 @@ spring:
             user-name-attribute: response
 
 server:
-  port: 8081
+  port: 8080
 
 logging:
   level:
@@ -68,7 +68,7 @@ app:
     jwt:
       issuer: study-cards
       # dev/prod에서 각각 override
-      secret: ${APP_JWT_SECRET:change-me}
+      secret: ${APP_JWT_SECRET}
       access-token-expire-minutes: 15
       refresh-token-expire-days: 14
     refresh-token:

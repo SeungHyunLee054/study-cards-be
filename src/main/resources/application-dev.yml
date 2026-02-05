@@ -4,7 +4,7 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:postgresql://localhost:5433/study_cards
+    url: jdbc:postgresql://localhost:5432/study_cards
     username: study_cards
     password: study_cards
     driver-class-name: org.postgresql.Driver
@@ -26,8 +26,8 @@ spring:
       timeout: 2s
 
   mail:
-    host: ${MAIL_HOST:smtp.gmail.com}
-    port: ${MAIL_PORT:587}
+    host: ${MAIL_HOST:mail.smtp2go.com}
+    port: ${MAIL_PORT:2525}
     username: ${MAIL_USERNAME}
     password: ${MAIL_PASSWORD}
     properties:
