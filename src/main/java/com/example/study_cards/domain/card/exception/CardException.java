@@ -11,8 +11,4 @@ public class CardException extends BaseException {
 
     private final CardErrorCode errorCode;
 
-    @Override
-    public ErrorCode getErrorCode() {
-        return errorCode;
-    }
 }

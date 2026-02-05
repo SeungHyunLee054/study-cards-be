@@ -1,5 +1,6 @@
 package com.example.study_cards.domain.card.entity;
 
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.common.audit.BaseEntity;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
@@ -10,7 +11,9 @@ import lombok.NoArgsConstructor;
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
-@Table(name = "cards")
+@Table(name = "cards", indexes = {
+        @Index(name = "idx_card_category", columnList = "category_id")
+})
 public class Card extends BaseEntity {
 
     @Id
@@ -18,40 +21,48 @@ public class Card extends BaseEntity {
     private Long id;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String questionEn;
+    private String question;
 
     @Column(columnDefinition = "TEXT")
-    private String questionKo;
+    private String questionSub;
 
     @Column(nullable = false, columnDefinition = "TEXT")
-    private String answerEn;
+    private String answer;
 
     @Column(columnDefinition = "TEXT")
-    private String answerKo;
+    private String answerSub;
 
     @Column(nullable = false)
     private Double efFactor;
 
-    @Enumerated(EnumType.STRING)
     @Column(nullable = false)
+    private Boolean aiGenerated = false;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
     @Builder
-    public Card(String questionEn, String questionKo, String answerEn, String answerKo,
-                Double efFactor, Category category) {
-        this.questionEn = questionEn;
-        this.questionKo = questionKo;
-        this.answerEn = answerEn;
-        this.answerKo = answerKo;
+    public Card(String question, String questionSub, String answer, String answerSub,
+                Double efFactor, Boolean aiGenerated, Category category) {
+        this.question = question;
+        this.questionSub = questionSub;
+        this.answer = answer;
+        this.answerSub = answerSub;
         this.efFactor = efFactor != null ? efFactor : 2.5;
+        this.aiGenerated = aiGenerated != null ? aiGenerated : false;
         this.category = category;
     }
 
-    public void update(String questionEn, String questionKo, String answerEn, String answerKo, Category category) {
-        this.questionEn = questionEn;
-        this.questionKo = questionKo;
-        this.answerEn = answerEn;
-        this.answerKo = answerKo;
+    public boolean isAiGenerated() {
+        return Boolean.TRUE.equals(aiGenerated);
+    }
+
+    public void update(String question, String questionSub, String answer, String answerSub, Category category) {
+        this.question = question;
+        this.questionSub = questionSub;
+        this.answer = answer;
+        this.answerSub = answerSub;
         this.category = category;
     }
 }

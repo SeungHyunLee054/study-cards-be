@@ -1,25 +1,43 @@
 package com.example.study_cards.domain.card.entity;
 
+import com.example.study_cards.domain.category.entity.Category;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
 class CardTest {
 
     private Card card;
+    private Category csCategory;
+    private Category englishCategory;
 
     @BeforeEach
     void setUp() {
+        csCategory = Category.builder()
+                .code("CS")
+                .name("CS")
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(csCategory, "id", 1L);
+
+        englishCategory = Category.builder()
+                .code("ENGLISH")
+                .name("영어")
+                .displayOrder(2)
+                .build();
+        ReflectionTestUtils.setField(englishCategory, "id", 2L);
+
         card = Card.builder()
-                .questionEn("What is Java?")
-                .questionKo("자바란 무엇인가?")
-                .answerEn("A programming language")
-                .answerKo("프로그래밍 언어")
+                .question("자바란 무엇인가?")
+                .questionSub("What is Java?")
+                .answer("프로그래밍 언어")
+                .answerSub("A programming language")
                 .efFactor(2.5)
-                .category(Category.CS)
+                .category(csCategory)
                 .build();
     }
 
@@ -31,14 +49,14 @@ class CardTest {
         @DisplayName("카드 정보를 업데이트한다")
         void update_changesCardInfo() {
             // when
-            card.update("New Question", "새 질문", "New Answer", "새 답변", Category.ENGLISH);
+            card.update("New Question", "새 질문", "New Answer", "새 답변", englishCategory);
 
             // then
-            assertThat(card.getQuestionEn()).isEqualTo("New Question");
-            assertThat(card.getQuestionKo()).isEqualTo("새 질문");
-            assertThat(card.getAnswerEn()).isEqualTo("New Answer");
-            assertThat(card.getAnswerKo()).isEqualTo("새 답변");
-            assertThat(card.getCategory()).isEqualTo(Category.ENGLISH);
+            assertThat(card.getQuestion()).isEqualTo("New Question");
+            assertThat(card.getQuestionSub()).isEqualTo("새 질문");
+            assertThat(card.getAnswer()).isEqualTo("New Answer");
+            assertThat(card.getAnswerSub()).isEqualTo("새 답변");
+            assertThat(card.getCategory().getCode()).isEqualTo("ENGLISH");
         }
     }
 
@@ -51,9 +69,9 @@ class CardTest {
         void builder_withoutEfFactor_defaultsTo2_5() {
             // when
             Card newCard = Card.builder()
-                    .questionEn("Test")
-                    .answerEn("Test")
-                    .category(Category.CS)
+                    .question("Test")
+                    .answer("Test")
+                    .category(csCategory)
                     .build();
 
             // then
@@ -65,10 +83,10 @@ class CardTest {
         void builder_withEfFactor_usesProvidedValue() {
             // when
             Card newCard = Card.builder()
-                    .questionEn("Test")
-                    .answerEn("Test")
+                    .question("Test")
+                    .answer("Test")
                     .efFactor(3.0)
-                    .category(Category.CS)
+                    .category(csCategory)
                     .build();
 
             // then

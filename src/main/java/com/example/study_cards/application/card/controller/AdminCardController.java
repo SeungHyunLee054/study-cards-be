@@ -4,31 +4,32 @@ import com.example.study_cards.application.card.dto.request.CardCreateRequest;
 import com.example.study_cards.application.card.dto.request.CardUpdateRequest;
 import com.example.study_cards.application.card.dto.response.CardResponse;
 import com.example.study_cards.application.card.service.CardService;
-import com.example.study_cards.domain.card.entity.Category;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api/admin/cards")
-@PreAuthorize("hasRole('ADMIN')")
 public class AdminCardController {
 
     private final CardService cardService;
 
     @GetMapping
-    public ResponseEntity<List<CardResponse>> getCards(@RequestParam(required = false) Category category) {
-        List<CardResponse> cards;
-        if (category != null) {
-            cards = cardService.getCardsByCategory(category);
+    public ResponseEntity<Page<CardResponse>> getCards(
+            @RequestParam(required = false) String category,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        Page<CardResponse> cards;
+        if (category != null && !category.isBlank()) {
+            cards = cardService.getCardsByCategory(category, pageable);
         } else {
-            cards = cardService.getCards();
+            cards = cardService.getCards(pageable);
         }
         return ResponseEntity.ok(cards);
     }

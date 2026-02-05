@@ -2,17 +2,18 @@ package com.example.study_cards.application.card.controller;
 
 import com.example.study_cards.application.card.dto.response.CardResponse;
 import com.example.study_cards.application.card.service.CardService;
-import com.example.study_cards.domain.card.entity.Category;
 import com.example.study_cards.infra.security.user.CustomUserDetails;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -21,58 +22,71 @@ public class CardController {
 
     private final CardService cardService;
 
-    @GetMapping
-    public ResponseEntity<List<CardResponse>> getCards(@RequestParam(required = false) Category category) {
-        List<CardResponse> cards;
-        if (category != null) {
-            cards = cardService.getCardsByCategory(category);
-        } else {
-            cards = cardService.getCards();
-        }
-        return ResponseEntity.ok(cards);
-    }
-
     @GetMapping("/{id}")
     public ResponseEntity<CardResponse> getCard(@PathVariable Long id) {
         return ResponseEntity.ok(cardService.getCard(id));
     }
 
     @GetMapping("/study")
-    public ResponseEntity<List<CardResponse>> getCardsForStudy(
-            @RequestParam(required = false) Category category,
+    public ResponseEntity<Page<CardResponse>> getCardsForStudy(
+            @RequestParam(required = false) String category,
             Authentication authentication,
-            HttpServletRequest request) {
+            HttpServletRequest request,
+            @PageableDefault(size = 20, sort = "efFactor", direction = Sort.Direction.ASC) Pageable pageable) {
         boolean isAuthenticated = authentication != null
                 && authentication.isAuthenticated()
                 && !(authentication instanceof AnonymousAuthenticationToken);
         String ipAddress = getClientIpAddress(request);
-        return ResponseEntity.ok(cardService.getCardsForStudy(category, isAuthenticated, ipAddress));
+        return ResponseEntity.ok(cardService.getCardsForStudy(category, isAuthenticated, ipAddress, pageable));
     }
 
     @GetMapping("/all")
-    public ResponseEntity<List<CardResponse>> getAllCardsWithUserCards(
+    public ResponseEntity<Page<CardResponse>> getAllCardsWithUserCards(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) Category category) {
-        return ResponseEntity.ok(cardService.getAllCardsWithUserCards(userDetails.userId(), category));
+            @RequestParam(required = false) String category,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        return ResponseEntity.ok(cardService.getAllCardsWithUserCards(userDetails.userId(), category, pageable));
     }
 
     @GetMapping("/study/all")
-    public ResponseEntity<List<CardResponse>> getCardsForStudyWithUserCards(
+    public ResponseEntity<Page<CardResponse>> getCardsForStudyWithUserCards(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false) Category category) {
-        return ResponseEntity.ok(cardService.getCardsForStudyWithUserCards(userDetails.userId(), category));
+            @RequestParam(required = false) String category,
+            @PageableDefault(size = 20, sort = "efFactor", direction = Sort.Direction.ASC) Pageable pageable) {
+        return ResponseEntity.ok(cardService.getCardsForStudyWithUserCards(userDetails.userId(), category, pageable));
     }
 
     @GetMapping("/count")
-    public ResponseEntity<Long> getCardCount(@RequestParam(required = false) Category category) {
+    public ResponseEntity<Long> getCardCount(@RequestParam(required = false) String category) {
         return ResponseEntity.ok(cardService.getCardCount(category));
     }
 
+    private static final String[] IP_HEADER_CANDIDATES = {
+            "X-Forwarded-For",
+            "X-Real-IP",
+            "Proxy-Client-IP",
+            "WL-Proxy-Client-IP"
+    };
+
+    private static final String IP_PATTERN = "^([0-9]{1,3}\\.){3}[0-9]{1,3}$|^([0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$";
+
     private String getClientIpAddress(HttpServletRequest request) {
-        String xForwardedFor = request.getHeader("X-Forwarded-For");
-        if (xForwardedFor != null && !xForwardedFor.isEmpty()) {
-            return xForwardedFor.split(",")[0].trim();
+        for (String header : IP_HEADER_CANDIDATES) {
+            String ip = request.getHeader(header);
+            if (ip != null && !ip.isEmpty() && !"unknown".equalsIgnoreCase(ip)) {
+                String clientIp = ip.split(",")[0].trim();
+                if (isValidIpAddress(clientIp)) {
+                    return clientIp;
+                }
+            }
         }
         return request.getRemoteAddr();
+    }
+
+    private boolean isValidIpAddress(String ip) {
+        if (ip == null || ip.isEmpty()) {
+            return false;
+        }
+        return ip.matches(IP_PATTERN);
     }
 }

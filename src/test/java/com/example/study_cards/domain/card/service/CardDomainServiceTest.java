@@ -1,10 +1,11 @@
 package com.example.study_cards.domain.card.service;
 
 import com.example.study_cards.domain.card.entity.Card;
-import com.example.study_cards.domain.card.entity.Category;
 import com.example.study_cards.domain.card.exception.CardErrorCode;
 import com.example.study_cards.domain.card.exception.CardException;
 import com.example.study_cards.domain.card.repository.CardRepository;
+import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.study.repository.StudyRecordRepository;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -12,6 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
 import java.util.Optional;
@@ -27,39 +29,49 @@ class CardDomainServiceTest extends BaseUnitTest {
     @Mock
     private CardRepository cardRepository;
 
+    @Mock
+    private StudyRecordRepository studyRecordRepository;
+
     @InjectMocks
     private CardDomainService cardDomainService;
 
     private Card testCard;
+    private Category testCategory;
+    private Category englishCategory;
 
     private static final Long CARD_ID = 1L;
+    private static final Long CATEGORY_ID = 1L;
 
     @BeforeEach
     void setUp() {
+        testCategory = createTestCategory("CS", "CS", null, 1);
+        englishCategory = createTestCategory("ENGLISH", "영어", null, 2);
+        ReflectionTestUtils.setField(englishCategory, "id", 2L);
         testCard = createTestCard();
+    }
+
+    private Category createTestCategory(String code, String name, Category parent, int displayOrder) {
+        Category category = Category.builder()
+                .code(code)
+                .name(name)
+                .parent(parent)
+                .displayOrder(displayOrder)
+                .build();
+        ReflectionTestUtils.setField(category, "id", CATEGORY_ID);
+        return category;
     }
 
     private Card createTestCard() {
         Card card = Card.builder()
-                .questionEn("What is Java?")
-                .questionKo("자바란 무엇인가?")
-                .answerEn("A programming language")
-                .answerKo("프로그래밍 언어")
+                .question("자바란 무엇인가?")
+                .questionSub("What is Java?")
+                .answer("프로그래밍 언어")
+                .answerSub("A programming language")
                 .efFactor(2.5)
-                .category(Category.CS)
+                .category(testCategory)
                 .build();
-        setId(card, CARD_ID);
+        ReflectionTestUtils.setField(card, "id", CARD_ID);
         return card;
-    }
-
-    private void setId(Card card, Long id) {
-        try {
-            var idField = Card.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(card, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
     }
 
     @Nested
@@ -74,16 +86,16 @@ class CardDomainServiceTest extends BaseUnitTest {
 
             // when
             Card result = cardDomainService.createCard(
-                    "What is Java?",
                     "자바란 무엇인가?",
-                    "A programming language",
+                    "What is Java?",
                     "프로그래밍 언어",
-                    Category.CS
+                    "A programming language",
+                    testCategory
             );
 
             // then
             assertThat(result).isNotNull();
-            assertThat(result.getQuestionEn()).isEqualTo("What is Java?");
+            assertThat(result.getQuestion()).isEqualTo("자바란 무엇인가?");
             verify(cardRepository).save(any(Card.class));
         }
     }
@@ -103,7 +115,7 @@ class CardDomainServiceTest extends BaseUnitTest {
 
             // then
             assertThat(result.getId()).isEqualTo(CARD_ID);
-            assertThat(result.getQuestionEn()).isEqualTo("What is Java?");
+            assertThat(result.getQuestion()).isEqualTo("자바란 무엇인가?");
         }
 
         @Test
@@ -149,14 +161,14 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("카테고리별 카드를 조회한다")
         void findByCategory_returnsCardsInCategory() {
             // given
-            given(cardRepository.findByCategory(Category.CS)).willReturn(List.of(testCard));
+            given(cardRepository.findByCategory(testCategory)).willReturn(List.of(testCard));
 
             // when
-            List<Card> result = cardDomainService.findByCategory(Category.CS);
+            List<Card> result = cardDomainService.findByCategory(testCategory);
 
             // then
             assertThat(result).hasSize(1);
-            assertThat(result.get(0).getCategory()).isEqualTo(Category.CS);
+            assertThat(result.get(0).getCategory().getCode()).isEqualTo("CS");
         }
     }
 
@@ -187,14 +199,14 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("카테고리별로 efFactor 오름차순으로 카드를 조회한다")
         void findCardsForStudyByCategory_returnsSortedByEfFactor() {
             // given
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(Category.CS)).willReturn(List.of(testCard));
+            given(cardRepository.findByCategoryOrderByEfFactorAsc(testCategory)).willReturn(List.of(testCard));
 
             // when
-            List<Card> result = cardDomainService.findCardsForStudyByCategory(Category.CS);
+            List<Card> result = cardDomainService.findCardsForStudyByCategory(testCategory);
 
             // then
             assertThat(result).hasSize(1);
-            verify(cardRepository).findByCategoryOrderByEfFactorAsc(Category.CS);
+            verify(cardRepository).findByCategoryOrderByEfFactorAsc(testCategory);
         }
     }
 
@@ -211,17 +223,17 @@ class CardDomainServiceTest extends BaseUnitTest {
             // when
             Card result = cardDomainService.updateCard(
                     CARD_ID,
-                    "Updated Question",
                     "업데이트된 질문",
-                    "Updated Answer",
+                    "Updated Question",
                     "업데이트된 답변",
-                    Category.ENGLISH
+                    "Updated Answer",
+                    englishCategory
             );
 
             // then
-            assertThat(result.getQuestionEn()).isEqualTo("Updated Question");
-            assertThat(result.getQuestionKo()).isEqualTo("업데이트된 질문");
-            assertThat(result.getCategory()).isEqualTo(Category.ENGLISH);
+            assertThat(result.getQuestion()).isEqualTo("업데이트된 질문");
+            assertThat(result.getQuestionSub()).isEqualTo("Updated Question");
+            assertThat(result.getCategory().getCode()).isEqualTo("ENGLISH");
         }
     }
 
@@ -234,6 +246,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         void deleteCard_deletesCard() {
             // given
             given(cardRepository.findById(CARD_ID)).willReturn(Optional.of(testCard));
+            given(studyRecordRepository.existsByCard(testCard)).willReturn(false);
 
             // when
             cardDomainService.deleteCard(CARD_ID);
@@ -251,6 +264,22 @@ class CardDomainServiceTest extends BaseUnitTest {
             // when & then
             assertThatThrownBy(() -> cardDomainService.deleteCard(CARD_ID))
                     .isInstanceOf(CardException.class);
+        }
+
+        @Test
+        @DisplayName("학습 기록이 존재하는 카드 삭제 시 예외를 발생시킨다")
+        void deleteCard_withStudyRecords_throwsException() {
+            // given
+            given(cardRepository.findById(CARD_ID)).willReturn(Optional.of(testCard));
+            given(studyRecordRepository.existsByCard(testCard)).willReturn(true);
+
+            // when & then
+            assertThatThrownBy(() -> cardDomainService.deleteCard(CARD_ID))
+                    .isInstanceOf(CardException.class)
+                    .satisfies(exception -> {
+                        CardException cardException = (CardException) exception;
+                        assertThat(cardException.getErrorCode()).isEqualTo(CardErrorCode.CARD_HAS_STUDY_RECORDS);
+                    });
         }
     }
 }
