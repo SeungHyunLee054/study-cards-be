@@ -156,4 +156,5 @@ public class NotificationService {
         notificationRepository.deleteByTypeAndReferenceId(type, referenceId);
         log.info("알림 삭제 - type: {}, referenceId: {}", type, referenceId);
     }
+
 }
