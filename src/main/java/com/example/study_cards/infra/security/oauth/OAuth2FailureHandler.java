@@ -23,8 +23,12 @@ public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
+        String errorMessage = exception.getMessage() != null
+                ? exception.getMessage()
+                : "인증에 실패했습니다.";
+
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
-                .queryParam("error", URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8))
+                .queryParam("error", URLEncoder.encode(errorMessage, StandardCharsets.UTF_8))
                 .build()
                 .toUriString();
 

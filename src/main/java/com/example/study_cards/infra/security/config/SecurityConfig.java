@@ -3,10 +3,9 @@ package com.example.study_cards.infra.security.config;
 import com.example.study_cards.infra.security.jwt.JwtAccessDeniedHandler;
 import com.example.study_cards.infra.security.jwt.JwtAuthenticationEntryPoint;
 import com.example.study_cards.infra.security.jwt.JwtAuthenticationFilter;
-// TODO: OAuth2 활성화 시 주석 해제
-// import com.example.study_cards.infra.security.oauth.CustomOAuth2UserService;
-// import com.example.study_cards.infra.security.oauth.OAuth2FailureHandler;
-// import com.example.study_cards.infra.security.oauth.OAuth2SuccessHandler;
+import com.example.study_cards.infra.security.oauth.CustomOAuth2UserService;
+import com.example.study_cards.infra.security.oauth.OAuth2FailureHandler;
+import com.example.study_cards.infra.security.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -35,10 +34,9 @@ public class SecurityConfig {
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
     private final JwtAccessDeniedHandler jwtAccessDeniedHandler;
-    // TODO: OAuth2 활성화 시 주석 해제
-    // private final CustomOAuth2UserService customOAuth2UserService;
-    // private final OAuth2SuccessHandler oAuth2SuccessHandler;
-    // private final OAuth2FailureHandler oAuth2FailureHandler;
+    private final CustomOAuth2UserService customOAuth2UserService;
+    private final OAuth2SuccessHandler oAuth2SuccessHandler;
+    private final OAuth2FailureHandler oAuth2FailureHandler;
 
     private static final String[] PUBLIC_URLS = {
             "/",
@@ -46,6 +44,10 @@ public class SecurityConfig {
             "/api/auth/signin",
             "/api/auth/refresh",
             "/api/auth/password-reset/**",
+            "/api/subscriptions/plans",
+            "/api/webhooks/toss",
+            "/oauth2/authorization/**",
+            "/login/oauth2/code/**",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
@@ -73,12 +75,11 @@ public class SecurityConfig {
                         .anyRequest().authenticated())
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
-                // TODO: OAuth2 활성화 시 주석 해제
-                // .oauth2Login(oauth2 -> oauth2
-                //         .userInfoEndpoint(userInfo -> userInfo
-                //                 .userService(customOAuth2UserService))
-                //         .successHandler(oAuth2SuccessHandler)
-                //         .failureHandler(oAuth2FailureHandler))
+                .oauth2Login(oauth2 -> oauth2
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .userService(customOAuth2UserService))
+                        .successHandler(oAuth2SuccessHandler)
+                        .failureHandler(oAuth2FailureHandler))
                 .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();

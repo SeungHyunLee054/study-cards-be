@@ -6,7 +6,9 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
-// TODO: 메일 서비스 활성화 시 @RequiredArgsConstructor, @Service 주석 해제
+// TODO: 메일 서비스 활성화 시 주석 해제
+// 1. application-dev.yml에서 spring.mail 설정 주석 해제
+// 2. 아래 @Service 주석 해제
 @RequiredArgsConstructor
 //@Service
 public class EmailService {
