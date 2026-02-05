@@ -1,7 +1,8 @@
 package com.example.study_cards.domain.study.repository;
 
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.study.entity.StudyRecord;
+import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.user.entity.User;
 
 import java.time.LocalDate;
@@ -36,9 +37,17 @@ public interface StudyRecordRepositoryCustom {
 
     List<StudyRecord> findDueUserCardRecords(User user, LocalDate date);
 
-    record CategoryCount(Category category, Long count) {}
+    List<StudyRecord> findBySessionWithDetails(StudySession session);
+
+    TodayStudyCount countTodayStudy(User user, LocalDate date);
+
+    record CategoryCount(Long categoryId, String categoryCode, Long count) {}
+
+    record TodayStudyCount(Long totalCount, Long correctCount) {}
 
     record DailyActivity(LocalDate date, Long totalCount, Long correctCount) {}
 
     record TotalAndCorrect(Long totalCount, Long correctCount) {}
+
+    long countMasteredCardsInCategory(User user, Category category);
 }

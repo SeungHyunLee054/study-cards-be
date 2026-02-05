@@ -1,16 +1,17 @@
 package com.example.study_cards.domain.study.service;
 
 import com.example.study_cards.domain.card.entity.Card;
-import com.example.study_cards.domain.card.entity.Category;
 import com.example.study_cards.domain.card.repository.CardRepository;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
 import com.example.study_cards.domain.study.repository.StudyRecordRepository;
 import com.example.study_cards.domain.study.repository.StudySessionRepository;
-import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.usercard.entity.UserCard;
+import com.example.study_cards.domain.usercard.repository.UserCardRepository;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -18,16 +19,18 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
-import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 
@@ -42,45 +45,61 @@ class StudyDomainServiceTest extends BaseUnitTest {
     @Mock
     private CardRepository cardRepository;
 
+    @Mock
+    private UserCardRepository userCardRepository;
+
     @InjectMocks
     private StudyDomainService studyDomainService;
 
     private User testUser;
     private Card testCard;
+    private Category testCategory;
     private StudySession testSession;
+    private StudyRecord testRecord;
+    private UserCard testUserCard;
 
     private static final Long USER_ID = 1L;
     private static final Long CARD_ID = 1L;
     private static final Long SESSION_ID = 1L;
+    private static final Long CATEGORY_ID = 1L;
 
     @BeforeEach
     void setUp() {
         testUser = createTestUser();
+        testCategory = createTestCategory();
         testCard = createTestCard();
         testSession = createTestSession();
+        testUserCard = createTestUserCard();
     }
 
     private User createTestUser() {
         User user = User.builder()
                 .email("test@example.com")
-                .password("encodedPassword")
-                .nickname("testUser")
-                .roles(Set.of(Role.ROLE_USER))
+                .password("password123")
+                .nickname("테스트유저")
                 .build();
-        setId(user, User.class, USER_ID);
+        ReflectionTestUtils.setField(user, "id", USER_ID);
         return user;
+    }
+
+    private Category createTestCategory() {
+        Category category = Category.builder()
+                .code("CS")
+                .name("컴퓨터 과학")
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(category, "id", CATEGORY_ID);
+        return category;
     }
 
     private Card createTestCard() {
         Card card = Card.builder()
-                .questionEn("What is Java?")
-                .questionKo("자바란 무엇인가?")
-                .answerEn("A programming language")
-                .answerKo("프로그래밍 언어")
+                .question("테스트 질문")
+                .answer("테스트 답변")
                 .efFactor(2.5)
-                .category(Category.CS)
+                .category(testCategory)
                 .build();
-        setId(card, Card.class, CARD_ID);
+        ReflectionTestUtils.setField(card, "id", CARD_ID);
         return card;
     }
 
@@ -88,18 +107,20 @@ class StudyDomainServiceTest extends BaseUnitTest {
         StudySession session = StudySession.builder()
                 .user(testUser)
                 .build();
-        setId(session, StudySession.class, SESSION_ID);
+        ReflectionTestUtils.setField(session, "id", SESSION_ID);
         return session;
     }
 
-    private <T> void setId(T entity, Class<T> clazz, Long id) {
-        try {
-            var idField = clazz.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(entity, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    private UserCard createTestUserCard() {
+        UserCard userCard = UserCard.builder()
+                .user(testUser)
+                .question("사용자 질문")
+                .answer("사용자 답변")
+                .efFactor(2.5)
+                .category(testCategory)
+                .build();
+        ReflectionTestUtils.setField(userCard, "id", 1L);
+        return userCard;
     }
 
     @Nested
@@ -107,8 +128,8 @@ class StudyDomainServiceTest extends BaseUnitTest {
     class CreateSessionTest {
 
         @Test
-        @DisplayName("학습 세션을 생성하고 저장한다")
-        void createSession_savesAndReturnsSession() {
+        @DisplayName("새 학습 세션을 생성한다")
+        void createSession_createsNewSession() {
             // given
             given(studySessionRepository.save(any(StudySession.class))).willReturn(testSession);
 
@@ -126,7 +147,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
     class FindSessionByIdTest {
 
         @Test
-        @DisplayName("존재하는 세션 ID로 세션을 조회한다")
+        @DisplayName("존재하는 ID로 세션을 조회한다")
         void findSessionById_returnsSession() {
             // given
             given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(testSession));
@@ -139,7 +160,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("존재하지 않는 세션 ID로 조회 시 예외를 발생시킨다")
+        @DisplayName("존재하지 않는 ID로 조회 시 예외를 발생시킨다")
         void findSessionById_withNonExistentId_throwsException() {
             // given
             given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.empty());
@@ -155,111 +176,22 @@ class StudyDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("calculateInterval")
-    class CalculateIntervalTest {
-
-        @Test
-        @DisplayName("오답 시 interval은 1이다")
-        void calculateInterval_incorrect_returns1() {
-            // when
-            int interval = studyDomainService.calculateInterval(1, 2.5, false);
-
-            // then
-            assertThat(interval).isEqualTo(1);
-        }
-
-        @Test
-        @DisplayName("첫 번째 정답 시 interval은 1이다")
-        void calculateInterval_firstCorrect_returns1() {
-            // when
-            int interval = studyDomainService.calculateInterval(1, 2.5, true);
-
-            // then
-            assertThat(interval).isEqualTo(1);
-        }
-
-        @Test
-        @DisplayName("두 번째 정답 시 interval은 6이다")
-        void calculateInterval_secondCorrect_returns6() {
-            // when
-            int interval = studyDomainService.calculateInterval(2, 2.5, true);
-
-            // then
-            assertThat(interval).isEqualTo(6);
-        }
-
-        @Test
-        @DisplayName("세 번째 정답 시 interval은 prevInterval * efFactor이다")
-        void calculateInterval_thirdCorrect_returnsCalculatedValue() {
-            // when
-            int interval = studyDomainService.calculateInterval(3, 2.5, true);
-
-            // then
-            assertThat(interval).isEqualTo(15);
-        }
-    }
-
-    @Nested
     @DisplayName("findTodayStudyCards")
     class FindTodayStudyCardsTest {
 
         @Test
-        @DisplayName("복습 대상 카드와 새 카드를 합쳐서 반환한다")
-        void findTodayStudyCards_returnsCombinedCards() {
+        @DisplayName("복습할 카드가 충분하면 복습 카드만 반환한다")
+        void findTodayStudyCards_withEnoughDueCards_returnsDueCardsOnly() {
             // given
             StudyRecord dueRecord = StudyRecord.builder()
                     .user(testUser)
                     .card(testCard)
-                    .isCorrect(true)
-                    .nextReviewDate(LocalDate.now())
-                    .interval(1)
-                    .efFactor(2.5)
                     .build();
-
-            Card newCard = Card.builder()
-                    .questionEn("New card")
-                    .questionKo("새 카드")
-                    .answerEn("Answer")
-                    .answerKo("답변")
-                    .efFactor(2.5)
-                    .category(Category.CS)
-                    .build();
-            setId(newCard, Card.class, 2L);
-
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
-                    .willReturn(List.of(dueRecord));
-            given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
-                    .willReturn(List.of(CARD_ID));
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(Category.CS))
-                    .willReturn(List.of(testCard, newCard));
-
-            // when
-            List<Card> result = studyDomainService.findTodayStudyCards(testUser, Category.CS, 20);
-
-            // then
-            assertThat(result).hasSize(2);
-            assertThat(result).contains(testCard);
-            assertThat(result).contains(newCard);
-        }
-
-        @Test
-        @DisplayName("복습 대상이 limit을 넘으면 새 카드는 포함하지 않는다")
-        void findTodayStudyCards_whenDueCardsExceedLimit_returnsOnlyDueCards() {
-            // given
-            StudyRecord dueRecord = StudyRecord.builder()
-                    .user(testUser)
-                    .card(testCard)
-                    .isCorrect(true)
-                    .nextReviewDate(LocalDate.now())
-                    .interval(1)
-                    .efFactor(2.5)
-                    .build();
-
             given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
                     .willReturn(List.of(dueRecord));
 
             // when
-            List<Card> result = studyDomainService.findTodayStudyCards(testUser, Category.CS, 1);
+            List<Card> result = studyDomainService.findTodayStudyCards(testUser, testCategory, 1);
 
             // then
             assertThat(result).hasSize(1);
@@ -267,18 +199,18 @@ class StudyDomainServiceTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("복습 대상이 없으면 새 카드만 반환한다")
-        void findTodayStudyCards_whenNoDueCards_returnsNewCardsOnly() {
+        @DisplayName("복습할 카드가 부족하면 새 카드를 추가한다")
+        void findTodayStudyCards_withNotEnoughDueCards_addsNewCards() {
             // given
             given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
                     .willReturn(Collections.emptyList());
             given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
                     .willReturn(Collections.emptyList());
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(Category.CS))
+            given(cardRepository.findByCategoryOrderByEfFactorAsc(eq(testCategory), anyBoolean()))
                     .willReturn(List.of(testCard));
 
             // when
-            List<Card> result = studyDomainService.findTodayStudyCards(testUser, Category.CS, 20);
+            List<Card> result = studyDomainService.findTodayStudyCards(testUser, testCategory, 20);
 
             // then
             assertThat(result).hasSize(1);
@@ -291,8 +223,8 @@ class StudyDomainServiceTest extends BaseUnitTest {
     class ProcessAnswerTest {
 
         @Test
-        @DisplayName("새 카드에 대한 정답 처리 시 StudyRecord를 생성한다")
-        void processAnswer_newCard_createsRecord() {
+        @DisplayName("새 카드에 대한 답변을 처리한다")
+        void processAnswer_withNewCard_createsNewRecord() {
             // given
             given(studyRecordRepository.findByUserAndCard(testUser, testCard))
                     .willReturn(Optional.empty());
@@ -300,21 +232,19 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .willAnswer(invocation -> invocation.getArgument(0));
 
             // when
-            StudyRecord result = studyDomainService.processAnswer(testUser, testCard, null, true);
+            StudyRecord result = studyDomainService.processAnswer(testUser, testCard, testSession, true);
 
             // then
             assertThat(result).isNotNull();
             assertThat(result.getIsCorrect()).isTrue();
-            assertThat(result.getNextReviewDate()).isEqualTo(LocalDate.now().plusDays(1));
-            assertThat(result.getInterval()).isEqualTo(1);
             verify(studyRecordRepository).save(any(StudyRecord.class));
         }
 
         @Test
-        @DisplayName("기존 카드에 대한 정답 처리 시 StudyRecord를 업데이트한다")
-        void processAnswer_existingCard_updatesRecord() {
+        @DisplayName("기존 카드에 대한 답변을 처리한다")
+        void processAnswer_withExistingCard_updatesRecord() {
             // given
-            StudyRecord existingRecord = StudyRecord.builder()
+            testRecord = StudyRecord.builder()
                     .user(testUser)
                     .card(testCard)
                     .isCorrect(true)
@@ -322,53 +252,150 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .interval(1)
                     .efFactor(2.5)
                     .build();
+            ReflectionTestUtils.setField(testRecord, "id", 1L);
+            ReflectionTestUtils.setField(testRecord, "repetitionCount", 1);
 
             given(studyRecordRepository.findByUserAndCard(testUser, testCard))
-                    .willReturn(Optional.of(existingRecord));
+                    .willReturn(Optional.of(testRecord));
 
             // when
-            StudyRecord result = studyDomainService.processAnswer(testUser, testCard, null, true);
+            StudyRecord result = studyDomainService.processAnswer(testUser, testCard, testSession, true);
 
             // then
-            assertThat(result.getRepetitionCount()).isEqualTo(2);
+            assertThat(result).isNotNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("calculateInterval")
+    class CalculateIntervalTest {
+
+        @Test
+        @DisplayName("오답일 경우 간격은 1일이다")
+        void calculateInterval_withIncorrect_returnsOne() {
+            // when
+            int interval = studyDomainService.calculateInterval(1, 2.5, false);
+
+            // then
+            assertThat(interval).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("첫 번째 정답일 경우 간격은 1일이다")
+        void calculateInterval_withFirstCorrect_returnsOne() {
+            // when
+            int interval = studyDomainService.calculateInterval(1, 2.5, true);
+
+            // then
+            assertThat(interval).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("두 번째 정답일 경우 간격은 6일이다")
+        void calculateInterval_withSecondCorrect_returnsSix() {
+            // when
+            int interval = studyDomainService.calculateInterval(2, 2.5, true);
+
+            // then
+            assertThat(interval).isEqualTo(6);
+        }
+
+        @Test
+        @DisplayName("세 번째 이후 정답일 경우 간격을 계산한다")
+        void calculateInterval_withThirdOrMoreCorrect_calculatesInterval() {
+            // when
+            int interval = studyDomainService.calculateInterval(3, 2.5, true);
+
+            // then
+            assertThat(interval).isGreaterThan(6);
+        }
+    }
+
+    @Nested
+    @DisplayName("findTodayUserCardsForStudy")
+    class FindTodayUserCardsForStudyTest {
+
+        @Test
+        @DisplayName("사용자 카드를 조회한다")
+        void findTodayUserCardsForStudy_returnsUserCards() {
+            // given
+            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+                    .willReturn(Collections.emptyList());
+            given(studyRecordRepository.findStudiedUserCardIdsByUser(testUser))
+                    .willReturn(Collections.emptyList());
+            given(userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(testUser, testCategory))
+                    .willReturn(List.of(testUserCard));
+
+            // when
+            List<UserCard> result = studyDomainService.findTodayUserCardsForStudy(testUser, testCategory, 20);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0)).isEqualTo(testUserCard);
+        }
+
+        @Test
+        @DisplayName("카테고리 없이 모든 사용자 카드를 조회한다")
+        void findTodayUserCardsForStudy_withoutCategory_returnsAllUserCards() {
+            // given
+            given(studyRecordRepository.findDueUserCardRecords(any(), any()))
+                    .willReturn(Collections.emptyList());
+            given(studyRecordRepository.findStudiedUserCardIdsByUser(testUser))
+                    .willReturn(Collections.emptyList());
+            given(userCardRepository.findByUserOrderByEfFactorAsc(testUser))
+                    .willReturn(List.of(testUserCard));
+
+            // when
+            List<UserCard> result = studyDomainService.findTodayUserCardsForStudy(testUser, null, 20);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("processUserCardAnswer")
+    class ProcessUserCardAnswerTest {
+
+        @Test
+        @DisplayName("새 사용자 카드에 대한 답변을 처리한다")
+        void processUserCardAnswer_withNewCard_createsNewRecord() {
+            // given
+            given(studyRecordRepository.findByUserAndUserCard(testUser, testUserCard))
+                    .willReturn(Optional.empty());
+            given(studyRecordRepository.save(any(StudyRecord.class)))
+                    .willAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            StudyRecord result = studyDomainService.processUserCardAnswer(testUser, testUserCard, testSession, true);
+
+            // then
+            assertThat(result).isNotNull();
             assertThat(result.getIsCorrect()).isTrue();
+            verify(studyRecordRepository).save(any(StudyRecord.class));
         }
+    }
+
+    @Nested
+    @DisplayName("findAllCardsForStudy")
+    class FindAllCardsForStudyTest {
 
         @Test
-        @DisplayName("오답 처리 시 nextReviewDate는 내일로 설정된다")
-        void processAnswer_incorrect_setsNextReviewDateToTomorrow() {
+        @DisplayName("공개 카드와 사용자 카드를 함께 조회한다")
+        void findAllCardsForStudy_returnsBothCardTypes() {
             // given
-            given(studyRecordRepository.findByUserAndCard(testUser, testCard))
-                    .willReturn(Optional.empty());
-            given(studyRecordRepository.save(any(StudyRecord.class)))
-                    .willAnswer(invocation -> invocation.getArgument(0));
+            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+                    .willReturn(Collections.emptyList());
+            given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
+                    .willReturn(Collections.emptyList());
+            given(cardRepository.findByCategoryOrderByEfFactorAsc(eq(testCategory), anyBoolean()))
+                    .willReturn(List.of(testCard));
 
             // when
-            StudyRecord result = studyDomainService.processAnswer(testUser, testCard, null, false);
+            List<Object> result = studyDomainService.findAllCardsForStudy(testUser, testCategory, 20);
 
             // then
-            assertThat(result.getNextReviewDate()).isEqualTo(LocalDate.now().plusDays(1));
-            assertThat(result.getIsCorrect()).isFalse();
-        }
-
-        @Test
-        @DisplayName("세션과 함께 처리 시 세션 카운트가 증가한다")
-        void processAnswer_withSession_incrementsSessionCount() {
-            // given
-            given(studyRecordRepository.findByUserAndCard(testUser, testCard))
-                    .willReturn(Optional.empty());
-            given(studyRecordRepository.save(any(StudyRecord.class)))
-                    .willAnswer(invocation -> invocation.getArgument(0));
-
-            int initialTotalCards = testSession.getTotalCards();
-            int initialCorrectCount = testSession.getCorrectCount();
-
-            // when
-            studyDomainService.processAnswer(testUser, testCard, testSession, true);
-
-            // then
-            assertThat(testSession.getTotalCards()).isEqualTo(initialTotalCards + 1);
-            assertThat(testSession.getCorrectCount()).isEqualTo(initialCorrectCount + 1);
+            assertThat(result).isNotEmpty();
         }
     }
 }

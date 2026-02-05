@@ -1,8 +1,9 @@
 package com.example.study_cards.domain.study.service;
 
 import com.example.study_cards.domain.card.entity.Card;
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.card.repository.CardRepository;
+import com.example.study_cards.domain.study.constant.SM2Constants;
 import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
@@ -13,13 +14,18 @@ import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.repository.UserCardRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.*;
 
 @RequiredArgsConstructor
 @Service
@@ -50,11 +56,16 @@ public class StudyDomainService {
     }
 
     public List<Card> findTodayStudyCards(User user, Category category, int limit) {
+        return findTodayStudyCards(user, category, limit, true);
+    }
+
+    public List<Card> findTodayStudyCards(User user, Category category, int limit, boolean includeAiCards) {
         LocalDate today = LocalDate.now();
 
         List<StudyRecord> dueRecords = studyRecordRepository.findDueRecordsByCategory(user, today, category);
         List<Card> dueCards = dueRecords.stream()
                 .map(StudyRecord::getCard)
+                .filter(card -> includeAiCards || !card.isAiGenerated())
                 .limit(limit)
                 .collect(Collectors.toList());
 
@@ -63,7 +74,10 @@ public class StudyDomainService {
         }
 
         List<Long> studiedCardIds = studyRecordRepository.findStudiedCardIdsByUser(user);
-        List<Card> newCards = cardRepository.findByCategoryOrderByEfFactorAsc(category).stream()
+        List<Card> newCards = (category != null
+                ? cardRepository.findByCategoryOrderByEfFactorAsc(category, includeAiCards)
+                : cardRepository.findAllByOrderByEfFactorAsc(includeAiCards))
+                .stream()
                 .filter(card -> !studiedCardIds.contains(card.getId()))
                 .limit(limit - dueCards.size())
                 .collect(Collectors.toList());
@@ -73,7 +87,7 @@ public class StudyDomainService {
     }
 
     public List<Card> findTodayStudyCards(User user, Category category) {
-        return findTodayStudyCards(user, category, DEFAULT_STUDY_LIMIT);
+        return findTodayStudyCards(user, category, DEFAULT_STUDY_LIMIT, true);
     }
 
     public StudyRecord processAnswer(User user, Card card, StudySession session, Boolean isCorrect) {
@@ -96,11 +110,9 @@ public class StudyDomainService {
             return record;
         } else {
             double initialEfFactor = card.getEfFactor();
-            int quality = isCorrect ? 4 : 2;
-            double delta = 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
-            double newEfFactor = Math.max(initialEfFactor + delta, 1.3);
+            double newEfFactor = SM2Constants.calculateNewEfFactor(initialEfFactor, isCorrect);
 
-            int initialInterval = 1;
+            int initialInterval = SM2Constants.FIRST_INTERVAL;
             LocalDate nextReviewDate = LocalDate.now().plusDays(initialInterval);
 
             StudyRecord newRecord = StudyRecord.builder()
@@ -126,15 +138,15 @@ public class StudyDomainService {
 
     public int calculateInterval(int repetitionCount, double efFactor, boolean isCorrect) {
         if (!isCorrect) {
-            return 1;
+            return SM2Constants.FIRST_INTERVAL;
         }
 
         if (repetitionCount == 1) {
-            return 1;
+            return SM2Constants.FIRST_INTERVAL;
         } else if (repetitionCount == 2) {
-            return 6;
+            return SM2Constants.SECOND_INTERVAL;
         } else {
-            int prevInterval = (int) Math.round(6 * Math.pow(efFactor, repetitionCount - 3));
+            int prevInterval = (int) Math.round(SM2Constants.SECOND_INTERVAL * Math.pow(efFactor, repetitionCount - 3));
             return (int) Math.round(prevInterval * efFactor);
         }
     }
@@ -192,11 +204,9 @@ public class StudyDomainService {
             return record;
         } else {
             double initialEfFactor = userCard.getEfFactor();
-            int quality = isCorrect ? 4 : 2;
-            double delta = 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
-            double newEfFactor = Math.max(initialEfFactor + delta, 1.3);
+            double newEfFactor = SM2Constants.calculateNewEfFactor(initialEfFactor, isCorrect);
 
-            int initialInterval = 1;
+            int initialInterval = SM2Constants.FIRST_INTERVAL;
             LocalDate nextReviewDate = LocalDate.now().plusDays(initialInterval);
 
             StudyRecord newRecord = StudyRecord.builder()
@@ -232,5 +242,75 @@ public class StudyDomainService {
         }
 
         return allCards;
+    }
+
+    public int countDueCards(User user, LocalDate date) {
+        return studyRecordRepository.countDueCards(user, date);
+    }
+
+    public int countTotalStudiedCards(User user) {
+        return studyRecordRepository.countTotalStudiedCards(user);
+    }
+
+    public TotalAndCorrect countTotalAndCorrect(User user) {
+        return studyRecordRepository.countTotalAndCorrect(user);
+    }
+
+    public List<CategoryCount> countStudiedByCategory(User user) {
+        return studyRecordRepository.countStudiedByCategory(user);
+    }
+
+    public List<CategoryCount> countLearningByCategory(User user) {
+        return studyRecordRepository.countLearningByCategory(user);
+    }
+
+    public List<CategoryCount> countDueByCategory(User user, LocalDate date) {
+        return studyRecordRepository.countDueByCategory(user, date);
+    }
+
+    public List<CategoryCount> countMasteredByCategory(User user) {
+        return studyRecordRepository.countMasteredByCategory(user);
+    }
+
+    public List<DailyActivity> findDailyActivity(User user, LocalDateTime since) {
+        return studyRecordRepository.findDailyActivity(user, since);
+    }
+
+    public Optional<StudySession> findActiveSession(User user) {
+        return studySessionRepository.findByUserAndEndedAtIsNull(user);
+    }
+
+    public Page<StudySession> findSessionHistory(User user, Pageable pageable) {
+        return studySessionRepository.findByUserOrderByStartedAtDesc(user, pageable);
+    }
+
+    public void validateSessionOwnership(StudySession session, User user) {
+        if (!session.getUser().getId().equals(user.getId())) {
+            throw new StudyException(StudyErrorCode.SESSION_ACCESS_DENIED);
+        }
+    }
+
+    public void validateSessionActive(StudySession session) {
+        if (session.getEndedAt() != null) {
+            throw new StudyException(StudyErrorCode.SESSION_ALREADY_ENDED);
+        }
+    }
+
+    public List<StudyRecord> findRecordsBySession(StudySession session) {
+        return studyRecordRepository.findBySessionWithDetails(session);
+    }
+
+    public TotalAndCorrect countTodayStudy(User user, LocalDate date) {
+        var result = studyRecordRepository.countTodayStudy(user, date);
+        return new TotalAndCorrect(result.totalCount(), result.correctCount());
+    }
+
+    public boolean isCategoryFullyMastered(User user, Category category) {
+        long totalCardsInCategory = cardRepository.countByCategory(category);
+        if (totalCardsInCategory == 0) {
+            return false;
+        }
+        long masteredCardsInCategory = studyRecordRepository.countMasteredCardsInCategory(user, category);
+        return masteredCardsInCategory >= totalCardsInCategory;
     }
 }

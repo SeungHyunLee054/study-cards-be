@@ -1,7 +1,8 @@
 package com.example.study_cards.domain.study.repository;
 
-import com.example.study_cards.domain.card.entity.Category;
+import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.study.entity.StudyRecord;
+import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.user.entity.User;
 import com.querydsl.core.types.dsl.DateTemplate;
 import com.querydsl.core.types.dsl.Expressions;
@@ -48,15 +49,18 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
     @Override
     public List<CategoryCount> countStudiedByCategory(User user) {
         return queryFactory
-                .select(studyRecord.card.category, studyRecord.card.countDistinct())
+                .select(studyRecord.card.category.id, studyRecord.card.category.code, studyRecord.card.countDistinct())
                 .from(studyRecord)
+                .join(studyRecord.card, card)
+                .join(card.category)
                 .where(studyRecord.user.eq(user))
-                .groupBy(studyRecord.card.category)
+                .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
                 .stream()
                 .map(tuple -> new CategoryCount(
-                        (Category) tuple.get(0, Object.class),
-                        toNullableLong(tuple.get(1, Object.class))
+                        tuple.get(studyRecord.card.category.id),
+                        tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
     }
@@ -64,18 +68,21 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
     @Override
     public List<CategoryCount> countLearningByCategory(User user) {
         return queryFactory
-                .select(studyRecord.card.category, studyRecord.count())
+                .select(studyRecord.card.category.id, studyRecord.card.category.code, studyRecord.count())
                 .from(studyRecord)
+                .join(studyRecord.card, card)
+                .join(card.category)
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.repetitionCount.between(1, 2)
                 )
-                .groupBy(studyRecord.card.category)
+                .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
                 .stream()
                 .map(tuple -> new CategoryCount(
-                        (Category) tuple.get(0, Object.class),
-                        toNullableLong(tuple.get(1, Object.class))
+                        tuple.get(studyRecord.card.category.id),
+                        tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
     }
@@ -83,19 +90,22 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
     @Override
     public List<CategoryCount> countDueByCategory(User user, LocalDate date) {
         return queryFactory
-                .select(studyRecord.card.category, studyRecord.count())
+                .select(studyRecord.card.category.id, studyRecord.card.category.code, studyRecord.count())
                 .from(studyRecord)
+                .join(studyRecord.card, card)
+                .join(card.category)
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
                         studyRecord.repetitionCount.gt(2)
                 )
-                .groupBy(studyRecord.card.category)
+                .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
                 .stream()
                 .map(tuple -> new CategoryCount(
-                        (Category) tuple.get(0, Object.class),
-                        toNullableLong(tuple.get(1, Object.class))
+                        tuple.get(studyRecord.card.category.id),
+                        tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
     }
@@ -142,6 +152,7 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
         return queryFactory
                 .selectFrom(studyRecord)
                 .join(studyRecord.card, card).fetchJoin()
+                .join(card.category).fetchJoin()
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
@@ -188,18 +199,21 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
     @Override
     public List<CategoryCount> countMasteredByCategory(User user) {
         return queryFactory
-                .select(studyRecord.card.category, studyRecord.card.countDistinct())
+                .select(studyRecord.card.category.id, studyRecord.card.category.code, studyRecord.card.countDistinct())
                 .from(studyRecord)
+                .join(studyRecord.card, card)
+                .join(card.category)
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.repetitionCount.goe(5)
                 )
-                .groupBy(studyRecord.card.category)
+                .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
                 .stream()
                 .map(tuple -> new CategoryCount(
-                        (Category) tuple.get(0, Object.class),
-                        toNullableLong(tuple.get(1, Object.class))
+                        tuple.get(studyRecord.card.category.id),
+                        tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
     }
@@ -209,6 +223,7 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
         return queryFactory
                 .selectFrom(studyRecord)
                 .join(studyRecord.userCard, userCard).fetchJoin()
+                .join(userCard.category).fetchJoin()
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
@@ -234,11 +249,58 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
         return queryFactory
                 .selectFrom(studyRecord)
                 .join(studyRecord.userCard, userCard).fetchJoin()
+                .join(userCard.category).fetchJoin()
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date)
                 )
                 .fetch();
+    }
+
+    @Override
+    public List<StudyRecord> findBySessionWithDetails(StudySession session) {
+        return queryFactory
+                .selectFrom(studyRecord)
+                .leftJoin(studyRecord.card, card).fetchJoin()
+                .leftJoin(studyRecord.userCard, userCard).fetchJoin()
+                .where(studyRecord.session.eq(session))
+                .orderBy(studyRecord.studiedAt.asc())
+                .fetch();
+    }
+
+    @Override
+    public TodayStudyCount countTodayStudy(User user, LocalDate date) {
+        var correctCountExpr = Expressions.numberTemplate(
+                Long.class,
+                "SUM(CASE WHEN {0} = true THEN 1 ELSE 0 END)",
+                studyRecord.isCorrect
+        );
+
+        DateTemplate<LocalDate> studyDate = Expressions.dateTemplate(
+                LocalDate.class,
+                "CAST({0} AS date)",
+                studyRecord.studiedAt
+        );
+
+        var result = queryFactory
+                .select(
+                        studyRecord.count(),
+                        correctCountExpr
+                )
+                .from(studyRecord)
+                .where(
+                        studyRecord.user.eq(user),
+                        studyDate.eq(date)
+                )
+                .fetchOne();
+
+        if (result == null) {
+            return new TodayStudyCount(0L, 0L);
+        }
+        return new TodayStudyCount(
+                toNullableLong(result.get(0, Object.class)),
+                toNullableLong(result.get(1, Object.class))
+        );
     }
 
     private Long toNullableLong(Object value) {
@@ -262,5 +324,20 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
             return ((java.sql.Date) value).toLocalDate();
         }
         return null;
+    }
+
+    @Override
+    public long countMasteredCardsInCategory(User user, Category category) {
+        Long count = queryFactory
+                .select(studyRecord.card.countDistinct())
+                .from(studyRecord)
+                .join(studyRecord.card, card)
+                .where(
+                        studyRecord.user.eq(user),
+                        card.category.eq(category),
+                        studyRecord.repetitionCount.goe(3)
+                )
+                .fetchOne();
+        return count != null ? count : 0L;
     }
 }

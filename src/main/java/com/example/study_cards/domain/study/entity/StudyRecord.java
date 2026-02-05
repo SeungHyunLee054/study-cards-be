@@ -2,6 +2,7 @@ package com.example.study_cards.domain.study.entity;
 
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.common.audit.BaseEntity;
+import com.example.study_cards.domain.study.constant.SM2Constants;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import jakarta.persistence.*;
@@ -80,9 +81,7 @@ public class StudyRecord extends BaseEntity {
     }
 
     public void updateEfFactor(boolean isCorrect) {
-        int quality = isCorrect ? 4 : 2;
-        double delta = 0.1 - (5 - quality) * (0.08 + (5 - quality) * 0.02);
-        this.efFactor = Math.max(this.efFactor + delta, 1.3);
+        this.efFactor = SM2Constants.calculateNewEfFactor(this.efFactor, isCorrect);
     }
 
     public void updateForReview(Boolean isCorrect, LocalDate newNextReviewDate, Integer newInterval) {
