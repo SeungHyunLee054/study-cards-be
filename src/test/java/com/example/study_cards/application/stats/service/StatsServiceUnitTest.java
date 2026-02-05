@@ -1,13 +1,12 @@
 package com.example.study_cards.application.stats.service;
 
-import com.example.study_cards.application.stats.dto.response.DailyActivity;
-import com.example.study_cards.application.stats.dto.response.DeckStats;
 import com.example.study_cards.application.stats.dto.response.StatsResponse;
-import com.example.study_cards.domain.card.entity.Category;
-import com.example.study_cards.domain.card.repository.CardRepository;
 import com.example.study_cards.domain.card.repository.CardRepositoryCustom.CategoryCount;
-import com.example.study_cards.domain.study.repository.StudyRecordRepository;
+import com.example.study_cards.domain.card.service.CardDomainService;
+import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom;
+import com.example.study_cards.domain.study.service.StudyDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -16,8 +15,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 
-import java.lang.reflect.Field;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Collections;
@@ -30,28 +29,49 @@ import static org.mockito.BDDMockito.given;
 
 class StatsServiceUnitTest extends BaseUnitTest {
 
+    @Mock
+    private StudyDomainService studyDomainService;
+
+    @Mock
+    private CardDomainService cardDomainService;
+
+    @Mock
+    private CategoryDomainService categoryDomainService;
+
     @InjectMocks
     private StatsService statsService;
 
-    @Mock
-    private StudyRecordRepository studyRecordRepository;
+    private User testUser;
+    private Category testCategory;
 
-    @Mock
-    private CardRepository cardRepository;
-
-    private User user;
+    private static final Long USER_ID = 1L;
+    private static final Long CATEGORY_ID = 1L;
 
     @BeforeEach
-    void setUp() throws Exception {
-        user = User.builder()
+    void setUp() {
+        testUser = createTestUser();
+        testCategory = createTestCategory();
+    }
+
+    private User createTestUser() {
+        User user = User.builder()
                 .email("test@example.com")
                 .password("password123")
-                .nickname("testUser")
+                .nickname("테스트유저")
                 .build();
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        ReflectionTestUtils.setField(user, "streak", 5);
+        return user;
+    }
 
-        Field idField = User.class.getDeclaredField("id");
-        idField.setAccessible(true);
-        idField.set(user, 1L);
+    private Category createTestCategory() {
+        Category category = Category.builder()
+                .code("CS")
+                .name("컴퓨터 과학")
+                .displayOrder(1)
+                .build();
+        ReflectionTestUtils.setField(category, "id", CATEGORY_ID);
+        return category;
     }
 
     @Nested
@@ -59,142 +79,143 @@ class StatsServiceUnitTest extends BaseUnitTest {
     class GetStatsTest {
 
         @Test
-        @DisplayName("통계를 정상적으로 조회한다")
-        void getStats_success() {
+        @DisplayName("통계 정보를 조회한다")
+        void getStats_returnsStatsResponse() {
             // given
             LocalDate today = LocalDate.now();
-            given(studyRecordRepository.countDueCards(eq(user), any(LocalDate.class))).willReturn(5);
-            given(studyRecordRepository.countTotalStudiedCards(user)).willReturn(10);
-            given(cardRepository.count()).willReturn(100L);
-            given(studyRecordRepository.countTotalAndCorrect(user))
-                    .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(20L, 17L));
-            given(cardRepository.countByCategory()).willReturn(List.of(
-                    new CategoryCount(Category.CS, 50L),
-                    new CategoryCount(Category.ENGLISH, 30L)
-            ));
-            given(studyRecordRepository.countStudiedByCategory(user)).willReturn(List.of(
-                    new StudyRecordRepositoryCustom.CategoryCount(Category.CS, 5L)
-            ));
-            given(studyRecordRepository.countLearningByCategory(user)).willReturn(List.of(
-                    new StudyRecordRepositoryCustom.CategoryCount(Category.CS, 3L)
-            ));
-            given(studyRecordRepository.countDueByCategory(eq(user), any(LocalDate.class))).willReturn(List.of(
-                    new StudyRecordRepositoryCustom.CategoryCount(Category.CS, 2L)
-            ));
-            given(studyRecordRepository.countMasteredByCategory(user)).willReturn(List.of(
-                    new StudyRecordRepositoryCustom.CategoryCount(Category.CS, 5L)
-            ));
-            given(studyRecordRepository.findDailyActivity(eq(user), any(LocalDateTime.class))).willReturn(List.of(
-                    new StudyRecordRepositoryCustom.DailyActivity(today, 5L, 4L),
-                    new StudyRecordRepositoryCustom.DailyActivity(today.minusDays(1), 3L, 2L)
-            ));
+
+            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(5);
+            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(50);
+            given(cardDomainService.count()).willReturn(100L);
+            given(studyDomainService.countTotalAndCorrect(testUser))
+                    .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(100L, 80L));
+
+            given(categoryDomainService.findAll()).willReturn(List.of(testCategory));
+            given(cardDomainService.countAllByCategory()).willReturn(List.of(new CategoryCount(CATEGORY_ID, "CS", 50L)));
+            given(studyDomainService.countStudiedByCategory(testUser))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 30L)));
+            given(studyDomainService.countLearningByCategory(testUser))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 10L)));
+            given(studyDomainService.countDueByCategory(eq(testUser), any(LocalDate.class)))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 5L)));
+            given(studyDomainService.countMasteredByCategory(testUser))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 15L)));
+            given(studyDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.DailyActivity(today, 10L, 8L)));
 
             // when
-            StatsResponse result = statsService.getStats(user);
+            StatsResponse result = statsService.getStats(testUser);
 
             // then
             assertThat(result).isNotNull();
+            assertThat(result.overview()).isNotNull();
             assertThat(result.overview().dueToday()).isEqualTo(5);
-            assertThat(result.overview().totalStudied()).isEqualTo(10);
-            assertThat(result.overview().newCards()).isEqualTo(90);
-            assertThat(result.overview().streak()).isEqualTo(0);
-            assertThat(result.overview().accuracyRate()).isEqualTo(85.0);
-
-            DeckStats csStats = result.deckStats().stream()
-                    .filter(d -> d.category().equals("CS"))
-                    .findFirst()
-                    .orElseThrow();
-            assertThat(csStats.masteryRate()).isEqualTo(10.0);
+            assertThat(result.overview().totalStudied()).isEqualTo(50);
+            assertThat(result.overview().newCards()).isEqualTo(50);
+            assertThat(result.overview().streak()).isEqualTo(5);
+            assertThat(result.overview().accuracyRate()).isEqualTo(80.0);
         }
 
         @Test
-        @DisplayName("학습 기록이 없으면 모든 카드가 new로 표시된다")
-        void getStats_noStudyRecord_allCardsAreNew() {
+        @DisplayName("학습 기록이 없을 때 통계 정보를 조회한다")
+        void getStats_withNoRecords_returnsEmptyStats() {
             // given
-            given(studyRecordRepository.countDueCards(eq(user), any(LocalDate.class))).willReturn(0);
-            given(studyRecordRepository.countTotalStudiedCards(user)).willReturn(0);
-            given(cardRepository.count()).willReturn(100L);
-            given(studyRecordRepository.countTotalAndCorrect(user))
+            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(0);
+            given(cardDomainService.count()).willReturn(100L);
+            given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(0L, 0L));
-            given(cardRepository.countByCategory()).willReturn(List.of(
-                    new CategoryCount(Category.CS, 100L)
-            ));
-            given(studyRecordRepository.countStudiedByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countLearningByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countDueByCategory(eq(user), any(LocalDate.class))).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countMasteredByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.findDailyActivity(eq(user), any(LocalDateTime.class))).willReturn(Collections.emptyList());
+
+            given(categoryDomainService.findAll()).willReturn(List.of(testCategory));
+            given(cardDomainService.countAllByCategory()).willReturn(List.of(new CategoryCount(CATEGORY_ID, "CS", 50L)));
+            given(studyDomainService.countStudiedByCategory(testUser)).willReturn(Collections.emptyList());
+            given(studyDomainService.countLearningByCategory(testUser)).willReturn(Collections.emptyList());
+            given(studyDomainService.countDueByCategory(eq(testUser), any(LocalDate.class)))
+                    .willReturn(Collections.emptyList());
+            given(studyDomainService.countMasteredByCategory(testUser)).willReturn(Collections.emptyList());
+            given(studyDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
+                    .willReturn(Collections.emptyList());
 
             // when
-            StatsResponse result = statsService.getStats(user);
+            StatsResponse result = statsService.getStats(testUser);
 
             // then
+            assertThat(result).isNotNull();
+            assertThat(result.overview().dueToday()).isZero();
+            assertThat(result.overview().totalStudied()).isZero();
             assertThat(result.overview().newCards()).isEqualTo(100);
-            assertThat(result.overview().totalStudied()).isEqualTo(0);
-            assertThat(result.overview().accuracyRate()).isEqualTo(0.0);
-
-            DeckStats csStats = result.deckStats().stream()
-                    .filter(d -> d.category().equals("CS"))
-                    .findFirst()
-                    .orElseThrow();
-            assertThat(csStats.newCount()).isEqualTo(100);
-            assertThat(csStats.learningCount()).isEqualTo(0);
-            assertThat(csStats.reviewCount()).isEqualTo(0);
-            assertThat(csStats.masteryRate()).isEqualTo(0.0);
+            assertThat(result.overview().accuracyRate()).isZero();
         }
 
         @Test
-        @DisplayName("모든 카테고리에 대한 DeckStats를 반환한다")
-        void getStats_returnsAllCategoryDeckStats() {
+        @DisplayName("덱 통계를 정확하게 계산한다")
+        void getStats_calculatesDeckStats() {
             // given
-            given(studyRecordRepository.countDueCards(eq(user), any(LocalDate.class))).willReturn(0);
-            given(studyRecordRepository.countTotalStudiedCards(user)).willReturn(0);
-            given(cardRepository.count()).willReturn(0L);
-            given(studyRecordRepository.countTotalAndCorrect(user))
+            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(0);
+            given(cardDomainService.count()).willReturn(100L);
+            given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(0L, 0L));
-            given(cardRepository.countByCategory()).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countStudiedByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countLearningByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countDueByCategory(eq(user), any(LocalDate.class))).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countMasteredByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.findDailyActivity(eq(user), any(LocalDateTime.class))).willReturn(Collections.emptyList());
+
+            given(categoryDomainService.findAll()).willReturn(List.of(testCategory));
+            given(cardDomainService.countAllByCategory()).willReturn(List.of(new CategoryCount(CATEGORY_ID, "CS", 100L)));
+            given(studyDomainService.countStudiedByCategory(testUser))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 40L)));
+            given(studyDomainService.countLearningByCategory(testUser))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 20L)));
+            given(studyDomainService.countDueByCategory(eq(testUser), any(LocalDate.class)))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 10L)));
+            given(studyDomainService.countMasteredByCategory(testUser))
+                    .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 30L)));
+            given(studyDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
+                    .willReturn(Collections.emptyList());
 
             // when
-            StatsResponse result = statsService.getStats(user);
+            StatsResponse result = statsService.getStats(testUser);
 
             // then
-            assertThat(result.deckStats()).hasSize(Category.values().length);
+            assertThat(result.deckStats()).hasSize(1);
+            assertThat(result.deckStats().get(0).category()).isEqualTo("CS");
+            assertThat(result.deckStats().get(0).newCount()).isEqualTo(60);
+            assertThat(result.deckStats().get(0).learningCount()).isEqualTo(20);
+            assertThat(result.deckStats().get(0).reviewCount()).isEqualTo(10);
+            assertThat(result.deckStats().get(0).masteryRate()).isEqualTo(30.0);
         }
 
         @Test
-        @DisplayName("최근 7일간의 활동 기록을 반환한다")
+        @DisplayName("최근 7일간의 활동 통계를 조회한다")
         void getStats_returnsRecentActivity() {
             // given
             LocalDate today = LocalDate.now();
-            given(studyRecordRepository.countDueCards(eq(user), any(LocalDate.class))).willReturn(0);
-            given(studyRecordRepository.countTotalStudiedCards(user)).willReturn(0);
-            given(cardRepository.count()).willReturn(0L);
-            given(studyRecordRepository.countTotalAndCorrect(user))
+            LocalDate yesterday = today.minusDays(1);
+
+            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(0);
+            given(cardDomainService.count()).willReturn(0L);
+            given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(0L, 0L));
-            given(cardRepository.countByCategory()).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countStudiedByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countLearningByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countDueByCategory(eq(user), any(LocalDate.class))).willReturn(Collections.emptyList());
-            given(studyRecordRepository.countMasteredByCategory(user)).willReturn(Collections.emptyList());
-            given(studyRecordRepository.findDailyActivity(eq(user), any(LocalDateTime.class))).willReturn(List.of(
-                    new StudyRecordRepositoryCustom.DailyActivity(today, 10L, 8L),
-                    new StudyRecordRepositoryCustom.DailyActivity(today.minusDays(1), 5L, 4L)
-            ));
+
+            given(categoryDomainService.findAll()).willReturn(Collections.emptyList());
+            given(cardDomainService.countAllByCategory()).willReturn(Collections.emptyList());
+            given(studyDomainService.countStudiedByCategory(testUser)).willReturn(Collections.emptyList());
+            given(studyDomainService.countLearningByCategory(testUser)).willReturn(Collections.emptyList());
+            given(studyDomainService.countDueByCategory(eq(testUser), any(LocalDate.class)))
+                    .willReturn(Collections.emptyList());
+            given(studyDomainService.countMasteredByCategory(testUser)).willReturn(Collections.emptyList());
+            given(studyDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
+                    .willReturn(List.of(
+                            new StudyRecordRepositoryCustom.DailyActivity(today, 20L, 18L),
+                            new StudyRecordRepositoryCustom.DailyActivity(yesterday, 15L, 12L)
+                    ));
 
             // when
-            StatsResponse result = statsService.getStats(user);
+            StatsResponse result = statsService.getStats(testUser);
 
             // then
             assertThat(result.recentActivity()).hasSize(2);
-            DailyActivity todayActivity = result.recentActivity().get(0);
-            assertThat(todayActivity.date()).isEqualTo(today);
-            assertThat(todayActivity.studied()).isEqualTo(10);
-            assertThat(todayActivity.correct()).isEqualTo(8);
+            assertThat(result.recentActivity().get(0).date()).isEqualTo(today);
+            assertThat(result.recentActivity().get(0).studied()).isEqualTo(20);
+            assertThat(result.recentActivity().get(0).correct()).isEqualTo(18);
         }
     }
 }

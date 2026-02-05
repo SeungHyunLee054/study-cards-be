@@ -4,9 +4,10 @@ import com.example.study_cards.application.stats.dto.response.DailyActivity;
 import com.example.study_cards.application.stats.dto.response.DeckStats;
 import com.example.study_cards.application.stats.dto.response.OverviewStats;
 import com.example.study_cards.application.stats.dto.response.StatsResponse;
-import com.example.study_cards.domain.card.entity.Category;
-import com.example.study_cards.domain.card.repository.CardRepository;
-import com.example.study_cards.domain.study.repository.StudyRecordRepository;
+import com.example.study_cards.domain.card.service.CardDomainService;
+import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.service.CategoryDomainService;
+import com.example.study_cards.domain.study.service.StudyDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,8 +22,9 @@ import java.util.*;
 @Transactional(readOnly = true)
 public class StatsService {
 
-    private final StudyRecordRepository studyRecordRepository;
-    private final CardRepository cardRepository;
+    private final StudyDomainService studyDomainService;
+    private final CardDomainService cardDomainService;
+    private final CategoryDomainService categoryDomainService;
 
     public StatsResponse getStats(User user) {
         LocalDate today = LocalDate.now();
@@ -35,9 +37,9 @@ public class StatsService {
     }
 
     private OverviewStats calculateOverview(User user, LocalDate today) {
-        int dueToday = studyRecordRepository.countDueCards(user, today);
-        int totalStudied = studyRecordRepository.countTotalStudiedCards(user);
-        long totalCards = cardRepository.count();
+        int dueToday = studyDomainService.countDueCards(user, today);
+        int totalStudied = studyDomainService.countTotalStudiedCards(user);
+        long totalCards = cardDomainService.count();
         int newCards = (int) totalCards - totalStudied;
         int streak = user.getStreak();
         double accuracyRate = calculateAccuracyRate(user);
@@ -46,7 +48,7 @@ public class StatsService {
     }
 
     private double calculateAccuracyRate(User user) {
-        var result = studyRecordRepository.countTotalAndCorrect(user);
+        var result = studyDomainService.countTotalAndCorrect(user);
         if (result.totalCount() == 0) {
             return 0.0;
         }
@@ -54,46 +56,49 @@ public class StatsService {
     }
 
     private List<DeckStats> calculateDeckStats(User user, LocalDate today) {
+        List<Category> allCategories = categoryDomainService.findAll();
+
         // 카테고리별 전체 카드 수
-        Map<Category, Long> totalByCategory = new EnumMap<>(Category.class);
-        for (var row : cardRepository.countByCategory()) {
-            totalByCategory.put(row.category(), row.count());
+        Map<String, Long> totalByCategory = new HashMap<>();
+        for (var row : cardDomainService.countAllByCategory()) {
+            totalByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 학습한 카드 수
-        Map<Category, Long> studiedByCategory = new EnumMap<>(Category.class);
-        for (var row : studyRecordRepository.countStudiedByCategory(user)) {
-            studiedByCategory.put(row.category(), row.count());
+        Map<String, Long> studiedByCategory = new HashMap<>();
+        for (var row : studyDomainService.countStudiedByCategory(user)) {
+            studiedByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 학습 중인 카드 수
-        Map<Category, Long> learningByCategory = new EnumMap<>(Category.class);
-        for (var row : studyRecordRepository.countLearningByCategory(user)) {
-            learningByCategory.put(row.category(), row.count());
+        Map<String, Long> learningByCategory = new HashMap<>();
+        for (var row : studyDomainService.countLearningByCategory(user)) {
+            learningByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 복습 카드 수
-        Map<Category, Long> reviewByCategory = new EnumMap<>(Category.class);
-        for (var row : studyRecordRepository.countDueByCategory(user, today)) {
-            reviewByCategory.put(row.category(), row.count());
+        Map<String, Long> reviewByCategory = new HashMap<>();
+        for (var row : studyDomainService.countDueByCategory(user, today)) {
+            reviewByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 마스터 카드 수
-        Map<Category, Long> masteredByCategory = new EnumMap<>(Category.class);
-        for (var row : studyRecordRepository.countMasteredByCategory(user)) {
-            masteredByCategory.put(row.category(), row.count());
+        Map<String, Long> masteredByCategory = new HashMap<>();
+        for (var row : studyDomainService.countMasteredByCategory(user)) {
+            masteredByCategory.put(row.categoryCode(), row.count());
         }
 
         List<DeckStats> deckStatsList = new ArrayList<>();
-        for (Category category : Category.values()) {
-            long total = totalByCategory.getOrDefault(category, 0L);
-            long studied = studiedByCategory.getOrDefault(category, 0L);
+        for (Category category : allCategories) {
+            String code = category.getCode();
+            long total = totalByCategory.getOrDefault(code, 0L);
+            long studied = studiedByCategory.getOrDefault(code, 0L);
             int newCount = (int) (total - studied);
-            int learningCount = learningByCategory.getOrDefault(category, 0L).intValue();
-            int reviewCount = reviewByCategory.getOrDefault(category, 0L).intValue();
-            double masteryRate = calculateMasteryRate(total, masteredByCategory.getOrDefault(category, 0L));
+            int learningCount = learningByCategory.getOrDefault(code, 0L).intValue();
+            int reviewCount = reviewByCategory.getOrDefault(code, 0L).intValue();
+            double masteryRate = calculateMasteryRate(total, masteredByCategory.getOrDefault(code, 0L));
 
-            deckStatsList.add(new DeckStats(category.name(), newCount, learningCount, reviewCount, masteryRate));
+            deckStatsList.add(new DeckStats(code, newCount, learningCount, reviewCount, masteryRate));
         }
 
         return deckStatsList;
@@ -108,7 +113,7 @@ public class StatsService {
 
     private List<DailyActivity> calculateRecentActivity(User user) {
         LocalDateTime since = LocalDateTime.now().minusDays(7);
-        var results = studyRecordRepository.findDailyActivity(user, since);
+        var results = studyDomainService.findDailyActivity(user, since);
 
         return results.stream()
                 .map(row -> new DailyActivity(
