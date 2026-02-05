@@ -8,6 +8,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 public class UserDomainService {
@@ -51,5 +53,9 @@ public class UserDomainService {
 
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmail(email);
+    }
+
+    public List<User> findAllPushEnabledUsersWithToken() {
+        return userRepository.findAllByPushEnabledTrueAndFcmTokenIsNotNull();
     }
 }

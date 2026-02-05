@@ -1,6 +1,8 @@
 package com.example.study_cards.domain.user.entity;
 
 import com.example.study_cards.domain.common.audit.BaseEntity;
+import com.example.study_cards.domain.subscription.entity.Subscription;
+import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -49,6 +51,17 @@ public class User extends BaseEntity {
 
     private LocalDate lastStudyDate;
 
+    private String fcmToken;
+
+    @Column(nullable = false)
+    private Boolean pushEnabled = true;
+
+    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
+    private Subscription subscription;
+
+    @Version
+    private Long version;
+
     @Builder
     public User(String email, String password, String nickname, Set<Role> roles,
                 OAuthProvider provider, String providerId) {
@@ -60,6 +73,7 @@ public class User extends BaseEntity {
         this.providerId = providerId;
         this.streak = 0;
         this.masteryRate = 0.0;
+        this.pushEnabled = true;
     }
 
     public boolean isOAuthUser() {
@@ -97,5 +111,27 @@ public class User extends BaseEntity {
 
     public void updatePassword(String password) {
         this.password = password;
+    }
+
+    public void updateFcmToken(String fcmToken) {
+        this.fcmToken = fcmToken;
+    }
+
+    public void removeFcmToken() {
+        this.fcmToken = null;
+    }
+
+    public void updatePushEnabled(Boolean pushEnabled) {
+        this.pushEnabled = pushEnabled;
+    }
+
+    public SubscriptionPlan getSubscriptionPlan() {
+        if (hasRole(Role.ROLE_ADMIN)) {
+            return SubscriptionPlan.PREMIUM;
+        }
+        if (subscription == null || !subscription.isActive()) {
+            return SubscriptionPlan.BASIC;
+        }
+        return subscription.getPlan();
     }
 }
