@@ -5,6 +5,10 @@ on:
     branches:
       - main
 
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
 env:
   IMAGE_NAME: study-cards-app
 
@@ -77,18 +81,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
 
-      - name: Build Docker image
+      - name: Extract Docker image metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ secrets.DOCKER_USERNAME }}/study-cards-app
+          tags: |
+            type=sha
+            type=raw,value=latest
+
+      - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
           context: .
           file: ./Dockerfile
-          tags: |
-            ${{ env.IMAGE_NAME }}:latest
-            ${{ env.IMAGE_NAME }}:${{ github.sha }}
-          outputs: type=docker,dest=/tmp/${{ env.IMAGE_NAME }}.tar
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -101,16 +113,6 @@ jobs:
           script: |
             sudo mkdir -p /opt/study-cards
             sudo chown -R ${{ secrets.GCP_VM_USER }}:${{ secrets.GCP_VM_USER }} /opt/study-cards
-
-      - name: Copy Docker image to VM
-        uses: appleboy/scp-action@v0.1.7
-        with:
-          host: ${{ secrets.GCP_VM_HOST }}
-          username: ${{ secrets.GCP_VM_USER }}
-          key: ${{ secrets.GCP_VM_SSH_KEY }}
-          source: /tmp/${{ env.IMAGE_NAME }}.tar
-          target: /opt/study-cards/
-          strip_components: 1
 
       - name: Copy deployment files to VM
         uses: appleboy/scp-action@v0.1.7
@@ -146,11 +148,12 @@ jobs:
           TOSS_WEBHOOK_SECRET: ${{ secrets.TOSS_WEBHOOK_SECRET }}
           SPRINGDOC_SERVER_URL: ${{ secrets.SPRINGDOC_SERVER_URL }}
           FCM_SERVICE_ACCOUNT_KEY: ${{ secrets.FCM_SERVICE_ACCOUNT_KEY }}
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
-          envs: DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,APP_JWT_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,OAUTH2_REDIRECT_URI,GEMINI_API_KEY,TOSS_CLIENT_KEY,TOSS_SECRET_KEY,TOSS_WEBHOOK_SECRET,SPRINGDOC_SERVER_URL,FCM_SERVICE_ACCOUNT_KEY
+          envs: DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,APP_JWT_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,OAUTH2_REDIRECT_URI,GEMINI_API_KEY,TOSS_CLIENT_KEY,TOSS_SECRET_KEY,TOSS_WEBHOOK_SECRET,SPRINGDOC_SERVER_URL,FCM_SERVICE_ACCOUNT_KEY,DOCKER_USERNAME
           script: |
             cd /opt/study-cards
 
@@ -173,6 +176,7 @@ jobs:
             TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
             TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
             TOSS_WEBHOOK_SECRET=${TOSS_WEBHOOK_SECRET}
+            DOCKER_IMAGE=${DOCKER_USERNAME}/study-cards-app:latest
             EOF
 
             # Append optional secrets (only if set)
@@ -190,57 +194,69 @@ jobs:
 
       - name: Deploy on VM
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD
           script: |
             cd /opt/study-cards
 
-            # Load Docker image
-            if [ -f study-cards-app.tar ]; then
-              docker load -i study-cards-app.tar
-              docker tag study-cards-app:${{ github.sha }} study-cards-app:latest
-              rm -f study-cards-app.tar
-            fi
+            # Backup current image for rollback
+            docker tag $DOCKER_USERNAME/study-cards-app:latest $DOCKER_USERNAME/study-cards-app:previous 2>/dev/null || true
+
+            # Pull new image from Docker Hub
+            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+            docker pull $DOCKER_USERNAME/study-cards-app:latest
 
             # Restart containers
-            docker-compose -f docker-compose.prod.yml down || true
-            docker-compose -f docker-compose.prod.yml up -d
+            docker compose -f docker-compose.prod.yml down || true
+            docker compose -f docker-compose.prod.yml up -d
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
+        env:
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
+          envs: DOCKER_USERNAME
           script: |
             echo "Checking application health..."
             MAX_ATTEMPTS=24
             ATTEMPT=1
             while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
               if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
-                echo "✅ Application is healthy!"
+                echo "Application is healthy!"
                 exit 0
               fi
-              echo "⏳ Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting..."
+              echo "Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting..."
               sleep 5
               ATTEMPT=$((ATTEMPT + 1))
             done
-            echo "❌ Health check failed"
+
+            echo "Health check failed - rolling back..."
+            cd /opt/study-cards
+            docker compose -f docker-compose.prod.yml down || true
+            docker tag $DOCKER_USERNAME/study-cards-app:previous $DOCKER_USERNAME/study-cards-app:latest 2>/dev/null || true
+            docker compose -f docker-compose.prod.yml up -d
             exit 1
 
       - name: Notify deployment success
         if: success()
         run: |
-          echo "🚀 Deployment successful!"
+          echo "Deployment successful!"
           echo "Version: ${{ github.sha }}"
           echo "Commit: ${{ github.event.head_commit.message }}"
 
       - name: Notify deployment failure
         if: failure()
         run: |
-          echo "❌ Deployment failed!"
+          echo "Deployment failed!"
           echo "Check logs for details"
 
   cleanup-old-images:
@@ -257,30 +273,18 @@ jobs:
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
           script: |
-            echo "🧹 Cleaning up old Docker images..."
+            echo "Cleaning up old Docker images..."
 
             # Remove dangling images
             docker image prune -f
 
-            # Remove images older than 72 hours (except latest and current)
-            docker images ${{ env.IMAGE_NAME }} --format "{{.ID}} {{.CreatedAt}}" | \
-              while read id created_at; do
-                # Parse creation date (handle different date formats)
-                created_epoch=$(date -d "$created_at" +%s 2>/dev/null || echo "0")
-                current_epoch=$(date +%s)
-                age_hours=$(( (current_epoch - created_epoch) / 3600 ))
+            # Remove study-cards-app images except latest and previous
+            docker images --format "{{.Repository}}:{{.Tag}}" | \
+              grep "study-cards-app" | \
+              grep -v -E ':(latest|previous)$' | \
+              xargs -r docker rmi 2>/dev/null || true
 
-                if [ $age_hours -gt 72 ]; then
-                  # Check if image is currently used
-                  if ! docker ps -a --filter ancestor=${{ env.IMAGE_NAME }}:$id --format "{{.ID}}" | grep -q .; then
-                    echo "Removing old image: $id (age: ${age_hours}h)"
-                    docker rmi $id 2>/dev/null || echo "Could not remove $id (may be in use)"
-                  fi
-                fi
-              done
-
-            echo "✅ Cleanup completed"
+            echo "Cleanup completed"
 
             # Show remaining images
-            echo "Remaining images:"
-            docker images ${{ env.IMAGE_NAME }}
+            docker images | grep study-cards-app || true
