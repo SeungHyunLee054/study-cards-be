@@ -2,6 +2,20 @@ spring:
   application:
     name: study-cards-test
 
+  main:
+    allow-bean-definition-overriding: true
+
+
+  mail:
+    host: localhost
+    port: 25
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
   jpa:
     hibernate:
       ddl-auto: create-drop
@@ -22,7 +36,21 @@ springdoc:
   server:
     url: http://localhost:8081
 
+spring.ai.google.genai:
+  api-key: test-api-key-for-tests-only
+
+spring.security.oauth2.client:
+  registration:
+    google:
+      client-id: test-google-client-id
+      client-secret: test-google-client-secret
+      scope:
+        - email
+        - profile
+
 app:
+  oauth2:
+    redirect-uri: http://localhost:3000/oauth/callback
   security:
     jwt:
       issuer: study-cards-test

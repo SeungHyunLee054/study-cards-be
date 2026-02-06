@@ -2,6 +2,17 @@ spring:
   application:
     name: study-cards-test
 
+
+  mail:
+    host: localhost
+    port: 25
+    properties:
+      mail:
+        smtp:
+          auth: false
+          starttls:
+            enable: false
+
   jpa:
     hibernate:
       ddl-auto: create-drop
