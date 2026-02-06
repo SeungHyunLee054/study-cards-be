@@ -4,6 +4,7 @@ import com.example.study_cards.application.auth.dto.request.SignInRequest;
 import com.example.study_cards.application.auth.dto.request.SignUpRequest;
 import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.dto.response.UserResponse;
+import com.example.study_cards.application.auth.exception.AuthException;
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.exception.UserException;
@@ -75,6 +76,12 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
                 .sample();
     }
 
+    private void verifyUserEmail(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.verifyEmail();
+        userRepository.saveAndFlush(user);
+    }
+
     @Nested
     @DisplayName("signUp")
     class SignUpTest {
@@ -130,6 +137,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signIn_success_returnsTokenResult() {
             // given
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             // when
             TokenResult result = authService.signIn(signInRequest);
@@ -145,6 +153,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signIn_generatesValidJwtTokens() {
             // given
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             // when
             TokenResult result = authService.signIn(signInRequest);
@@ -162,6 +171,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signIn_savesRefreshTokenToRedis() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             // when
             TokenResult result = authService.signIn(signInRequest);
@@ -176,6 +186,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signIn_cachesUser() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             // when
             authService.signIn(signInRequest);
@@ -191,6 +202,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signIn_withWrongPassword_throwsException() {
             // given
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             SignInRequest wrongPasswordRequest = fixtureMonkey.giveMeBuilder(SignInRequest.class)
                     .set("email", signUpRequest.email())
@@ -226,6 +238,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signOut_blacklistsAccessToken() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             // when
@@ -241,6 +254,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signOut_deletesRefreshToken() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             // when
@@ -256,6 +270,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void signOut_evictsUserCache() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             // when
@@ -276,6 +291,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void refreshToken_issuesNewAccessToken() throws InterruptedException {
             // given
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult originalToken = authService.signIn(signInRequest);
 
             Thread.sleep(1000);
@@ -293,6 +309,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void refreshToken_keepsSameRefreshToken() {
             // given
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult originalToken = authService.signIn(signInRequest);
 
             // when
@@ -319,6 +336,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void refreshToken_notInRedis_throwsException() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             refreshTokenService.deleteRefreshToken(userResponse.id());
@@ -337,6 +355,7 @@ class AuthServiceIntegrationTest extends BaseIntegrationTest {
         void refreshToken_updatesUserCache() {
             // given
             UserResponse userResponse = authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             userCacheService.evictUser(userResponse.id());

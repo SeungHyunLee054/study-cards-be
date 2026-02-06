@@ -11,6 +11,8 @@ import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.notification.entity.NotificationType;
+import com.example.study_cards.domain.user.service.UserDomainService;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import com.example.study_cards.infra.redis.service.RateLimitService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -39,6 +41,12 @@ class CardServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private CardDomainService cardDomainService;
+
+    @Mock
+    private UserCardDomainService userCardDomainService;
+
+    @Mock
+    private UserDomainService userDomainService;
 
     @Mock
     private CategoryDomainService categoryDomainService;

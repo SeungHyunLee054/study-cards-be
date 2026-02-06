@@ -7,6 +7,9 @@ import com.example.study_cards.application.auth.dto.response.UserResponse;
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
+import com.example.study_cards.infra.mail.service.EmailService;
+import com.example.study_cards.infra.redis.service.EmailVerificationCodeService;
+import com.example.study_cards.infra.redis.service.PasswordResetCodeService;
 import com.example.study_cards.infra.redis.service.RefreshTokenService;
 import com.example.study_cards.infra.redis.service.TokenBlacklistService;
 import com.example.study_cards.infra.redis.service.UserCacheService;
@@ -50,6 +53,15 @@ class AuthServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private UserCacheService userCacheService;
+
+    @Mock
+    private PasswordResetCodeService passwordResetCodeService;
+
+    @Mock
+    private EmailVerificationCodeService emailVerificationCodeService;
+
+    @Mock
+    private EmailService emailService;
 
     @InjectMocks
     private AuthService authService;
@@ -97,6 +109,10 @@ class AuthServiceUnitTest extends BaseUnitTest {
             var idField = User.class.getDeclaredField("id");
             idField.setAccessible(true);
             idField.set(user, USER_ID);
+
+            var emailVerifiedField = User.class.getDeclaredField("emailVerified");
+            emailVerifiedField.setAccessible(true);
+            emailVerifiedField.set(user, true);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
@@ -113,6 +129,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
         void signUp_returnsUserResponse() {
             // given
             given(userDomainService.registerUser(EMAIL, PASSWORD, NICKNAME)).willReturn(testUser);
+            given(emailVerificationCodeService.generateAndSaveCode(EMAIL)).willReturn("123456");
 
             // when
             UserResponse response = authService.signUp(signUpRequest);
@@ -122,6 +139,7 @@ class AuthServiceUnitTest extends BaseUnitTest {
             assertThat(response.email()).isEqualTo(EMAIL);
             assertThat(response.nickname()).isEqualTo(NICKNAME);
             verify(userDomainService).registerUser(EMAIL, PASSWORD, NICKNAME);
+            verify(emailService).sendVerificationCode(EMAIL, "123456");
         }
 
         @Test

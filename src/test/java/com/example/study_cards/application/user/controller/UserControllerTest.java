@@ -6,6 +6,7 @@ import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.service.AuthService;
 import com.example.study_cards.application.user.dto.request.PasswordChangeRequest;
 import com.example.study_cards.application.user.dto.request.UserUpdateRequest;
+import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import com.example.study_cards.support.BaseIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -63,6 +64,7 @@ class UserControllerTest extends BaseIntegrationTest {
                 .set("nickname", NICKNAME)
                 .sample();
         authService.signUp(signUpRequest);
+        verifyUserEmail(EMAIL);
 
         SignInRequest signInRequest = fixtureMonkey.giveMeBuilder(SignInRequest.class)
                 .set("email", EMAIL)
@@ -70,6 +72,12 @@ class UserControllerTest extends BaseIntegrationTest {
                 .sample();
         TokenResult tokenResult = authService.signIn(signInRequest);
         accessToken = tokenResult.accessToken();
+    }
+
+    private void verifyUserEmail(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.verifyEmail();
+        userRepository.saveAndFlush(user);
     }
 
     @Nested
@@ -95,8 +103,9 @@ class UserControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("email").type(JsonFieldType.STRING).description("이메일"),
                                     fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임"),
                                     fieldWithPath("roles").type(JsonFieldType.ARRAY).description("사용자 역할"),
-                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수").optional(),
-                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도").optional()
+                                    fieldWithPath("provider").type(JsonFieldType.STRING).description("OAuth 제공자"),
+                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수"),
+                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도")
                             )
                     ));
         }
@@ -138,8 +147,9 @@ class UserControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("email").type(JsonFieldType.STRING).description("이메일"),
                                     fieldWithPath("nickname").type(JsonFieldType.STRING).description("수정된 닉네임"),
                                     fieldWithPath("roles").type(JsonFieldType.ARRAY).description("사용자 역할"),
-                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수").optional(),
-                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도").optional()
+                                    fieldWithPath("provider").type(JsonFieldType.STRING).description("OAuth 제공자"),
+                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수"),
+                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도")
                             )
                     ));
         }

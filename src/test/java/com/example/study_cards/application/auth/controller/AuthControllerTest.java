@@ -4,6 +4,7 @@ import com.example.study_cards.application.auth.dto.request.SignInRequest;
 import com.example.study_cards.application.auth.dto.request.SignUpRequest;
 import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.service.AuthService;
+import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import com.example.study_cards.infra.security.jwt.CookieProvider;
 import com.example.study_cards.support.BaseIntegrationTest;
@@ -67,6 +68,12 @@ class AuthControllerTest extends BaseIntegrationTest {
                 .sample();
     }
 
+    private void verifyUserEmail(String email) {
+        User user = userRepository.findByEmail(email).orElseThrow();
+        user.verifyEmail();
+        userRepository.saveAndFlush(user);
+    }
+
     @Nested
     @DisplayName("POST /api/auth/signup")
     class SignUpEndpointTest {
@@ -94,8 +101,9 @@ class AuthControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("email").type(JsonFieldType.STRING).description("이메일"),
                                     fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임"),
                                     fieldWithPath("roles").type(JsonFieldType.ARRAY).description("사용자 역할"),
-                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수").optional(),
-                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도").optional()
+                                    fieldWithPath("provider").type(JsonFieldType.STRING).description("OAuth 제공자"),
+                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수"),
+                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도")
                             )
                     ));
         }
@@ -153,6 +161,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @DisplayName("로그인 성공 시 200 OK와 토큰을 반환한다")
         void signIn_success_returns200WithToken() throws Exception {
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             mockMvc.perform(post("/api/auth/signin")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -183,6 +192,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @DisplayName("로그인 시 RefreshToken 쿠키를 설정한다")
         void signIn_setsRefreshTokenCookie() throws Exception {
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
 
             MvcResult result = mockMvc.perform(post("/api/auth/signin")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -225,6 +235,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @DisplayName("로그아웃 성공 시 204 No Content를 반환한다")
         void signOut_success_returns204() throws Exception {
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             mockMvc.perform(post("/api/auth/signout")
@@ -243,6 +254,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @DisplayName("로그아웃 시 RefreshToken 쿠키를 삭제한다")
         void signOut_deletesRefreshTokenCookie() throws Exception {
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             MvcResult result = mockMvc.perform(post("/api/auth/signout")
@@ -270,6 +282,7 @@ class AuthControllerTest extends BaseIntegrationTest {
         @DisplayName("토큰 갱신 성공 시 200 OK와 새 AccessToken을 반환한다")
         void refresh_success_returns200WithNewToken() throws Exception {
             authService.signUp(signUpRequest);
+            verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
             mockMvc.perform(post("/api/auth/refresh")
