@@ -10,6 +10,7 @@ import com.example.study_cards.domain.subscription.repository.PaymentRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.infra.payment.config.TossPaymentProperties;
 import com.example.study_cards.infra.payment.dto.TossWebhookPayload;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -30,12 +31,20 @@ public class PaymentWebhookController {
     private final SubscriptionDomainService subscriptionDomainService;
     private final PaymentRepository paymentRepository;
     private final NotificationService notificationService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/toss")
     public ResponseEntity<Void> handleTossWebhook(
             @RequestHeader(value = "Toss-Signature", required = false) String signature,
-            @RequestBody String rawBody,
-            @RequestBody TossWebhookPayload payload) {
+            @RequestBody String rawBody) {
+
+        TossWebhookPayload payload;
+        try {
+            payload = objectMapper.readValue(rawBody, TossWebhookPayload.class);
+        } catch (Exception e) {
+            log.error("Failed to parse webhook payload: {}", e.getMessage());
+            return ResponseEntity.badRequest().build();
+        }
 
         log.info("Received Toss webhook: eventType={}", payload.eventType());
 
