@@ -4,6 +4,7 @@ import com.example.study_cards.infra.security.jwt.JwtAccessDeniedHandler;
 import com.example.study_cards.infra.security.jwt.JwtAuthenticationEntryPoint;
 import com.example.study_cards.infra.security.jwt.JwtAuthenticationFilter;
 import com.example.study_cards.infra.security.oauth.CustomOAuth2UserService;
+import com.example.study_cards.infra.security.oauth.HttpCookieOAuth2AuthorizationRequestRepository;
 import com.example.study_cards.infra.security.oauth.OAuth2FailureHandler;
 import com.example.study_cards.infra.security.oauth.OAuth2SuccessHandler;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +38,7 @@ public class SecurityConfig {
     private final CustomOAuth2UserService customOAuth2UserService;
     private final OAuth2SuccessHandler oAuth2SuccessHandler;
     private final OAuth2FailureHandler oAuth2FailureHandler;
+    private final HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
 
     private static final String[] PUBLIC_URLS = {
             "/",
@@ -76,6 +78,8 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .oauth2Login(oauth2 -> oauth2
+                        .authorizationEndpoint(authorization -> authorization
+                                .authorizationRequestRepository(cookieAuthorizationRequestRepository))
                         .userInfoEndpoint(userInfo -> userInfo
                                 .userService(customOAuth2UserService))
                         .successHandler(oAuth2SuccessHandler)

@@ -17,12 +17,16 @@ import java.nio.charset.StandardCharsets;
 @Component
 public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler {
 
+    private final HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
+
     @Value("${app.oauth2.redirect-uri:http://localhost:3000/oauth/callback}")
     private String redirectUri;
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response,
                                         AuthenticationException exception) throws IOException {
+        cookieAuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
+
         String errorMessage = exception.getMessage() != null
                 ? exception.getMessage()
                 : "인증에 실패했습니다.";

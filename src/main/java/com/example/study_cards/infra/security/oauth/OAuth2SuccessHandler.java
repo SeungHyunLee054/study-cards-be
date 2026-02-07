@@ -27,6 +27,7 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     private final UserCacheService userCacheService;
     private final CookieProvider cookieProvider;
     private final UserRepository userRepository;
+    private final HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
 
     @Value("${app.oauth2.redirect-uri:http://localhost:3000/oauth/callback}")
     private String redirectUri;
@@ -34,6 +35,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response,
                                         Authentication authentication) throws IOException {
+        cookieAuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
+
         CustomOAuth2User oAuth2User = (CustomOAuth2User) authentication.getPrincipal();
 
         String accessToken = jwtTokenProvider.createAccessToken(
