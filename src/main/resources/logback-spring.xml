@@ -94,6 +94,7 @@
 
         <!-- 애플리케이션 로그: 운영은 파일 중심 -->
         <logger name="com.example.study_cards" level="INFO" additivity="false">
+            <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
             <appender-ref ref="ERROR_FILE"/>
         </logger>
@@ -107,6 +108,7 @@
         <logger name="org.springframework.data.redis" level="WARN"/>
 
         <root level="WARN">
+            <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
             <appender-ref ref="ERROR_FILE"/>
         </root>
