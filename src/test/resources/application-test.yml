@@ -45,3 +45,5 @@ app:
       client-key: test_ck_test_key_for_unit_tests
       secret-key: test_sk_test_key_for_unit_tests
       webhook-secret: test_webhook_secret
+  cookie:
+    domain:

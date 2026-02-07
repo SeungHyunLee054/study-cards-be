@@ -49,17 +49,21 @@ public final class CookieUtils {
      * @param name 쿠키 이름
      * @param value 쿠키 값
      * @param maxAgeSeconds 쿠키 만료 시간 (초)
+     * @param domain 쿠키 도메인 (null 또는 빈 문자열이면 설정하지 않음)
      */
-    public static void addCookie(HttpServletResponse response, String name, String value, int maxAgeSeconds) {
-        ResponseCookie cookie = ResponseCookie.from(name, value)
+    public static void addCookie(HttpServletResponse response, String name, String value, int maxAgeSeconds, String domain) {
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from(name, value)
                 .path("/")
                 .maxAge(Duration.ofSeconds(maxAgeSeconds))
                 .httpOnly(true)
                 .secure(true)
-                .sameSite("None")  // 크로스 도메인 지원
-                .build();
+                .sameSite("None");  // 크로스 도메인 지원
 
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        if (domain != null && !domain.isBlank()) {
+            cookieBuilder.domain(domain);
+        }
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
     }
 
     /**
@@ -67,16 +71,20 @@ public final class CookieUtils {
      *
      * @param response HTTP 응답
      * @param name 삭제할 쿠키 이름
+     * @param domain 쿠키 도메인 (null 또는 빈 문자열이면 설정하지 않음)
      */
-    public static void deleteCookie(HttpServletResponse response, String name) {
-        ResponseCookie cookie = ResponseCookie.from(name, "")
+    public static void deleteCookie(HttpServletResponse response, String name, String domain) {
+        ResponseCookie.ResponseCookieBuilder cookieBuilder = ResponseCookie.from(name, "")
                 .path("/")
                 .maxAge(Duration.ZERO)
                 .httpOnly(true)
-                .secure(true)
-                .build();
+                .secure(true);
 
-        response.addHeader(HttpHeaders.SET_COOKIE, cookie.toString());
+        if (domain != null && !domain.isBlank()) {
+            cookieBuilder.domain(domain);
+        }
+
+        response.addHeader(HttpHeaders.SET_COOKIE, cookieBuilder.build().toString());
     }
 
     /**

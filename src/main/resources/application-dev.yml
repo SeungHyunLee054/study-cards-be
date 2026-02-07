@@ -125,6 +125,8 @@ app:
       webhook-secret: ${TOSS_WEBHOOK_SECRET:}
   oauth2:
     redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
+  cookie:
+    domain: ${COOKIE_DOMAIN:}
 
 # ============================================
 # Spring AI 설정 (참고용 - 다른 provider 사용 시)
