@@ -140,36 +140,15 @@ jobs:
       - name: Create environment file on VM
         uses: appleboy/ssh-action@v1.0.3
         env:
-          DB_NAME: ${{ secrets.DB_NAME }}
-          DB_USER: ${{ secrets.DB_USER }}
-          DB_PASSWORD: ${{ secrets.DB_PASSWORD }}
-          REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
-          APP_JWT_SECRET: ${{ secrets.APP_JWT_SECRET }}
-          MAIL_HOST: ${{ secrets.MAIL_HOST }}
-          MAIL_PORT: ${{ secrets.MAIL_PORT }}
-          MAIL_USERNAME: ${{ secrets.MAIL_USERNAME }}
-          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
-          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_CLIENT_SECRET: ${{ secrets.GOOGLE_CLIENT_SECRET }}
-          KAKAO_CLIENT_ID: ${{ secrets.KAKAO_CLIENT_ID }}
-          KAKAO_CLIENT_SECRET: ${{ secrets.KAKAO_CLIENT_SECRET }}
-          NAVER_CLIENT_ID: ${{ secrets.NAVER_CLIENT_ID }}
-          NAVER_CLIENT_SECRET: ${{ secrets.NAVER_CLIENT_SECRET }}
-          OAUTH2_REDIRECT_URI: ${{ secrets.OAUTH2_REDIRECT_URI }}
-          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          TOSS_CLIENT_KEY: ${{ secrets.TOSS_CLIENT_KEY }}
-          TOSS_SECRET_KEY: ${{ secrets.TOSS_SECRET_KEY }}
-          TOSS_WEBHOOK_SECRET: ${{ secrets.TOSS_WEBHOOK_SECRET }}
-          SPRINGDOC_SERVER_URL: ${{ secrets.SPRINGDOC_SERVER_URL }}
+          PRODUCTION_ENV: ${{ secrets.PRODUCTION_ENV }}
           FCM_SERVICE_ACCOUNT_KEY: ${{ secrets.FCM_SERVICE_ACCOUNT_KEY }}
-          COOKIE_DOMAIN: ${{ secrets.COOKIE_DOMAIN }}
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           IMAGE_TAG: ${{ steps.sha-tag.outputs.sha }}
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
-          envs: DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,APP_JWT_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,OAUTH2_REDIRECT_URI,GEMINI_API_KEY,TOSS_CLIENT_KEY,TOSS_SECRET_KEY,TOSS_WEBHOOK_SECRET,SPRINGDOC_SERVER_URL,FCM_SERVICE_ACCOUNT_KEY,COOKIE_DOMAIN,DOCKER_USERNAME,IMAGE_TAG
+          envs: PRODUCTION_ENV,FCM_SERVICE_ACCOUNT_KEY,DOCKER_USERNAME,IMAGE_TAG
           script: |
             cd /opt/study-cards
 
@@ -178,34 +157,14 @@ jobs:
             sudo chown -R 1000:1000 logs
             sudo chmod -R 755 logs
 
-            # Create .env file with required secrets
-            cat > .env << EOF
-            DB_PASSWORD=${DB_PASSWORD}
-            REDIS_PASSWORD=${REDIS_PASSWORD}
-            APP_JWT_SECRET=${APP_JWT_SECRET}
-            MAIL_HOST=${MAIL_HOST}
-            MAIL_USERNAME=${MAIL_USERNAME}
-            MAIL_PASSWORD=${MAIL_PASSWORD}
-            GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
-            GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
-            KAKAO_CLIENT_ID=${KAKAO_CLIENT_ID}
-            KAKAO_CLIENT_SECRET=${KAKAO_CLIENT_SECRET}
-            NAVER_CLIENT_ID=${NAVER_CLIENT_ID}
-            NAVER_CLIENT_SECRET=${NAVER_CLIENT_SECRET}
-            OAUTH2_REDIRECT_URI=${OAUTH2_REDIRECT_URI}
-            GEMINI_API_KEY=${GEMINI_API_KEY}
-            TOSS_CLIENT_KEY=${TOSS_CLIENT_KEY}
-            TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
-            TOSS_WEBHOOK_SECRET=${TOSS_WEBHOOK_SECRET}
-            COOKIE_DOMAIN=${COOKIE_DOMAIN}
-            DOCKER_IMAGE=${DOCKER_USERNAME}/study-cards-app:${IMAGE_TAG}
+            # Create .env file from production environment secret
+            cat > .env << 'EOF'
+            ${PRODUCTION_ENV}
             EOF
 
-            # Append optional secrets (only if set)
-            [ -n "${DB_NAME}" ] && echo "DB_NAME=${DB_NAME}" >> .env
-            [ -n "${DB_USER}" ] && echo "DB_USER=${DB_USER}" >> .env
-            [ -n "${MAIL_PORT}" ] && echo "MAIL_PORT=${MAIL_PORT}" >> .env
-            [ -n "${SPRINGDOC_SERVER_URL}" ] && echo "SPRINGDOC_SERVER_URL=${SPRINGDOC_SERVER_URL}" >> .env
+            # Append dynamic variables
+            echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
+            echo "DOCKER_IMAGE=${DOCKER_USERNAME}/study-cards-app:${IMAGE_TAG}" >> .env
 
             chmod 600 .env
 
