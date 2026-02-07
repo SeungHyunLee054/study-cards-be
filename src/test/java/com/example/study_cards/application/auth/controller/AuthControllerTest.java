@@ -17,12 +17,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDocs;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.payload.JsonFieldType;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
 
-import static org.assertj.core.api.Assertions.assertThat;
 import static org.springframework.restdocs.cookies.CookieDocumentation.*;
 import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
 import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
@@ -194,14 +193,19 @@ class AuthControllerTest extends BaseIntegrationTest {
             authService.signUp(signUpRequest);
             verifyUserEmail(signUpRequest.email());
 
-            MvcResult result = mockMvc.perform(post("/api/auth/signin")
+            mockMvc.perform(post("/api/auth/signin")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(signInRequest)))
-                    .andReturn();
-
-            Cookie refreshTokenCookie = result.getResponse().getCookie(CookieProvider.REFRESH_TOKEN_COOKIE_NAME);
-            assertThat(refreshTokenCookie).isNotNull();
-            assertThat(refreshTokenCookie.getValue()).isNotBlank();
+                    .andExpect(status().isOk())
+                    .andExpect(header().exists(HttpHeaders.SET_COOKIE))
+                    .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                            org.hamcrest.Matchers.containsString("Refresh_Token=")))
+                    .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                            org.hamcrest.Matchers.containsString("SameSite=None")))
+                    .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                            org.hamcrest.Matchers.containsString("Secure")))
+                    .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                            org.hamcrest.Matchers.containsString("HttpOnly")));
         }
 
         @Test
@@ -257,13 +261,14 @@ class AuthControllerTest extends BaseIntegrationTest {
             verifyUserEmail(signUpRequest.email());
             TokenResult tokenResult = authService.signIn(signInRequest);
 
-            MvcResult result = mockMvc.perform(post("/api/auth/signout")
+            mockMvc.perform(post("/api/auth/signout")
                             .header("Authorization", "Bearer " + tokenResult.accessToken()))
-                    .andReturn();
-
-            Cookie refreshTokenCookie = result.getResponse().getCookie(CookieProvider.REFRESH_TOKEN_COOKIE_NAME);
-            assertThat(refreshTokenCookie).isNotNull();
-            assertThat(refreshTokenCookie.getMaxAge()).isEqualTo(0);
+                    .andExpect(status().isNoContent())
+                    .andExpect(header().exists(HttpHeaders.SET_COOKIE))
+                    .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                            org.hamcrest.Matchers.containsString("Refresh_Token=")))
+                    .andExpect(header().string(HttpHeaders.SET_COOKIE,
+                            org.hamcrest.Matchers.containsString("Max-Age=0")));
         }
 
         @Test

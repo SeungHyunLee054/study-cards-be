@@ -50,6 +50,9 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
     private UserRepository userRepository;
 
     @Mock
+    private HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
+
+    @Mock
     private HttpServletRequest request;
 
     @Mock

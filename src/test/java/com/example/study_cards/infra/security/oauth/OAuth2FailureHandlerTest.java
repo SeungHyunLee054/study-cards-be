@@ -31,6 +31,9 @@ class OAuth2FailureHandlerTest extends BaseUnitTest {
     @Mock
     private RedirectStrategy redirectStrategy;
 
+    @Mock
+    private HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
+
     @InjectMocks
     private OAuth2FailureHandler failureHandler;
 

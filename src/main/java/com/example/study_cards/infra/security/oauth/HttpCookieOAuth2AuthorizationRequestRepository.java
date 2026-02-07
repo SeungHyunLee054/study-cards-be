@@ -1,27 +1,21 @@
 package com.example.study_cards.infra.security.oauth;
 
-import com.example.study_cards.infra.security.jwt.CookieProvider;
-import jakarta.servlet.http.Cookie;
+import com.example.study_cards.common.util.CookieUtils;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.security.oauth2.client.web.AuthorizationRequestRepository;
 import org.springframework.security.oauth2.core.endpoint.OAuth2AuthorizationRequest;
 import org.springframework.stereotype.Component;
-import org.springframework.util.SerializationUtils;
-
-import java.util.Base64;
 
 @Component
-public class HttpCookieOAuth2AuthorizationRequestRepository implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
-
-    public static final String OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME = "oauth2_auth_request";
-    public static final String REDIRECT_URI_PARAM_COOKIE_NAME = "redirect_uri";
-    private static final int COOKIE_EXPIRE_SECONDS = 180;
+public class HttpCookieOAuth2AuthorizationRequestRepository
+        implements AuthorizationRequestRepository<OAuth2AuthorizationRequest> {
 
     @Override
     public OAuth2AuthorizationRequest loadAuthorizationRequest(HttpServletRequest request) {
-        return getCookie(request, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
-                .map(this::deserialize)
+        return CookieUtils.getCookie(request, OAuth2CookieConstants.OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME)
+                .map(value -> CookieUtils.deserialize(value, OAuth2AuthorizationRequest.class))
                 .orElse(null);
     }
 
@@ -34,13 +28,21 @@ public class HttpCookieOAuth2AuthorizationRequestRepository implements Authoriza
             return;
         }
 
-        addCookie(response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME,
-                serialize(authorizationRequest), COOKIE_EXPIRE_SECONDS);
+        CookieUtils.addCookie(
+                response,
+                OAuth2CookieConstants.OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME,
+                CookieUtils.serialize(authorizationRequest),
+                OAuth2CookieConstants.COOKIE_EXPIRE_SECONDS
+        );
 
-        String redirectUriAfterLogin = request.getParameter(REDIRECT_URI_PARAM_COOKIE_NAME);
-        if (redirectUriAfterLogin != null && !redirectUriAfterLogin.isBlank()) {
-            addCookie(response, REDIRECT_URI_PARAM_COOKIE_NAME,
-                    redirectUriAfterLogin, COOKIE_EXPIRE_SECONDS);
+        String redirectUriAfterLogin = request.getParameter(OAuth2CookieConstants.REDIRECT_URI_PARAM_COOKIE_NAME);
+        if (StringUtils.isNotBlank(redirectUriAfterLogin)) {
+            CookieUtils.addCookie(
+                    response,
+                    OAuth2CookieConstants.REDIRECT_URI_PARAM_COOKIE_NAME,
+                    redirectUriAfterLogin,
+                    OAuth2CookieConstants.COOKIE_EXPIRE_SECONDS
+            );
         }
     }
 
@@ -53,52 +55,7 @@ public class HttpCookieOAuth2AuthorizationRequestRepository implements Authoriza
     }
 
     public void removeAuthorizationRequestCookies(HttpServletRequest request, HttpServletResponse response) {
-        deleteCookie(request, response, OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME);
-        deleteCookie(request, response, REDIRECT_URI_PARAM_COOKIE_NAME);
-    }
-
-    private String serialize(OAuth2AuthorizationRequest authorizationRequest) {
-        return Base64.getUrlEncoder()
-                .encodeToString(SerializationUtils.serialize(authorizationRequest));
-    }
-
-    private OAuth2AuthorizationRequest deserialize(String value) {
-        return (OAuth2AuthorizationRequest) SerializationUtils
-                .deserialize(Base64.getUrlDecoder().decode(value));
-    }
-
-    private java.util.Optional<String> getCookie(HttpServletRequest request, String name) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (cookie.getName().equals(name)) {
-                    return java.util.Optional.of(cookie.getValue());
-                }
-            }
-        }
-        return java.util.Optional.empty();
-    }
-
-    private void addCookie(HttpServletResponse response, String name, String value, int maxAge) {
-        Cookie cookie = new Cookie(name, value);
-        cookie.setPath("/");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true); // HTTPS only
-        cookie.setMaxAge(maxAge);
-        response.addCookie(cookie);
-    }
-
-    private void deleteCookie(HttpServletRequest request, HttpServletResponse response, String name) {
-        Cookie[] cookies = request.getCookies();
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                if (cookie.getName().equals(name)) {
-                    cookie.setValue("");
-                    cookie.setPath("/");
-                    cookie.setMaxAge(0);
-                    response.addCookie(cookie);
-                }
-            }
-        }
+        CookieUtils.deleteCookie(response, OAuth2CookieConstants.OAUTH2_AUTHORIZATION_REQUEST_COOKIE_NAME);
+        CookieUtils.deleteCookie(response, OAuth2CookieConstants.REDIRECT_URI_PARAM_COOKIE_NAME);
     }
 }
