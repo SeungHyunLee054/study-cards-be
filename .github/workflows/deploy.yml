@@ -162,6 +162,10 @@ jobs:
           envs: DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,APP_JWT_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,OAUTH2_REDIRECT_URI,GEMINI_API_KEY,TOSS_CLIENT_KEY,TOSS_SECRET_KEY,TOSS_WEBHOOK_SECRET,SPRINGDOC_SERVER_URL,FCM_SERVICE_ACCOUNT_KEY,DOCKER_USERNAME
           script: |
             cd /opt/study-cards
+            
+            # docker-compose에서 ./logs:/app/logs 마운트 시 필요
+            mkdir -p logs
+            sudo chmod -R 777 logs  # 컨테이너 내부 유저가 쓸 수 있도록 개방
 
             # Create .env file with required secrets
             cat > .env << EOF

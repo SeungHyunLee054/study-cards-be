@@ -60,6 +60,8 @@ services:
       # Spring Profile
       SPRING_PROFILES_ACTIVE: prod
 
+      TZ: Asia/Seoul
+
       # Database - application-prod.yml이 기대하는 환경변수
       DB_HOST: postgres
       DB_PORT: 5432
