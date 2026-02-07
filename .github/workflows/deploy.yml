@@ -158,9 +158,7 @@ jobs:
             sudo chmod -R 755 logs
 
             # Create .env file from production environment secret
-            cat > .env << 'EOF'
-            ${PRODUCTION_ENV}
-            EOF
+            echo "$PRODUCTION_ENV" > .env
 
             # Append dynamic variables
             echo "IMAGE_TAG=${IMAGE_TAG}" >> .env
