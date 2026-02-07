@@ -312,6 +312,9 @@ jobs:
           # Only update latest/previous tags after deployment is verified healthy
           echo "Deployment verified - updating stable tags..."
 
+          # Login to DockerHub to pull images
+          echo ${{ secrets.DOCKER_PASSWORD }} | docker login -u ${{ secrets.DOCKER_USERNAME }} --password-stdin
+
           # Backup current latest as previous
           docker pull ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest 2>/dev/null || true
           if docker image inspect ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest > /dev/null 2>&1; then
@@ -320,6 +323,10 @@ jobs:
             docker push ${{ secrets.DOCKER_USERNAME }}/study-cards-app:previous
             echo "✓ Backed up current latest as previous"
           fi
+
+          # Pull verified SHA image from DockerHub
+          echo "Pulling verified image: ${{ steps.sha-tag.outputs.sha }}"
+          docker pull ${{ secrets.DOCKER_USERNAME }}/study-cards-app:${{ steps.sha-tag.outputs.sha }}
 
           # Promote verified SHA image to latest
           docker tag ${{ secrets.DOCKER_USERNAME }}/study-cards-app:${{ steps.sha-tag.outputs.sha }} \
