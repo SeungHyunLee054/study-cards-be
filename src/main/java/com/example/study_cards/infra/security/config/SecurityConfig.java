@@ -95,8 +95,8 @@ public class SecurityConfig {
         configuration.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
                 "https://study-cards-*.vercel.app",
-                "https://study-cards.kr",
-                "https://*.study-cards.kr"
+                "https://studycard.kr",
+                "https://*.studycard.kr"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
