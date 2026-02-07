@@ -25,7 +25,6 @@ public class FirebaseConfig {
     @PostConstruct
     public void initialize() {
         try {
-            // ClassPathResource resource = new ClassPathResource(fcmProperties.getCredentialsPath());
 			FileSystemResource resource = new FileSystemResource(fcmProperties.getCredentialsPath());
 
             FirebaseOptions options = FirebaseOptions.builder()
