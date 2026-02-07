@@ -111,7 +111,7 @@ springdoc:
 
 app:
   fcm:
-    credentials-path: firebase-service-account.json
+    credentials-path: src/main/resources/firebase-service-account.json
   security:
     jwt:
       # dev에서는 환경변수 없어도 동작하게 기본값 제공(운영에서는 반드시 환경변수)

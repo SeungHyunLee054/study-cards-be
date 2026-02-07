@@ -107,20 +107,11 @@
         <logger name="org.springframework.security" level="INFO"/>
         <logger name="org.springframework.data.redis" level="WARN"/>
 
-        <root level="WARN">
+        <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
             <appender-ref ref="ERROR_FILE"/>
         </root>
     </springProfile>
-
-    <!-- ========================= -->
-    <!-- 기본 설정 (프로필 미지정 시) -->
-    <!-- ========================= -->
-    <root level="INFO">
-        <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="FILE"/>
-        <appender-ref ref="ERROR_FILE"/>
-    </root>
 
 </configuration>

@@ -1,16 +1,18 @@
 package com.example.study_cards.infra.fcm;
 
+import java.io.IOException;
+
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.annotation.Configuration;
+import org.springframework.core.io.FileSystemResource;
+
 import com.google.auth.oauth2.GoogleCredentials;
 import com.google.firebase.FirebaseApp;
 import com.google.firebase.FirebaseOptions;
+
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.core.io.ClassPathResource;
-
-import java.io.IOException;
 
 @Slf4j
 @Configuration
@@ -23,7 +25,9 @@ public class FirebaseConfig {
     @PostConstruct
     public void initialize() {
         try {
-            ClassPathResource resource = new ClassPathResource(fcmProperties.getCredentialsPath());
+            // ClassPathResource resource = new ClassPathResource(fcmProperties.getCredentialsPath());
+			FileSystemResource resource = new FileSystemResource(fcmProperties.getCredentialsPath());
+
             FirebaseOptions options = FirebaseOptions.builder()
                     .setCredentials(GoogleCredentials.fromStream(resource.getInputStream()))
                     .build();
