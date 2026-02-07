@@ -96,7 +96,7 @@ jobs:
         with:
           images: ${{ secrets.DOCKER_USERNAME }}/study-cards-app
           tags: |
-            type=sha
+            type=sha,format=short
             type=raw,value=latest
 
       - name: Build and push Docker image
@@ -109,6 +109,14 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Extract SHA tag for deployment
+        id: sha-tag
+        run: |
+          # Extract short SHA from git commit
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          echo "sha=sha-${SHORT_SHA}" >> $GITHUB_OUTPUT
+          echo "Deploying with tag: sha-${SHORT_SHA}"
 
       - name: Create deployment directory on VM
         uses: appleboy/ssh-action@v1.0.3
@@ -156,17 +164,19 @@ jobs:
           FCM_SERVICE_ACCOUNT_KEY: ${{ secrets.FCM_SERVICE_ACCOUNT_KEY }}
           COOKIE_DOMAIN: ${{ secrets.COOKIE_DOMAIN }}
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+          IMAGE_TAG: ${{ steps.sha-tag.outputs.sha }}
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
-          envs: DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,APP_JWT_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,OAUTH2_REDIRECT_URI,GEMINI_API_KEY,TOSS_CLIENT_KEY,TOSS_SECRET_KEY,TOSS_WEBHOOK_SECRET,SPRINGDOC_SERVER_URL,FCM_SERVICE_ACCOUNT_KEY,COOKIE_DOMAIN,DOCKER_USERNAME
+          envs: DB_NAME,DB_USER,DB_PASSWORD,REDIS_PASSWORD,APP_JWT_SECRET,MAIL_HOST,MAIL_PORT,MAIL_USERNAME,MAIL_PASSWORD,GOOGLE_CLIENT_ID,GOOGLE_CLIENT_SECRET,KAKAO_CLIENT_ID,KAKAO_CLIENT_SECRET,NAVER_CLIENT_ID,NAVER_CLIENT_SECRET,OAUTH2_REDIRECT_URI,GEMINI_API_KEY,TOSS_CLIENT_KEY,TOSS_SECRET_KEY,TOSS_WEBHOOK_SECRET,SPRINGDOC_SERVER_URL,FCM_SERVICE_ACCOUNT_KEY,COOKIE_DOMAIN,DOCKER_USERNAME,IMAGE_TAG
           script: |
             cd /opt/study-cards
-            
-            # docker-compose에서 ./logs:/app/logs 마운트 시 필요
+
+            # Create logs directory with proper ownership for container user (UID 1000)
             mkdir -p logs
-            sudo chmod -R 777 logs  # 컨테이너 내부 유저가 쓸 수 있도록 개방
+            sudo chown -R 1000:1000 logs
+            sudo chmod -R 755 logs
 
             # Create .env file with required secrets
             cat > .env << EOF
@@ -188,7 +198,7 @@ jobs:
             TOSS_SECRET_KEY=${TOSS_SECRET_KEY}
             TOSS_WEBHOOK_SECRET=${TOSS_WEBHOOK_SECRET}
             COOKIE_DOMAIN=${COOKIE_DOMAIN}
-            DOCKER_IMAGE=${DOCKER_USERNAME}/study-cards-app:latest
+            DOCKER_IMAGE=${DOCKER_USERNAME}/study-cards-app:${IMAGE_TAG}
             EOF
 
             # Append optional secrets (only if set)
@@ -209,24 +219,33 @@ jobs:
         env:
           DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+          IMAGE_TAG: ${{ steps.sha-tag.outputs.sha }}
         with:
           host: ${{ secrets.GCP_VM_HOST }}
           username: ${{ secrets.GCP_VM_USER }}
           key: ${{ secrets.GCP_VM_SSH_KEY }}
-          envs: DOCKER_USERNAME,DOCKER_PASSWORD
+          envs: DOCKER_USERNAME,DOCKER_PASSWORD,IMAGE_TAG
           script: |
             cd /opt/study-cards
 
-            # Backup current image for rollback
-            docker tag $DOCKER_USERNAME/study-cards-app:latest $DOCKER_USERNAME/study-cards-app:previous 2>/dev/null || true
+            # Login to DockerHub securely
+            echo $DOCKER_PASSWORD | docker login -u $DOCKER_USERNAME --password-stdin
 
-            # Pull new image from Docker Hub
-            docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
-            docker pull $DOCKER_USERNAME/study-cards-app:latest
+            # Pull previous image from DockerHub for rollback capability
+            docker pull $DOCKER_USERNAME/study-cards-app:previous 2>/dev/null || echo "No previous image available"
 
-            # Restart containers
-            docker compose -f docker-compose.prod.yml down || true
-            docker compose -f docker-compose.prod.yml up -d
+            # Pull new image with SHA tag
+            echo "Pulling image: $DOCKER_USERNAME/study-cards-app:${IMAGE_TAG}"
+            docker pull $DOCKER_USERNAME/study-cards-app:${IMAGE_TAG}
+
+            # Tag SHA image as latest for docker-compose to use
+            # Note: DockerHub latest will only be updated after successful verification
+            docker tag $DOCKER_USERNAME/study-cards-app:${IMAGE_TAG} \
+              $DOCKER_USERNAME/study-cards-app:latest
+
+            # Deploy with minimal downtime (only restart app container)
+            # postgres and redis keep running
+            docker compose -f docker-compose.prod.yml up -d --no-deps app
 
       - name: Verify deployment
         uses: appleboy/ssh-action@v1.0.3
@@ -239,30 +258,81 @@ jobs:
           envs: DOCKER_USERNAME
           script: |
             echo "Checking application health..."
+            cd /opt/study-cards
+
+            # Get container ID dynamically from docker compose
+            CONTAINER_ID=$(docker compose -f docker-compose.prod.yml ps -q app)
+
+            if [ -z "$CONTAINER_ID" ]; then
+              echo "❌ Failed to find app container"
+              exit 1
+            fi
+
+            echo "Found container: $CONTAINER_ID"
             MAX_ATTEMPTS=30
             ATTEMPT=1
+
             while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-              if curl -f -s http://localhost:8080/actuator/health > /dev/null 2>&1; then
+              HEALTH_STATUS=$(docker inspect --format='{{.State.Health.Status}}' $CONTAINER_ID 2>/dev/null || echo "unknown")
+
+              echo "Attempt $ATTEMPT/$MAX_ATTEMPTS - Health status: $HEALTH_STATUS"
+
+              if [ "$HEALTH_STATUS" = "healthy" ]; then
                 echo "Application is healthy!"
                 exit 0
+              elif [ "$HEALTH_STATUS" = "unhealthy" ]; then
+                echo "Application is unhealthy - rolling back..."
+                break
               fi
-              echo "Attempt $ATTEMPT/$MAX_ATTEMPTS - waiting..."
-              sleep 30
+
+              # starting or unknown - keep waiting
+              sleep 15
               ATTEMPT=$((ATTEMPT + 1))
             done
 
-            echo "Health check failed - rolling back..."
+            echo "Health check failed - rolling back to previous verified version..."
             cd /opt/study-cards
-            docker compose -f docker-compose.prod.yml down || true
-            docker tag $DOCKER_USERNAME/study-cards-app:previous $DOCKER_USERNAME/study-cards-app:latest 2>/dev/null || true
-            docker compose -f docker-compose.prod.yml up -d
+
+            # Use previous image from DockerHub (always a verified, healthy image)
+            if docker image inspect $DOCKER_USERNAME/study-cards-app:previous > /dev/null 2>&1; then
+              echo "Rolling back to previous verified image"
+              docker tag $DOCKER_USERNAME/study-cards-app:previous \
+                $DOCKER_USERNAME/study-cards-app:latest
+              # Rollback with minimal downtime
+              docker compose -f docker-compose.prod.yml up -d --no-deps app
+              echo "✓ Rollback completed"
+            else
+              echo "❌ No previous image available for rollback!"
+            fi
             exit 1
+
+      - name: Update stable image tags after successful deployment
+        if: success()
+        run: |
+          # Only update latest/previous tags after deployment is verified healthy
+          echo "Deployment verified - updating stable tags..."
+
+          # Backup current latest as previous
+          docker pull ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest 2>/dev/null || true
+          if docker image inspect ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest > /dev/null 2>&1; then
+            docker tag ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest \
+              ${{ secrets.DOCKER_USERNAME }}/study-cards-app:previous
+            docker push ${{ secrets.DOCKER_USERNAME }}/study-cards-app:previous
+            echo "✓ Backed up current latest as previous"
+          fi
+
+          # Promote verified SHA image to latest
+          docker tag ${{ secrets.DOCKER_USERNAME }}/study-cards-app:${{ steps.sha-tag.outputs.sha }} \
+            ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest
+          docker push ${{ secrets.DOCKER_USERNAME }}/study-cards-app:latest
+          echo "✓ Promoted ${{ steps.sha-tag.outputs.sha }} to latest"
 
       - name: Notify deployment success
         if: success()
         run: |
           echo "Deployment successful!"
           echo "Version: ${{ github.sha }}"
+          echo "Image: ${{ steps.sha-tag.outputs.sha }}"
           echo "Commit: ${{ github.event.head_commit.message }}"
 
       - name: Notify deployment failure
@@ -290,13 +360,17 @@ jobs:
             # Remove dangling images
             docker image prune -f
 
-            # Remove study-cards-app images except latest and previous
-            docker images --format "{{.Repository}}:{{.Tag}}" | \
-              grep "study-cards-app" | \
-              grep -v -E ':(latest|previous)$' | \
+            # Keep: latest, previous, and last 5 SHA tags (by creation date)
+            # Remove older SHA-tagged images
+            docker images --format "{{.CreatedAt}}\t{{.Repository}}:{{.Tag}}" | \
+              grep "study-cards-app:sha-" | \
+              sort -r | \
+              tail -n +6 | \
+              awk '{print $2}' | \
               xargs -r docker rmi 2>/dev/null || true
 
             echo "Cleanup completed"
 
             # Show remaining images
-            docker images | grep study-cards-app || true
+            echo "Remaining study-cards-app images:"
+            docker images | grep study-cards-app || echo "No study-cards-app images found"
