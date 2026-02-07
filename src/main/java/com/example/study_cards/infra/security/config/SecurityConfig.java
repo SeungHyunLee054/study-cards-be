@@ -50,6 +50,7 @@ public class SecurityConfig {
             "/api/webhooks/toss",
             "/oauth2/authorization/**",
             "/login/oauth2/code/**",
+			"/oauth2/callback",
             "/swagger-ui/**",
             "/swagger-ui.html",
             "/v3/api-docs/**",
