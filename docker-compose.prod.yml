@@ -2,7 +2,10 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: study-cards-postgres-prod
+    ports:
+      - "5432:5432"
     environment:
+      TZ: Asia/Seoul
       POSTGRES_DB: ${DB_NAME:-study_cards_prod}
       POSTGRES_USER: ${DB_USER:-study_cards_prod}
       POSTGRES_PASSWORD: ${DB_PASSWORD:?Database password required}
@@ -27,6 +30,8 @@ services:
   redis:
     image: redis:7-alpine
     container_name: study-cards-redis-prod
+    environment:
+      - TZ=Asia/Seoul
     command: >
       redis-server
       --requirepass ${REDIS_PASSWORD:?Redis password required}
