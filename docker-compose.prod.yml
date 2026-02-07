@@ -13,7 +13,7 @@ services:
       - study-cards-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-study_cards_prod} -d ${DB_NAME:-study_cards_prod}"]
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-study_cards_prod} -d ${DB_NAME:-study_cards_prod}" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -40,7 +40,7 @@ services:
       - study-cards-network
     restart: unless-stopped
     healthcheck:
-      test: ["CMD-SHELL", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli ping | grep PONG"]
+      test: [ "CMD-SHELL", "REDISCLI_AUTH=$REDIS_PASSWORD redis-cli ping | grep PONG" ]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -103,7 +103,10 @@ services:
 
       # Firebase (FCM) - application-prod.yml이 기대하는 환경변수
       FCM_CREDENTIALS_PATH: /app/config/firebase-service-account.json
+
+      LOGGING_FILE_PATH: /app/logs
     volumes:
+      - ./logs:/app/logs
       - ./config/firebase-service-account.json:/app/config/firebase-service-account.json:ro
     networks:
       - study-cards-network
@@ -114,7 +117,7 @@ services:
         condition: service_healthy
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health" ]
       interval: 30s
       timeout: 10s
       retries: 3
