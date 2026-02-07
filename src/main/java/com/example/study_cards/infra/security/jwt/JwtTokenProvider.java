@@ -87,7 +87,6 @@ public class JwtTokenProvider {
         return parseToken(token).get("email", String.class);
     }
 
-    @SuppressWarnings("unchecked")
     public Set<Role> getRoles(String token) {
         List<String> roleNames = parseToken(token).get("roles", List.class);
         return roleNames.stream()

@@ -34,7 +34,6 @@ public record NaverOAuth2UserInfo(Map<String, Object> attributes) implements OAu
         return nickname;
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> getResponse(Map<String, Object> attributes) {
         return (Map<String, Object>) attributes.get("response");
     }

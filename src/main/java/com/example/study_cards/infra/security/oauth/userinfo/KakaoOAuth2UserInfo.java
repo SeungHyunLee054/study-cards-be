@@ -34,12 +34,10 @@ public record KakaoOAuth2UserInfo(Map<String, Object> attributes) implements OAu
         return (String) properties.get("nickname");
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> getKakaoAccount() {
         return (Map<String, Object>) attributes.get("kakao_account");
     }
 
-    @SuppressWarnings("unchecked")
     private Map<String, Object> getProperties() {
         return (Map<String, Object>) attributes.get("properties");
     }

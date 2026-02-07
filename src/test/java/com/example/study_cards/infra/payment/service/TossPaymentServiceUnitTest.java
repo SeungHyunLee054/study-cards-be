@@ -29,7 +29,6 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
 
     private TossPaymentService tossPaymentService;
 
-    @SuppressWarnings("unchecked")
     @BeforeEach
     void setUp() {
         tossPaymentRestClient = mock(RestClient.class);

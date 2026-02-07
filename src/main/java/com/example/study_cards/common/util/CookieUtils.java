@@ -1,16 +1,20 @@
 package com.example.study_cards.common.util;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.ResponseCookie;
-import org.springframework.util.SerializationUtils;
-
-import java.io.Serializable;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.ObjectInputStream;
+import java.io.ObjectOutputStream;
 import java.time.Duration;
 import java.util.Base64;
 import java.util.Optional;
+
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.ResponseCookie;
+
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 public final class CookieUtils {
 
@@ -81,10 +85,14 @@ public final class CookieUtils {
      * @param object 직렬화할 객체
      * @return Base64 인코딩된 문자열
      */
-    @SuppressWarnings("deprecation")
     public static String serialize(Object object) {
-        return Base64.getUrlEncoder()
-                .encodeToString(SerializationUtils.serialize((Serializable) object));
+        try (ByteArrayOutputStream bos = new ByteArrayOutputStream();
+             ObjectOutputStream oos = new ObjectOutputStream(bos)) {
+            oos.writeObject(object);
+            return Base64.getUrlEncoder().encodeToString(bos.toByteArray());
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Failed to serialize object", e);
+        }
     }
 
     /**
@@ -95,9 +103,15 @@ public final class CookieUtils {
      * @param <T> 반환 타입
      * @return 역직렬화된 객체
      */
-    @SuppressWarnings("deprecation")
     public static <T> T deserialize(String cookieValue, Class<T> cls) {
-        return cls.cast(SerializationUtils.deserialize(
-                Base64.getUrlDecoder().decode(cookieValue)));
+        try {
+            byte[] data = Base64.getUrlDecoder().decode(cookieValue);
+            try (ByteArrayInputStream bis = new ByteArrayInputStream(data);
+                 ObjectInputStream ois = new ObjectInputStream(bis)) {
+                return cls.cast(ois.readObject());
+            }
+        } catch (IOException | ClassNotFoundException e) {
+            throw new IllegalArgumentException("Failed to deserialize object", e);
+        }
     }
 }
