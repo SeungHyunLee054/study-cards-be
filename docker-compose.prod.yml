@@ -105,6 +105,9 @@ services:
       TOSS_SECRET_KEY: ${TOSS_SECRET_KEY:?Toss secret key required}
       TOSS_WEBHOOK_SECRET: ${TOSS_WEBHOOK_SECRET:-}
 
+      # Cookie
+      COOKIE_DOMAIN: ${COOKIE_DOMAIN:?Cookie domain required}
+
       # API Docs
       SPRINGDOC_SERVER_URL: ${SPRINGDOC_SERVER_URL:-http://localhost:8080}
 
