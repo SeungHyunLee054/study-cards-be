@@ -124,7 +124,7 @@ app:
       secret-key: ${TOSS_SECRET_KEY}
       webhook-secret: ${TOSS_WEBHOOK_SECRET:}
   oauth2:
-    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth/callback}
+    redirect-uri: ${OAUTH2_REDIRECT_URI:http://localhost:3000/oauth2/callback}
   cookie:
     domain: ${COOKIE_DOMAIN:}
 
