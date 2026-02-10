@@ -59,6 +59,8 @@ services:
   app:
     image: ${DOCKER_IMAGE:-study-cards-app:latest}
     container_name: study-cards-app-prod
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
     ports:
       - "8080:8080"
     environment:
@@ -67,14 +69,14 @@ services:
 
       TZ: Asia/Seoul
 
-      # Database - application-prod.yml이 기대하는 환경변수
+      # Database
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: ${DB_NAME:-study_cards_prod}
       DB_USER: ${DB_USER:-study_cards_prod}
       DB_PASSWORD: ${DB_PASSWORD:?Database password required}
 
-      # Redis - application-prod.yml이 기대하는 환경변수
+      # Redis
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ${REDIS_PASSWORD:?Redis password required}
@@ -111,13 +113,19 @@ services:
       # API Docs
       SPRINGDOC_SERVER_URL: ${SPRINGDOC_SERVER_URL:-http://localhost:8080}
 
-      # Firebase (FCM) - application-prod.yml이 기대하는 환경변수
+      # Firebase (FCM) - base64 인코딩된 서비스 계정 JSON
+      FCM_SERVICE_ACCOUNT_KEY: ${FCM_SERVICE_ACCOUNT_KEY:?FCM service account key required}
       FCM_CREDENTIALS_PATH: /app/config/firebase-service-account.json
 
       LOGGING_FILE_PATH: /app/logs
+    user: root
+    entrypoint: >
+      sh -c "mkdir -p /app/config /app/logs
+      && chown -R 1000:1000 /app/logs /app/config
+      && echo $$FCM_SERVICE_ACCOUNT_KEY | base64 -d > /app/config/firebase-service-account.json
+      && exec su appuser -c \"exec java $$JAVA_OPTS -jar /app/app.jar\""
     volumes:
-      - ./logs:/app/logs
-      - ./config/firebase-service-account.json:/app/config/firebase-service-account.json:ro
+      - /opt/study-cards/logs:/app/logs
     networks:
       - study-cards-network
     depends_on:
@@ -138,6 +146,23 @@ services:
           memory: 1536M
         reservations:
           memory: 768M
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: study-cards-watchtower
+    environment:
+      TZ: Asia/Seoul
+      DOCKER_API_VERSION: "1.44"
+      WATCHTOWER_CLEANUP: "true"
+      WATCHTOWER_POLL_INTERVAL: 30
+      WATCHTOWER_LABEL_ENABLE: "true"
+      REPO_USER: ${DOCKERHUB_USER:?DockerHub username required}
+      REPO_PASS: ${DOCKERHUB_PASS:?DockerHub password required}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - study-cards-network
+    restart: unless-stopped
 
 networks:
   study-cards-network:
