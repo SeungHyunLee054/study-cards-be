@@ -21,7 +21,6 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
-import java.util.UUID;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -66,7 +65,6 @@ public class SubscriptionRenewalScheduler {
             return;
         }
 
-        String orderId = generateOrderId();
         int amount = subscription.getPlan().getPrice(subscription.getBillingCycle());
         String orderName = String.format("%s %s 구독 갱신",
                 subscription.getPlan().getDisplayName(),
@@ -130,10 +128,6 @@ public class SubscriptionRenewalScheduler {
                         subscription.getUser().getId(), e.getMessage());
             }
         }
-    }
-
-    private String generateOrderId() {
-        return "RENEWAL_" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
     }
 
     @Scheduled(cron = "${app.notification.expiry-check-cron:0 0 9 * * *}")

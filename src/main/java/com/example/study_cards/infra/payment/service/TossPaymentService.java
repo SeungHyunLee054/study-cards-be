@@ -1,11 +1,8 @@
 package com.example.study_cards.infra.payment.service;
 
-import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
-import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.infra.payment.dto.TossBillingRequest;
-import com.example.study_cards.infra.payment.dto.TossConfirmRequest;
-import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
-import com.example.study_cards.infra.payment.dto.TossErrorResponse;
+import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
+import com.example.study_cards.domain.payment.exception.PaymentException;
+import com.example.study_cards.infra.payment.dto.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;
@@ -19,6 +16,35 @@ public class TossPaymentService {
 
     private final RestClient tossPaymentRestClient;
 
+    public TossBillingAuthResponse issueBillingKey(String authKey, String customerKey) {
+        TossBillingAuthRequest request = new TossBillingAuthRequest(authKey, customerKey);
+
+        try {
+            TossBillingAuthResponse response = tossPaymentRestClient.post()
+                    .uri("/billing/authorizations/issue")
+                    .body(request)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::isError, (req, res) -> {
+                        log.error("Toss billing key issue failed: status={}", res.getStatusCode());
+                        throw new PaymentException(PaymentErrorCode.BILLING_KEY_ISSUE_FAILED);
+                    })
+                    .body(TossBillingAuthResponse.class);
+
+            if (response == null) {
+                throw new PaymentException(PaymentErrorCode.BILLING_KEY_ISSUE_FAILED);
+            }
+
+            log.info("Billing key issued: customerKey={}", response.customerKey());
+
+            return response;
+        } catch (PaymentException e) {
+            throw e;
+        } catch (Exception e) {
+            log.error("Toss billing key issue error: {}", e.getMessage(), e);
+            throw new PaymentException(PaymentErrorCode.BILLING_KEY_ISSUE_FAILED);
+        }
+    }
+
     public TossConfirmResponse confirmPayment(String paymentKey, String orderId, Integer amount) {
         TossConfirmRequest request = new TossConfirmRequest(paymentKey, orderId, amount);
 
@@ -29,23 +55,23 @@ public class TossPaymentService {
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
                         log.error("Toss payment confirm failed: status={}", res.getStatusCode());
-                        throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_CONFIRMATION_FAILED);
+                        throw new PaymentException(PaymentErrorCode.PAYMENT_CONFIRMATION_FAILED);
                     })
                     .body(TossConfirmResponse.class);
 
             if (response == null) {
-                throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_CONFIRMATION_FAILED);
+                throw new PaymentException(PaymentErrorCode.PAYMENT_CONFIRMATION_FAILED);
             }
 
             log.info("Payment confirmed: orderId={}, paymentKey={}, amount={}",
                     response.orderId(), response.paymentKey(), response.totalAmount());
 
             return response;
-        } catch (SubscriptionException e) {
+        } catch (PaymentException e) {
             throw e;
         } catch (Exception e) {
             log.error("Toss payment confirm error: {}", e.getMessage(), e);
-            throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_CONFIRMATION_FAILED);
+            throw new PaymentException(PaymentErrorCode.PAYMENT_CONFIRMATION_FAILED);
         }
     }
 
@@ -60,23 +86,23 @@ public class TossPaymentService {
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
                         log.error("Toss billing payment failed: status={}", res.getStatusCode());
-                        throw new SubscriptionException(SubscriptionErrorCode.BILLING_PAYMENT_FAILED);
+                        throw new PaymentException(PaymentErrorCode.BILLING_PAYMENT_FAILED);
                     })
                     .body(TossConfirmResponse.class);
 
             if (response == null) {
-                throw new SubscriptionException(SubscriptionErrorCode.BILLING_PAYMENT_FAILED);
+                throw new PaymentException(PaymentErrorCode.BILLING_PAYMENT_FAILED);
             }
 
             log.info("Billing payment completed: orderId={}, paymentKey={}, amount={}",
                     response.orderId(), response.paymentKey(), response.totalAmount());
 
             return response;
-        } catch (SubscriptionException e) {
+        } catch (PaymentException e) {
             throw e;
         } catch (Exception e) {
             log.error("Toss billing payment error: {}", e.getMessage(), e);
-            throw new SubscriptionException(SubscriptionErrorCode.BILLING_PAYMENT_FAILED);
+            throw new PaymentException(PaymentErrorCode.BILLING_PAYMENT_FAILED);
         }
     }
 
@@ -88,16 +114,16 @@ public class TossPaymentService {
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
                         log.error("Toss payment cancel failed: status={}", res.getStatusCode());
-                        throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_CANCEL_FAILED);
+                        throw new PaymentException(PaymentErrorCode.PAYMENT_CANCEL_FAILED);
                     })
                     .toBodilessEntity();
 
             log.info("Payment canceled: paymentKey={}, reason={}", paymentKey, cancelReason);
-        } catch (SubscriptionException e) {
+        } catch (PaymentException e) {
             throw e;
         } catch (Exception e) {
             log.error("Toss payment cancel error: {}", e.getMessage(), e);
-            throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_CANCEL_FAILED);
+            throw new PaymentException(PaymentErrorCode.PAYMENT_CANCEL_FAILED);
         }
     }
 
@@ -108,14 +134,14 @@ public class TossPaymentService {
                     .retrieve()
                     .onStatus(HttpStatusCode::isError, (req, res) -> {
                         log.error("Toss get payment failed: status={}", res.getStatusCode());
-                        throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_NOT_FOUND);
+                        throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND);
                     })
                     .body(TossConfirmResponse.class);
-        } catch (SubscriptionException e) {
+        } catch (PaymentException e) {
             throw e;
         } catch (Exception e) {
             log.error("Toss get payment error: {}", e.getMessage(), e);
-            throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_NOT_FOUND);
+            throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND);
         }
     }
 

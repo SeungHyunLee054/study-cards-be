@@ -1,9 +1,11 @@
 package com.example.study_cards.domain.subscription.service;
 
+import com.example.study_cards.domain.payment.entity.Payment;
+import com.example.study_cards.domain.payment.entity.PaymentStatus;
+import com.example.study_cards.domain.payment.entity.PaymentType;
 import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.PaymentRepository;
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.support.BaseUnitTest;
@@ -29,15 +31,11 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
     @Mock
     private SubscriptionRepository subscriptionRepository;
 
-    @Mock
-    private PaymentRepository paymentRepository;
-
     @InjectMocks
     private SubscriptionDomainService subscriptionDomainService;
 
     private User testUser;
     private Subscription testSubscription;
-    private Payment testPayment;
 
     private static final Long USER_ID = 1L;
     private static final Long SUBSCRIPTION_ID = 1L;
@@ -47,7 +45,6 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
     void setUp() {
         testUser = createTestUser();
         testSubscription = createTestSubscription();
-        testPayment = createTestPayment();
     }
 
     private User createTestUser() {
@@ -72,19 +69,6 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(subscription, "id", SUBSCRIPTION_ID);
         return subscription;
-    }
-
-    private Payment createTestPayment() {
-        Payment payment = Payment.builder()
-                .user(testUser)
-                .subscription(testSubscription)
-                .orderId("ORDER_TEST123")
-                .amount(3900)
-                .status(PaymentStatus.PENDING)
-                .type(PaymentType.INITIAL)
-                .build();
-        ReflectionTestUtils.setField(payment, "id", 1L);
-        return payment;
     }
 
     @Nested
@@ -237,75 +221,6 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("createPayment")
-    class CreatePaymentTest {
-
-        @Test
-        @DisplayName("결제를 생성한다")
-        void createPayment_success() {
-            // given
-            given(paymentRepository.save(any(Payment.class))).willAnswer(invocation -> {
-                Payment saved = invocation.getArgument(0);
-                ReflectionTestUtils.setField(saved, "id", 1L);
-                return saved;
-            });
-
-            // when
-            Payment result = subscriptionDomainService.createPayment(
-                    testUser,
-                    testSubscription,
-                    3900,
-                    PaymentType.INITIAL
-            );
-
-            // then
-            assertThat(result.getAmount()).isEqualTo(3900);
-            assertThat(result.getType()).isEqualTo(PaymentType.INITIAL);
-            assertThat(result.getStatus()).isEqualTo(PaymentStatus.PENDING);
-            assertThat(result.getOrderId()).startsWith("ORDER_");
-            verify(paymentRepository).save(any(Payment.class));
-        }
-    }
-
-    @Nested
-    @DisplayName("completePayment")
-    class CompletePaymentTest {
-
-        @Test
-        @DisplayName("결제를 완료한다")
-        void completePayment_success() {
-            // given
-            given(paymentRepository.save(any(Payment.class))).willReturn(testPayment);
-            String paymentKey = "pk_test123";
-            String method = "카드";
-
-            // when
-            subscriptionDomainService.completePayment(testPayment, paymentKey, method);
-
-            // then
-            assertThat(testPayment.getStatus()).isEqualTo(PaymentStatus.COMPLETED);
-            assertThat(testPayment.getPaymentKey()).isEqualTo(paymentKey);
-            assertThat(testPayment.getMethod()).isEqualTo(method);
-            verify(paymentRepository).save(testPayment);
-        }
-
-        @Test
-        @DisplayName("이미 완료된 결제를 다시 완료하면 예외를 던진다")
-        void completePayment_alreadyCompleted_throwsException() {
-            // given
-            testPayment.complete("pk_test", "카드", LocalDateTime.now());
-
-            // when & then
-            assertThatThrownBy(() -> subscriptionDomainService.completePayment(
-                    testPayment, "pk_test2", "카드"
-            ))
-                    .isInstanceOf(SubscriptionException.class)
-                    .extracting(e -> ((SubscriptionException) e).getErrorCode())
-                    .isEqualTo(SubscriptionErrorCode.PAYMENT_ALREADY_COMPLETED);
-        }
-    }
-
-    @Nested
     @DisplayName("hasActiveSubscription")
     class HasActiveSubscriptionTest {
 
@@ -333,41 +248,6 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
 
             // then
             assertThat(result).isFalse();
-        }
-    }
-
-    @Nested
-    @DisplayName("createInitialPayment")
-    class CreateInitialPaymentTest {
-
-        @Test
-        @DisplayName("초기 결제를 생성한다")
-        void createInitialPayment_success() {
-            // given
-            given(paymentRepository.save(any(Payment.class))).willAnswer(invocation -> {
-                Payment saved = invocation.getArgument(0);
-                ReflectionTestUtils.setField(saved, "id", 1L);
-                return saved;
-            });
-
-            // when
-            Payment result = subscriptionDomainService.createInitialPayment(
-                    testUser,
-                    SubscriptionPlan.PREMIUM,
-                    BillingCycle.MONTHLY,
-                    CUSTOMER_KEY,
-                    3900
-            );
-
-            // then
-            assertThat(result.getAmount()).isEqualTo(3900);
-            assertThat(result.getType()).isEqualTo(PaymentType.INITIAL);
-            assertThat(result.getStatus()).isEqualTo(PaymentStatus.PENDING);
-            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
-            assertThat(result.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
-            assertThat(result.getCustomerKey()).isEqualTo(CUSTOMER_KEY);
-            assertThat(result.getOrderId()).startsWith("ORDER_");
-            verify(paymentRepository).save(any(Payment.class));
         }
     }
 
@@ -402,7 +282,6 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
                 ReflectionTestUtils.setField(saved, "id", SUBSCRIPTION_ID);
                 return saved;
             });
-            given(paymentRepository.save(any(Payment.class))).willReturn(paymentWithPlan);
 
             // when
             Subscription result = subscriptionDomainService.createSubscriptionFromPayment(
@@ -417,7 +296,6 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             assertThat(result.getCustomerKey()).isEqualTo(CUSTOMER_KEY);
             assertThat(result.getBillingKey()).isEqualTo("billing_key_123");
             verify(subscriptionRepository).save(any(Subscription.class));
-            verify(paymentRepository).save(paymentWithPlan);
         }
 
         @Test
@@ -434,6 +312,59 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
                     .isInstanceOf(SubscriptionException.class)
                     .extracting(e -> ((SubscriptionException) e).getErrorCode())
                     .isEqualTo(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
+        }
+    }
+
+    @Nested
+    @DisplayName("findSubscriptionByBillingKey")
+    class FindSubscriptionByBillingKeyTest {
+
+        @Test
+        @DisplayName("빌링키로 구독을 찾는다")
+        void findSubscriptionByBillingKey_success() {
+            // given
+            given(subscriptionRepository.findByBillingKey("billing_key_123"))
+                    .willReturn(Optional.of(testSubscription));
+
+            // when
+            Optional<Subscription> result = subscriptionDomainService.findSubscriptionByBillingKey("billing_key_123");
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getId()).isEqualTo(SUBSCRIPTION_ID);
+        }
+
+        @Test
+        @DisplayName("빌링키로 구독이 없으면 빈 Optional을 반환한다")
+        void findSubscriptionByBillingKey_notFound() {
+            // given
+            given(subscriptionRepository.findByBillingKey("nonexistent")).willReturn(Optional.empty());
+
+            // when
+            Optional<Subscription> result = subscriptionDomainService.findSubscriptionByBillingKey("nonexistent");
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("disableAutoRenewal")
+    class DisableAutoRenewalTest {
+
+        @Test
+        @DisplayName("자동 갱신을 비활성화한다")
+        void disableAutoRenewal_success() {
+            // given
+            testSubscription.updateBillingKey("billing_key_123");
+            given(subscriptionRepository.save(any(Subscription.class))).willReturn(testSubscription);
+
+            // when
+            subscriptionDomainService.disableAutoRenewal(testSubscription);
+
+            // then
+            assertThat(testSubscription.getBillingKey()).isNull();
+            verify(subscriptionRepository).save(testSubscription);
         }
     }
 }

@@ -16,19 +16,7 @@ public enum SubscriptionErrorCode implements ErrorCode {
     SUBSCRIPTION_EXPIRED(HttpStatus.BAD_REQUEST, "만료된 구독입니다."),
     INVALID_PLAN_CHANGE(HttpStatus.BAD_REQUEST, "유효하지 않은 요금제 변경입니다."),
     FREE_PLAN_NOT_PURCHASABLE(HttpStatus.BAD_REQUEST, "무료 요금제는 구매할 수 없습니다."),
-    BASIC_PLAN_NOT_PURCHASABLE(HttpStatus.BAD_REQUEST, "기본 요금제는 구매할 수 없습니다."),
-
-    PAYMENT_NOT_FOUND(HttpStatus.NOT_FOUND, "결제 정보를 찾을 수 없습니다."),
-    PAYMENT_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "이미 완료된 결제입니다."),
-    PAYMENT_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "이미 처리된 결제입니다."),
-    PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다."),
-    PAYMENT_CONFIRMATION_FAILED(HttpStatus.BAD_REQUEST, "결제 승인에 실패했습니다."),
-    PAYMENT_CANCEL_FAILED(HttpStatus.BAD_REQUEST, "결제 취소에 실패했습니다."),
-
-    BILLING_KEY_ISSUE_FAILED(HttpStatus.BAD_REQUEST, "빌링키 발급에 실패했습니다."),
-    BILLING_PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "자동 결제에 실패했습니다."),
-
-    INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "유효하지 않은 웹훅 서명입니다.");
+    BASIC_PLAN_NOT_PURCHASABLE(HttpStatus.BAD_REQUEST, "기본 요금제는 구매할 수 없습니다.");
 
     private final HttpStatus status;
     private final String message;

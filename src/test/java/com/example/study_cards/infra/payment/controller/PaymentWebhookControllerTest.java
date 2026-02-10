@@ -1,11 +1,8 @@
 package com.example.study_cards.infra.payment.controller;
 
-import com.example.study_cards.application.notification.service.NotificationService;
-import com.example.study_cards.domain.subscription.entity.Payment;
-import com.example.study_cards.domain.subscription.entity.PaymentStatus;
-import com.example.study_cards.domain.subscription.repository.PaymentRepository;
-import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.application.payment.service.PaymentWebhookService;
 import com.example.study_cards.infra.payment.config.TossPaymentProperties;
+import com.example.study_cards.infra.payment.dto.TossWebhookPayload.DataPayload;
 import com.example.study_cards.support.BaseIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -24,14 +21,11 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
-import java.util.Optional;
 
-import static org.mockito.ArgumentMatchers.*;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.never;
-import static org.springframework.restdocs.headers.HeaderDocumentation.headerWithName;
-import static org.springframework.restdocs.headers.HeaderDocumentation.requestHeaders;
 import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.document;
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
 import static org.springframework.restdocs.payload.PayloadDocumentation.*;
@@ -52,13 +46,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
     private TossPaymentProperties tossPaymentProperties;
 
     @MockitoBean
-    private SubscriptionDomainService subscriptionDomainService;
-
-    @MockitoBean
-    private PaymentRepository paymentRepository;
-
-    @MockitoBean
-    private NotificationService notificationService;
+    private PaymentWebhookService paymentWebhookService;
 
     @BeforeEach
     void setUp() {
@@ -106,15 +94,13 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("data.approvedAt").type(JsonFieldType.STRING).description("승인 시간")
                             )
                     ));
+
+            verify(paymentWebhookService).handlePaymentStatusChanged(any(DataPayload.class));
         }
 
         @Test
         @DisplayName("PAYMENT_STATUS_CHANGED - CANCELED 이벤트를 처리한다")
         void handleWebhook_paymentCanceled_success() throws Exception {
-            Payment mockPayment = createMockPayment();
-            given(paymentRepository.findByPaymentKey("payment_key_123"))
-                    .willReturn(Optional.of(mockPayment));
-
             String payload = """
                     {
                         "eventType": "PAYMENT_STATUS_CHANGED",
@@ -136,65 +122,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                             .content(payload))
                     .andExpect(status().isOk());
 
-            verify(subscriptionDomainService).cancelPayment(eq(mockPayment), eq("고객 요청에 의한 취소"));
-        }
-
-        @Test
-        @DisplayName("PAYMENT_STATUS_CHANGED - ABORTED 이벤트를 처리한다")
-        void handleWebhook_paymentAborted_success() throws Exception {
-            Payment mockPayment = createMockPayment();
-            given(paymentRepository.findByOrderId("ORDER_12345"))
-                    .willReturn(Optional.of(mockPayment));
-
-            String payload = """
-                    {
-                        "eventType": "PAYMENT_STATUS_CHANGED",
-                        "createdAt": "2024-01-01T10:00:00",
-                        "data": {
-                            "paymentKey": "payment_key_123",
-                            "orderId": "ORDER_12345",
-                            "status": "ABORTED",
-                            "totalAmount": 3900,
-                            "method": "카드"
-                        }
-                    }
-                    """;
-
-            mockMvc.perform(post("/api/webhooks/toss")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(payload))
-                    .andExpect(status().isOk());
-
-            verify(subscriptionDomainService).failPayment(eq(mockPayment), eq("Payment aborted"));
-        }
-
-        @Test
-        @DisplayName("PAYMENT_STATUS_CHANGED - EXPIRED 이벤트를 처리한다")
-        void handleWebhook_paymentExpired_success() throws Exception {
-            Payment mockPayment = createMockPayment();
-            given(paymentRepository.findByOrderId("ORDER_12345"))
-                    .willReturn(Optional.of(mockPayment));
-
-            String payload = """
-                    {
-                        "eventType": "PAYMENT_STATUS_CHANGED",
-                        "createdAt": "2024-01-01T10:00:00",
-                        "data": {
-                            "paymentKey": "payment_key_123",
-                            "orderId": "ORDER_12345",
-                            "status": "EXPIRED",
-                            "totalAmount": 3900,
-                            "method": "카드"
-                        }
-                    }
-                    """;
-
-            mockMvc.perform(post("/api/webhooks/toss")
-                            .contentType(MediaType.APPLICATION_JSON)
-                            .content(payload))
-                    .andExpect(status().isOk());
-
-            verify(subscriptionDomainService).failPayment(eq(mockPayment), eq("Payment expired"));
+            verify(paymentWebhookService).handlePaymentStatusChanged(any(DataPayload.class));
         }
 
         @Test
@@ -205,9 +133,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                         "eventType": "BILLING_KEY_DELETED",
                         "createdAt": "2024-01-01T10:00:00",
                         "data": {
-                            "paymentKey": "billing_key_123",
-                            "orderId": "ORDER_12345",
-                            "status": "DELETED"
+                            "billingKey": "billing_key_123"
                         }
                     }
                     """;
@@ -223,11 +149,11 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("eventType").type(JsonFieldType.STRING).description("이벤트 타입"),
                                     fieldWithPath("createdAt").type(JsonFieldType.STRING).description("이벤트 생성 시간"),
                                     fieldWithPath("data").type(JsonFieldType.OBJECT).description("이벤트 데이터"),
-                                    fieldWithPath("data.paymentKey").type(JsonFieldType.STRING).description("빌링 키"),
-                                    fieldWithPath("data.orderId").type(JsonFieldType.STRING).description("주문 ID"),
-                                    fieldWithPath("data.status").type(JsonFieldType.STRING).description("상태")
+                                    fieldWithPath("data.billingKey").type(JsonFieldType.STRING).description("빌링 키")
                             )
                     ));
+
+            verify(paymentWebhookService).handleBillingKeyDeleted(any(DataPayload.class));
         }
 
         @Test
@@ -249,6 +175,9 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk());
+
+            verify(paymentWebhookService, never()).handlePaymentStatusChanged(any());
+            verify(paymentWebhookService, never()).handleBillingKeyDeleted(any());
         }
 
         @Test
@@ -266,6 +195,8 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk());
+
+            verify(paymentWebhookService, never()).handlePaymentStatusChanged(any());
         }
     }
 
@@ -321,17 +252,6 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                             .content(payload))
                     .andExpect(status().isUnauthorized());
         }
-    }
-
-    private Payment createMockPayment() {
-        return fixtureMonkey.giveMeBuilder(Payment.class)
-                .set("id", 1L)
-                .set("orderId", "ORDER_12345")
-                .set("paymentKey", "payment_key_123")
-                .set("amount", 3900)
-                .set("status", PaymentStatus.PENDING)
-                .set("user", null)
-                .sample();
     }
 
     private String generateSignature(String payload, String secret) throws Exception {

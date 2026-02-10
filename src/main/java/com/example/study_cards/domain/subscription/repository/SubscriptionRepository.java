@@ -16,6 +16,8 @@ public interface SubscriptionRepository extends JpaRepository<Subscription, Long
 
     Optional<Subscription> findByCustomerKey(String customerKey);
 
+    Optional<Subscription> findByBillingKey(String billingKey);
+
     boolean existsByUserId(Long userId);
 
     @Query("SELECT s FROM Subscription s WHERE s.status = :status AND s.endDate BETWEEN :now AND :threshold")

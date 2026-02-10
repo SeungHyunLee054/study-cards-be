@@ -1,9 +1,9 @@
 package com.example.study_cards.domain.subscription.service;
 
+import com.example.study_cards.domain.payment.entity.Payment;
 import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.PaymentRepository;
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
@@ -11,14 +11,13 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.UUID;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
 public class SubscriptionDomainService {
 
     private final SubscriptionRepository subscriptionRepository;
-    private final PaymentRepository paymentRepository;
 
     public Subscription createSubscription(User user, SubscriptionPlan plan, BillingCycle billingCycle, String customerKey) {
         if (subscriptionRepository.existsByUserId(user.getId())) {
@@ -73,6 +72,10 @@ public class SubscriptionDomainService {
         subscriptionRepository.save(subscription);
     }
 
+    public void cancelSubscription(Subscription subscription, String reason) {
+        cancelSubscription(subscription);
+    }
+
     public void renewSubscription(Subscription subscription) {
         LocalDateTime newEndDate = calculateEndDate(LocalDateTime.now(), subscription.getBillingCycle());
         subscription.renew(newEndDate);
@@ -94,37 +97,13 @@ public class SubscriptionDomainService {
         return subscriptionRepository.findExpired(SubscriptionStatus.ACTIVE, LocalDateTime.now());
     }
 
-    public Payment createPayment(User user, Subscription subscription, int amount, PaymentType type) {
-        String orderId = generateOrderId();
-
-        Payment payment = Payment.builder()
-                .user(user)
-                .subscription(subscription)
-                .orderId(orderId)
-                .amount(amount)
-                .status(PaymentStatus.PENDING)
-                .type(type)
-                .build();
-
-        return paymentRepository.save(payment);
+    public Optional<Subscription> findSubscriptionByBillingKey(String billingKey) {
+        return subscriptionRepository.findByBillingKey(billingKey);
     }
 
-    public Payment createInitialPayment(User user, SubscriptionPlan plan, BillingCycle billingCycle,
-                                        String customerKey, int amount) {
-        String orderId = generateOrderId();
-
-        Payment payment = Payment.builder()
-                .user(user)
-                .orderId(orderId)
-                .amount(amount)
-                .status(PaymentStatus.PENDING)
-                .type(PaymentType.INITIAL)
-                .plan(plan)
-                .billingCycle(billingCycle)
-                .customerKey(customerKey)
-                .build();
-
-        return paymentRepository.save(payment);
+    public void disableAutoRenewal(Subscription subscription) {
+        subscription.updateBillingKey(null);
+        subscriptionRepository.save(subscription);
     }
 
     public Subscription createSubscriptionFromPayment(Payment payment, String billingKey) {
@@ -152,37 +131,8 @@ public class SubscriptionDomainService {
 
         subscription = subscriptionRepository.save(subscription);
         payment.linkSubscription(subscription);
-        paymentRepository.save(payment);
 
         return subscription;
-    }
-
-    public Payment getPaymentByOrderId(String orderId) {
-        return paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new SubscriptionException(SubscriptionErrorCode.PAYMENT_NOT_FOUND));
-    }
-
-    public Payment getPaymentByPaymentKey(String paymentKey) {
-        return paymentRepository.findByPaymentKey(paymentKey)
-                .orElseThrow(() -> new SubscriptionException(SubscriptionErrorCode.PAYMENT_NOT_FOUND));
-    }
-
-    public void completePayment(Payment payment, String paymentKey, String method) {
-        if (payment.isCompleted()) {
-            throw new SubscriptionException(SubscriptionErrorCode.PAYMENT_ALREADY_COMPLETED);
-        }
-        payment.complete(paymentKey, method, LocalDateTime.now());
-        paymentRepository.save(payment);
-    }
-
-    public void cancelPayment(Payment payment, String reason) {
-        payment.cancel(reason);
-        paymentRepository.save(payment);
-    }
-
-    public void failPayment(Payment payment, String reason) {
-        payment.fail(reason);
-        paymentRepository.save(payment);
     }
 
     private void validatePurchasablePlan(SubscriptionPlan plan) {
@@ -196,9 +146,5 @@ public class SubscriptionDomainService {
 
     private LocalDateTime calculateEndDate(LocalDateTime startDate, BillingCycle billingCycle) {
         return startDate.plusMonths(billingCycle.getMonths());
-    }
-
-    private String generateOrderId() {
-        return "ORDER_" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
     }
 }

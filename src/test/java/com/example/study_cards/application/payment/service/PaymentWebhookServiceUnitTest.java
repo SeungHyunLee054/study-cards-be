@@ -30,7 +30,7 @@ import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.*;
 
-class PaymentWebhookServiceTest extends BaseUnitTest {
+class PaymentWebhookServiceUnitTest extends BaseUnitTest {
 
     @InjectMocks
     private PaymentWebhookService paymentWebhookService;
@@ -207,7 +207,7 @@ class PaymentWebhookServiceTest extends BaseUnitTest {
         void handleBillingKeyDeleted_disablesAutoRenewalAndNotifies() {
             User user = createMockUser();
             Subscription subscription = createMockSubscription(user);
-            DataPayload data = createBillingKeyDeletedPayload("bk_123", "ck_123");
+            DataPayload data = createBillingKeyDeletedPayload("bk_123");
 
             given(subscriptionDomainService.findSubscriptionByBillingKey("bk_123"))
                     .willReturn(Optional.of(subscription));
@@ -222,7 +222,7 @@ class PaymentWebhookServiceTest extends BaseUnitTest {
         @Test
         @DisplayName("구독을 찾을 수 없으면 무시한다")
         void handleBillingKeyDeleted_subscriptionNotFound_ignores() {
-            DataPayload data = createBillingKeyDeletedPayload("bk_123", "ck_123");
+            DataPayload data = createBillingKeyDeletedPayload("bk_123");
 
             given(subscriptionDomainService.findSubscriptionByBillingKey("bk_123"))
                     .willReturn(Optional.empty());
@@ -236,7 +236,7 @@ class PaymentWebhookServiceTest extends BaseUnitTest {
         @Test
         @DisplayName("billingKey가 null이면 무시한다")
         void handleBillingKeyDeleted_nullBillingKey_ignores() {
-            DataPayload data = createBillingKeyDeletedPayload(null, "ck_123");
+            DataPayload data = createBillingKeyDeletedPayload(null);
 
             paymentWebhookService.handleBillingKeyDeleted(data);
 
@@ -314,14 +314,14 @@ class PaymentWebhookServiceTest extends BaseUnitTest {
     }
 
     private DataPayload createDataPayload(String status, String orderId, String paymentKey, String method) {
-        return new DataPayload(paymentKey, orderId, status, 3900, method, null, null, null, null, null);
+        return new DataPayload(paymentKey, orderId, status, 3900, method, null, null, null, null);
     }
 
     private DataPayload createCanceledDataPayload(String paymentKey, String orderId, String cancelReason) {
-        return new DataPayload(paymentKey, orderId, "CANCELED", 3900, "카드", null, "2024-01-01T11:00:00", cancelReason, null, null);
+        return new DataPayload(paymentKey, orderId, "CANCELED", 3900, "카드", null, "2024-01-01T11:00:00", cancelReason, null);
     }
 
-    private DataPayload createBillingKeyDeletedPayload(String billingKey, String customerKey) {
-        return new DataPayload(null, null, null, null, null, null, null, null, billingKey, customerKey);
+    private DataPayload createBillingKeyDeletedPayload(String billingKey) {
+        return new DataPayload(null, null, null, null, null, null, null, null, billingKey);
     }
 }

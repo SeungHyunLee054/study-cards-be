@@ -17,7 +17,8 @@ public record TossWebhookPayload(
             String method,
             String approvedAt,
             String canceledAt,
-            String cancelReason
+            String cancelReason,
+            String billingKey
     ) {
     }
 }

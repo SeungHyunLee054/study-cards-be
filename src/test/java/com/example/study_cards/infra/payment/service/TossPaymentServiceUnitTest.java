@@ -1,7 +1,8 @@
 package com.example.study_cards.infra.payment.service;
 
-import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
-import com.example.study_cards.domain.subscription.exception.SubscriptionException;
+import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
+import com.example.study_cards.domain.payment.exception.PaymentException;
+import com.example.study_cards.infra.payment.dto.TossBillingAuthResponse;
 import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -55,6 +56,42 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
     }
 
     @Nested
+    @DisplayName("issueBillingKey")
+    class IssueBillingKeyTest {
+
+        @Test
+        @DisplayName("빌링키 발급 성공 시 응답을 반환한다")
+        void issueBillingKey_success() {
+            // given
+            TossBillingAuthResponse expectedResponse = new TossBillingAuthResponse(
+                    "billing_key_123", "customer_key_123", "2024-01-01T10:00:00", "카드", null);
+            when(responseSpec.body(TossBillingAuthResponse.class)).thenReturn(expectedResponse);
+
+            // when
+            TossBillingAuthResponse result = tossPaymentService.issueBillingKey("auth_key", "customer_key_123");
+
+            // then
+            assertThat(result).isNotNull();
+            assertThat(result.billingKey()).isEqualTo("billing_key_123");
+        }
+
+        @Test
+        @DisplayName("응답이 null이면 예외를 발생시킨다")
+        void issueBillingKey_nullResponse_throwsException() {
+            // given
+            when(responseSpec.body(TossBillingAuthResponse.class)).thenReturn(null);
+
+            // when & then
+            assertThatThrownBy(() -> tossPaymentService.issueBillingKey("auth_key", "customer_key"))
+                    .isInstanceOf(PaymentException.class)
+                    .satisfies(ex -> {
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.BILLING_KEY_ISSUE_FAILED);
+                    });
+        }
+    }
+
+    @Nested
     @DisplayName("confirmPayment")
     class ConfirmPaymentTest {
 
@@ -87,25 +124,25 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.confirmPayment("key", "order", 1000))
-                    .isInstanceOf(SubscriptionException.class)
+                    .isInstanceOf(PaymentException.class)
                     .satisfies(ex -> {
-                        SubscriptionException se = (SubscriptionException) ex;
-                        assertThat(se.getErrorCode()).isEqualTo(SubscriptionErrorCode.PAYMENT_CONFIRMATION_FAILED);
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.PAYMENT_CONFIRMATION_FAILED);
                     });
         }
 
         @Test
-        @DisplayName("예외 발생 시 SubscriptionException을 발생시킨다")
-        void confirmPayment_exception_throwsSubscriptionException() {
+        @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
+        void confirmPayment_exception_throwsPaymentException() {
             // given
             when(tossPaymentRestClient.post()).thenThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.confirmPayment("key", "order", 1000))
-                    .isInstanceOf(SubscriptionException.class)
+                    .isInstanceOf(PaymentException.class)
                     .satisfies(ex -> {
-                        SubscriptionException se = (SubscriptionException) ex;
-                        assertThat(se.getErrorCode()).isEqualTo(SubscriptionErrorCode.PAYMENT_CONFIRMATION_FAILED);
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.PAYMENT_CONFIRMATION_FAILED);
                     });
         }
     }
@@ -146,26 +183,26 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
             // when & then
             assertThatThrownBy(() -> tossPaymentService.billingPayment(
                     "billing_key", "customer_key", "order", 1000, "orderName"))
-                    .isInstanceOf(SubscriptionException.class)
+                    .isInstanceOf(PaymentException.class)
                     .satisfies(ex -> {
-                        SubscriptionException se = (SubscriptionException) ex;
-                        assertThat(se.getErrorCode()).isEqualTo(SubscriptionErrorCode.BILLING_PAYMENT_FAILED);
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.BILLING_PAYMENT_FAILED);
                     });
         }
 
         @Test
-        @DisplayName("예외 발생 시 SubscriptionException을 발생시킨다")
-        void billingPayment_exception_throwsSubscriptionException() {
+        @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
+        void billingPayment_exception_throwsPaymentException() {
             // given
             when(tossPaymentRestClient.post()).thenThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.billingPayment(
                     "billing_key", "customer_key", "order", 1000, "orderName"))
-                    .isInstanceOf(SubscriptionException.class)
+                    .isInstanceOf(PaymentException.class)
                     .satisfies(ex -> {
-                        SubscriptionException se = (SubscriptionException) ex;
-                        assertThat(se.getErrorCode()).isEqualTo(SubscriptionErrorCode.BILLING_PAYMENT_FAILED);
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.BILLING_PAYMENT_FAILED);
                     });
         }
     }
@@ -188,17 +225,17 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("예외 발생 시 SubscriptionException을 발생시킨다")
-        void cancelPayment_exception_throwsSubscriptionException() {
+        @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
+        void cancelPayment_exception_throwsPaymentException() {
             // given
             when(tossPaymentRestClient.post()).thenThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.cancelPayment("key", "reason"))
-                    .isInstanceOf(SubscriptionException.class)
+                    .isInstanceOf(PaymentException.class)
                     .satisfies(ex -> {
-                        SubscriptionException se = (SubscriptionException) ex;
-                        assertThat(se.getErrorCode()).isEqualTo(SubscriptionErrorCode.PAYMENT_CANCEL_FAILED);
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.PAYMENT_CANCEL_FAILED);
                     });
         }
     }
@@ -225,17 +262,17 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("예외 발생 시 SubscriptionException을 발생시킨다")
-        void getPayment_exception_throwsSubscriptionException() {
+        @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
+        void getPayment_exception_throwsPaymentException() {
             // given
             when(tossPaymentRestClient.get()).thenThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.getPayment("key"))
-                    .isInstanceOf(SubscriptionException.class)
+                    .isInstanceOf(PaymentException.class)
                     .satisfies(ex -> {
-                        SubscriptionException se = (SubscriptionException) ex;
-                        assertThat(se.getErrorCode()).isEqualTo(SubscriptionErrorCode.PAYMENT_NOT_FOUND);
+                        PaymentException pe = (PaymentException) ex;
+                        assertThat(pe.getErrorCode()).isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
                     });
         }
     }

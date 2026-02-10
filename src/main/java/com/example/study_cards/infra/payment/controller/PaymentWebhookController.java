@@ -1,13 +1,8 @@
 package com.example.study_cards.infra.payment.controller;
 
-import com.example.study_cards.application.notification.service.NotificationService;
-import com.example.study_cards.domain.notification.entity.NotificationType;
-import com.example.study_cards.domain.subscription.entity.Payment;
-import com.example.study_cards.domain.subscription.entity.Subscription;
-import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
-import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.PaymentRepository;
-import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.application.payment.service.PaymentWebhookService;
+import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
+import com.example.study_cards.domain.payment.exception.PaymentException;
 import com.example.study_cards.infra.payment.config.TossPaymentProperties;
 import com.example.study_cards.infra.payment.dto.TossWebhookPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,9 +23,7 @@ import java.util.Base64;
 public class PaymentWebhookController {
 
     private final TossPaymentProperties tossPaymentProperties;
-    private final SubscriptionDomainService subscriptionDomainService;
-    private final PaymentRepository paymentRepository;
-    private final NotificationService notificationService;
+    private final PaymentWebhookService paymentWebhookService;
     private final ObjectMapper objectMapper;
 
     @PostMapping("/toss")
@@ -51,7 +44,7 @@ public class PaymentWebhookController {
         if (tossPaymentProperties.getWebhookSecret() != null && !tossPaymentProperties.getWebhookSecret().isBlank()) {
             if (!verifySignature(rawBody, signature)) {
                 log.warn("Invalid webhook signature");
-                throw new SubscriptionException(SubscriptionErrorCode.INVALID_WEBHOOK_SIGNATURE);
+                throw new PaymentException(PaymentErrorCode.INVALID_WEBHOOK_SIGNATURE);
             }
         }
 
@@ -71,55 +64,16 @@ public class PaymentWebhookController {
         }
 
         String eventType = payload.eventType();
-        String paymentKey = payload.data().paymentKey();
         String orderId = payload.data().orderId();
         String status = payload.data().status();
 
         log.info("Processing webhook: eventType={}, orderId={}, status={}", eventType, orderId, status);
 
         switch (eventType) {
-            case "PAYMENT_STATUS_CHANGED" -> handlePaymentStatusChanged(payload.data());
-            case "BILLING_KEY_DELETED" -> handleBillingKeyDeleted(payload.data());
+            case "PAYMENT_STATUS_CHANGED" -> paymentWebhookService.handlePaymentStatusChanged(payload.data());
+            case "BILLING_KEY_DELETED" -> paymentWebhookService.handleBillingKeyDeleted(payload.data());
             default -> log.info("Unhandled webhook event: {}", eventType);
         }
-    }
-
-    private void handlePaymentStatusChanged(TossWebhookPayload.DataPayload data) {
-        String status = data.status();
-
-        switch (status) {
-            case "DONE" -> {
-                log.info("Payment completed via webhook: orderId={}", data.orderId());
-            }
-            case "CANCELED" -> {
-                paymentRepository.findByPaymentKey(data.paymentKey())
-                        .ifPresent(payment -> {
-                            subscriptionDomainService.cancelPayment(payment, data.cancelReason());
-                            log.info("Payment canceled via webhook: orderId={}", data.orderId());
-                        });
-            }
-            case "ABORTED", "EXPIRED" -> {
-                paymentRepository.findByOrderId(data.orderId())
-                        .ifPresent(payment -> {
-                            subscriptionDomainService.failPayment(payment, "Payment " + status.toLowerCase());
-                            log.info("Payment {} via webhook: orderId={}", status.toLowerCase(), data.orderId());
-
-                            if (payment.getUser() != null) {
-                                notificationService.sendNotification(
-                                        payment.getUser(),
-                                        NotificationType.PAYMENT_FAILED,
-                                        "결제 실패",
-                                        "결제가 실패했습니다. 결제 수단을 확인해주세요."
-                                );
-                            }
-                        });
-            }
-            default -> log.info("Unhandled payment status: {}", status);
-        }
-    }
-
-    private void handleBillingKeyDeleted(TossWebhookPayload.DataPayload data) {
-        log.info("Billing key deleted: {}", data.paymentKey());
     }
 
     private boolean verifySignature(String payload, String signature) {
