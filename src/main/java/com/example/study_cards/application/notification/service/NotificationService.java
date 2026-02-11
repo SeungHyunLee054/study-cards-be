@@ -15,6 +15,8 @@ import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.fcm.service.FcmService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -105,20 +107,16 @@ public class NotificationService {
         }
     }
 
-    public List<NotificationResponse> getNotifications(Long userId) {
+    public Page<NotificationResponse> getNotifications(Long userId, Pageable pageable) {
         User user = userDomainService.findById(userId);
-        return notificationRepository.findByUserOrderByCreatedAtDesc(user)
-                .stream()
-                .map(NotificationResponse::from)
-                .toList();
+        return notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable)
+                .map(NotificationResponse::from);
     }
 
-    public List<NotificationResponse> getUnreadNotifications(Long userId) {
+    public Page<NotificationResponse> getUnreadNotifications(Long userId, Pageable pageable) {
         User user = userDomainService.findById(userId);
-        return notificationRepository.findByUserAndIsReadFalseOrderByCreatedAtDesc(user)
-                .stream()
-                .map(NotificationResponse::from)
-                .toList();
+        return notificationRepository.findByUserAndIsReadFalseOrderByCreatedAtDesc(user, pageable)
+                .map(NotificationResponse::from);
     }
 
     public long getUnreadCount(Long userId) {

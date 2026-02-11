@@ -6,9 +6,9 @@ import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.annotation.Pointcut;
+import com.example.study_cards.infra.security.user.CustomUserDetails;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -65,8 +65,8 @@ public class LoggingAspect {
         }
 
         Object principal = authentication.getPrincipal();
-        if (principal instanceof UserDetails userDetails) {
-            return userDetails.getUsername();
+        if (principal instanceof CustomUserDetails userDetails) {
+            return "userId=" + userDetails.userId();
         }
 
         return principal.toString();

@@ -205,7 +205,7 @@ class NotificationControllerTest extends BaseIntegrationTest {
             mockMvc.perform(get("/api/notifications")
                             .header("Authorization", "Bearer " + accessToken))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.content").isArray())
                     .andDo(document("notification/get-notifications",
                             preprocessRequest(prettyPrint()),
                             preprocessResponse(prettyPrint()),
@@ -213,14 +213,23 @@ class NotificationControllerTest extends BaseIntegrationTest {
                                     headerWithName("Authorization").description("Bearer 액세스 토큰")
                             ),
                             responseFields(
-                                    fieldWithPath("[].id").type(JsonFieldType.NUMBER).description("알림 ID"),
-                                    fieldWithPath("[].type").type(JsonFieldType.STRING).description("알림 타입"),
-                                    fieldWithPath("[].title").type(JsonFieldType.STRING).description("제목"),
-                                    fieldWithPath("[].body").type(JsonFieldType.STRING).description("내용"),
-                                    fieldWithPath("[].isRead").type(JsonFieldType.BOOLEAN).description("읽음 여부"),
-                                    fieldWithPath("[].referenceId").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
-                                    fieldWithPath("[].createdAt").type(JsonFieldType.STRING).description("생성일시")
-                            )
+                                    fieldWithPath("content[].id").type(JsonFieldType.NUMBER).description("알림 ID"),
+                                    fieldWithPath("content[].type").type(JsonFieldType.STRING).description("알림 타입"),
+                                    fieldWithPath("content[].title").type(JsonFieldType.STRING).description("제목"),
+                                    fieldWithPath("content[].body").type(JsonFieldType.STRING).description("내용"),
+                                    fieldWithPath("content[].isRead").type(JsonFieldType.BOOLEAN).description("읽음 여부"),
+                                    fieldWithPath("content[].referenceId").type(JsonFieldType.NUMBER).description("참조 ID").optional(),
+                                    fieldWithPath("content[].createdAt").type(JsonFieldType.STRING).description("생성일시")
+                            ).and(subsectionWithPath("pageable").ignored(),
+                                    fieldWithPath("totalElements").ignored(),
+                                    fieldWithPath("totalPages").ignored(),
+                                    fieldWithPath("size").ignored(),
+                                    fieldWithPath("number").ignored(),
+                                    fieldWithPath("first").ignored(),
+                                    fieldWithPath("last").ignored(),
+                                    subsectionWithPath("sort").ignored(),
+                                    fieldWithPath("numberOfElements").ignored(),
+                                    fieldWithPath("empty").ignored())
                     ));
         }
     }
@@ -235,7 +244,7 @@ class NotificationControllerTest extends BaseIntegrationTest {
             mockMvc.perform(get("/api/notifications/unread")
                             .header("Authorization", "Bearer " + accessToken))
                     .andExpect(status().isOk())
-                    .andExpect(jsonPath("$").isArray())
+                    .andExpect(jsonPath("$.content").isArray())
                     .andDo(document("notification/get-unread-notifications",
                             preprocessRequest(prettyPrint()),
                             preprocessResponse(prettyPrint()),

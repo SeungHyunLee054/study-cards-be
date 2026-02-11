@@ -20,6 +20,10 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
@@ -290,6 +294,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
         @DisplayName("사용자의 알림 목록을 조회한다")
         void getNotifications_success() {
             // given
+            Pageable pageable = PageRequest.of(0, 20);
             Notification notification = Notification.builder()
                     .user(testUser)
                     .type(NotificationType.STREAK_7)
@@ -299,15 +304,15 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(notification, "id", 1L);
 
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(notificationRepository.findByUserOrderByCreatedAtDesc(testUser))
-                    .willReturn(List.of(notification));
+            given(notificationRepository.findByUserOrderByCreatedAtDesc(testUser, pageable))
+                    .willReturn(new PageImpl<>(List.of(notification), pageable, 1));
 
             // when
-            List<NotificationResponse> result = notificationService.getNotifications(USER_ID);
+            Page<NotificationResponse> result = notificationService.getNotifications(USER_ID, pageable);
 
             // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).type()).isEqualTo(NotificationType.STREAK_7);
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).type()).isEqualTo(NotificationType.STREAK_7);
         }
     }
 

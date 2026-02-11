@@ -8,11 +8,13 @@ import com.example.study_cards.application.notification.service.NotificationServ
 import com.example.study_cards.infra.security.user.CustomUserDetails;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
 import java.util.Map;
 
 @RequiredArgsConstructor
@@ -51,15 +53,17 @@ public class NotificationController {
     }
 
     @GetMapping
-    public ResponseEntity<List<NotificationResponse>> getNotifications(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(notificationService.getNotifications(userDetails.userId()));
+    public ResponseEntity<Page<NotificationResponse>> getNotifications(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(notificationService.getNotifications(userDetails.userId(), pageable));
     }
 
     @GetMapping("/unread")
-    public ResponseEntity<List<NotificationResponse>> getUnreadNotifications(
-            @AuthenticationPrincipal CustomUserDetails userDetails) {
-        return ResponseEntity.ok(notificationService.getUnreadNotifications(userDetails.userId()));
+    public ResponseEntity<Page<NotificationResponse>> getUnreadNotifications(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(notificationService.getUnreadNotifications(userDetails.userId(), pageable));
     }
 
     @GetMapping("/unread/count")

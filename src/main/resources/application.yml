@@ -16,6 +16,9 @@ spring:
   data:
     redis:
       timeout: 2s
+    web:
+      pageable:
+        max-page-size: 100
 
   # 공통 Mail 설정
   mail:
