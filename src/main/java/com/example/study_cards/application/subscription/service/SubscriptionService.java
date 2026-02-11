@@ -37,7 +37,7 @@ public class SubscriptionService {
     }
 
     public SubscriptionResponse getMySubscriptionOrNull(User user) {
-        return subscriptionRepository.findByUserId(user.getId())
+        return subscriptionRepository.findActiveByUserId(user.getId())
                 .map(SubscriptionResponse::from)
                 .orElse(null);
     }

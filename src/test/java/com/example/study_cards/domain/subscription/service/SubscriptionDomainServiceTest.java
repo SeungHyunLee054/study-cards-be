@@ -79,7 +79,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("새 구독을 생성한다")
         void createSubscription_success() {
             // given
-            given(subscriptionRepository.existsByUserId(USER_ID)).willReturn(false);
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(false);
             given(subscriptionRepository.save(any(Subscription.class))).willAnswer(invocation -> {
                 Subscription saved = invocation.getArgument(0);
                 ReflectionTestUtils.setField(saved, "id", SUBSCRIPTION_ID);
@@ -105,7 +105,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("이미 구독이 있으면 예외를 던진다")
         void createSubscription_alreadyExists_throwsException() {
             // given
-            given(subscriptionRepository.existsByUserId(USER_ID)).willReturn(true);
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(true);
 
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscription(
@@ -123,7 +123,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("무료 플랜은 구매할 수 없다")
         void createSubscription_freePlan_throwsException() {
             // given
-            given(subscriptionRepository.existsByUserId(USER_ID)).willReturn(false);
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(false);
 
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscription(
@@ -141,7 +141,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("기본 플랜은 구매할 수 없다")
         void createSubscription_basicPlan_throwsException() {
             // given
-            given(subscriptionRepository.existsByUserId(USER_ID)).willReturn(false);
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(false);
 
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscription(
@@ -164,7 +164,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("사용자 ID로 구독을 조회한다")
         void getSubscription_success() {
             // given
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
             // when
             Subscription result = subscriptionDomainService.getSubscription(USER_ID);
@@ -178,7 +178,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("구독이 없으면 예외를 던진다")
         void getSubscription_notFound_throwsException() {
             // given
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.getSubscription(USER_ID))
@@ -228,7 +228,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("활성 구독이 있으면 true를 반환한다")
         void hasActiveSubscription_true() {
             // given
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(true);
 
             // when
             boolean result = subscriptionDomainService.hasActiveSubscription(USER_ID);
@@ -241,7 +241,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("구독이 없으면 false를 반환한다")
         void hasActiveSubscription_noSubscription() {
             // given
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(false);
 
             // when
             boolean result = subscriptionDomainService.hasActiveSubscription(USER_ID);
@@ -276,7 +276,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("결제 정보로 구독을 생성한다")
         void createSubscriptionFromPayment_success() {
             // given
-            given(subscriptionRepository.existsByUserId(USER_ID)).willReturn(false);
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(false);
             given(subscriptionRepository.save(any(Subscription.class))).willAnswer(invocation -> {
                 Subscription saved = invocation.getArgument(0);
                 ReflectionTestUtils.setField(saved, "id", SUBSCRIPTION_ID);
@@ -302,7 +302,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("이미 구독이 있으면 예외를 던진다")
         void createSubscriptionFromPayment_alreadyExists_throwsException() {
             // given
-            given(subscriptionRepository.existsByUserId(USER_ID)).willReturn(true);
+            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(true);
 
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscriptionFromPayment(

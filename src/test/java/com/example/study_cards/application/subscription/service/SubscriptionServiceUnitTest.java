@@ -123,7 +123,7 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
         @DisplayName("구독이 없으면 null을 반환한다")
         void getMySubscriptionOrNull_noSubscription() {
             // given
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.empty());
 
             // when
             SubscriptionResponse result = subscriptionService.getMySubscriptionOrNull(testUser);

@@ -1,8 +1,6 @@
 package com.example.study_cards.domain.user.entity;
 
 import com.example.study_cards.domain.common.audit.BaseEntity;
-import com.example.study_cards.domain.subscription.entity.Subscription;
-import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import jakarta.persistence.*;
 import lombok.AccessLevel;
 import lombok.Builder;
@@ -37,7 +35,7 @@ public class User extends BaseEntity {
 
     private String providerId;
 
-    @ElementCollection(fetch = FetchType.EAGER)
+    @ElementCollection(fetch = FetchType.LAZY)
     @CollectionTable(name = "user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Enumerated(EnumType.STRING)
     @Column(name = "role")
@@ -58,9 +56,6 @@ public class User extends BaseEntity {
 
     @Column(nullable = false)
     private Boolean emailVerified = false;
-
-    @OneToOne(mappedBy = "user", fetch = FetchType.LAZY)
-    private Subscription subscription;
 
     @Version
     private Long version;
@@ -133,13 +128,4 @@ public class User extends BaseEntity {
         this.emailVerified = true;
     }
 
-    public SubscriptionPlan getSubscriptionPlan() {
-        if (hasRole(Role.ROLE_ADMIN)) {
-            return SubscriptionPlan.PREMIUM;
-        }
-        if (subscription == null || !subscription.isActive()) {
-            return SubscriptionPlan.BASIC;
-        }
-        return subscription.getPlan();
-    }
 }

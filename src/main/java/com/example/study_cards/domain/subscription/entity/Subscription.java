@@ -24,8 +24,8 @@ public class Subscription extends BaseEntity {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id", nullable = false, unique = true)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
     @Enumerated(EnumType.STRING)
@@ -50,6 +50,8 @@ public class Subscription extends BaseEntity {
     private String customerKey;
 
     private String billingKey;
+
+    private String cancelReason;
 
     @Builder
     public Subscription(User user, SubscriptionPlan plan, SubscriptionStatus status,
@@ -85,6 +87,11 @@ public class Subscription extends BaseEntity {
 
     public void cancel() {
         this.status = SubscriptionStatus.CANCELED;
+    }
+
+    public void cancel(String reason) {
+        this.status = SubscriptionStatus.CANCELED;
+        this.cancelReason = reason;
     }
 
     public void expire() {

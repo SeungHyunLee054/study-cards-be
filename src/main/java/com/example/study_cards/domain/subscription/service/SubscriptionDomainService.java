@@ -5,6 +5,7 @@ import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
+import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -20,7 +21,7 @@ public class SubscriptionDomainService {
     private final SubscriptionRepository subscriptionRepository;
 
     public Subscription createSubscription(User user, SubscriptionPlan plan, BillingCycle billingCycle, String customerKey) {
-        if (subscriptionRepository.existsByUserId(user.getId())) {
+        if (subscriptionRepository.existsActiveByUserId(user.getId())) {
             throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
         }
 
@@ -42,8 +43,17 @@ public class SubscriptionDomainService {
         return subscriptionRepository.save(subscription);
     }
 
+    public SubscriptionPlan getEffectivePlan(User user) {
+        if (user.hasRole(Role.ROLE_ADMIN)) {
+            return SubscriptionPlan.PREMIUM;
+        }
+        return subscriptionRepository.findActiveByUserId(user.getId())
+                .map(Subscription::getPlan)
+                .orElse(SubscriptionPlan.BASIC);
+    }
+
     public Subscription getSubscription(Long userId) {
-        return subscriptionRepository.findByUserId(userId)
+        return subscriptionRepository.findActiveByUserId(userId)
                 .orElseThrow(() -> new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_NOT_FOUND));
     }
 
@@ -53,9 +63,7 @@ public class SubscriptionDomainService {
     }
 
     public boolean hasActiveSubscription(Long userId) {
-        return subscriptionRepository.findByUserId(userId)
-                .map(Subscription::isActive)
-                .orElse(false);
+        return subscriptionRepository.existsActiveByUserId(userId);
     }
 
     public void activateSubscription(Subscription subscription, String billingKey) {
@@ -73,7 +81,11 @@ public class SubscriptionDomainService {
     }
 
     public void cancelSubscription(Subscription subscription, String reason) {
-        cancelSubscription(subscription);
+        if (subscription.getStatus() == SubscriptionStatus.CANCELED) {
+            throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_CANCELED);
+        }
+        subscription.cancel(reason);
+        subscriptionRepository.save(subscription);
     }
 
     public void renewSubscription(Subscription subscription) {
@@ -109,7 +121,7 @@ public class SubscriptionDomainService {
     public Subscription createSubscriptionFromPayment(Payment payment, String billingKey) {
         User user = payment.getUser();
 
-        if (subscriptionRepository.existsByUserId(user.getId())) {
+        if (subscriptionRepository.existsActiveByUserId(user.getId())) {
             throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
         }
 
