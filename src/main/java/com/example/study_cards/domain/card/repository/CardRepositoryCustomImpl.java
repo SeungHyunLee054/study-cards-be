@@ -10,7 +10,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.example.study_cards.domain.card.entity.QCard.card;
 
@@ -49,33 +48,6 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
         return queryFactory
                 .selectFrom(card)
                 .where(card.category.eq(category))
-                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .fetch();
-    }
-
-    @Override
-    public List<Card> findAllWithCategory() {
-        return queryFactory
-                .selectFrom(card)
-                .join(card.category).fetchJoin()
-                .fetch();
-    }
-
-    @Override
-    public Optional<Card> findByIdWithCategory(Long id) {
-        Card result = queryFactory
-                .selectFrom(card)
-                .join(card.category).fetchJoin()
-                .where(card.id.eq(id))
-                .fetchOne();
-        return Optional.ofNullable(result);
-    }
-
-    @Override
-    public List<Card> findAllByOrderByEfFactorAscWithCategory() {
-        return queryFactory
-                .selectFrom(card)
-                .join(card.category).fetchJoin()
                 .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
                 .fetch();
     }
@@ -167,10 +139,9 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
-    public List<Card> findByCategoryOrderByEfFactorAsc(Category category, boolean includeAiCards) {
+    public List<Card> findAllByOrderByEfFactorAsc(boolean includeAiCards) {
         var query = queryFactory
-                .selectFrom(card)
-                .where(card.category.eq(category));
+                .selectFrom(card);
 
         if (!includeAiCards) {
             query.where(card.aiGenerated.eq(false));
@@ -182,8 +153,10 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
-    public List<Card> findAllByOrderByEfFactorAsc(boolean includeAiCards) {
-        var query = queryFactory.selectFrom(card);
+    public List<Card> findByCategoryOrderByEfFactorAsc(Category category, boolean includeAiCards) {
+        var query = queryFactory
+                .selectFrom(card)
+                .where(card.category.eq(category));
 
         if (!includeAiCards) {
             query.where(card.aiGenerated.eq(false));

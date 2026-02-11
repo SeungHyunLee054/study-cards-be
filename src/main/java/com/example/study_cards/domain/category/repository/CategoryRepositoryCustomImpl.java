@@ -5,7 +5,6 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.example.study_cards.domain.category.entity.QCategory.category;
 
@@ -13,16 +12,6 @@ import static com.example.study_cards.domain.category.entity.QCategory.category;
 public class CategoryRepositoryCustomImpl implements CategoryRepositoryCustom {
 
     private final JPAQueryFactory queryFactory;
-
-    @Override
-    public Optional<Category> findByCodeWithParent(String code) {
-        Category result = queryFactory
-                .selectFrom(category)
-                .leftJoin(category.parent).fetchJoin()
-                .where(category.code.eq(code))
-                .fetchOne();
-        return Optional.ofNullable(result);
-    }
 
     @Override
     public List<Category> findRootCategoriesWithChildren() {

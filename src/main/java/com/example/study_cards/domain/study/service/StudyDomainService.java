@@ -20,7 +20,6 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -228,20 +227,6 @@ public class StudyDomainService {
 
             return studyRecordRepository.save(newRecord);
         }
-    }
-
-    public List<Object> findAllCardsForStudy(User user, Category category, int limit) {
-        List<Object> allCards = new ArrayList<>();
-
-        List<Card> publicCards = findTodayStudyCards(user, category, limit);
-        allCards.addAll(publicCards);
-
-        if (allCards.size() < limit) {
-            List<UserCard> userCards = findTodayUserCardsForStudy(user, category, limit - allCards.size());
-            allCards.addAll(userCards);
-        }
-
-        return allCards;
     }
 
     public int countDueCards(User user, LocalDate date) {

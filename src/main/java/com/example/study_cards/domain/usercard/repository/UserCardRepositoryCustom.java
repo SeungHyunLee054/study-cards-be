@@ -7,17 +7,12 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface UserCardRepositoryCustom {
 
     List<UserCard> findByUserOrderByEfFactorAsc(User user);
 
     List<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category);
-
-    List<UserCard> findByUserWithCategory(User user);
-
-    Optional<UserCard> findByIdWithCategory(Long id);
 
     Page<UserCard> findByUserWithCategory(User user, Pageable pageable);
 

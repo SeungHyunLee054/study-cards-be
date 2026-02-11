@@ -6,7 +6,6 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
-import java.util.Optional;
 
 public interface CardRepositoryCustom {
 
@@ -15,12 +14,6 @@ public interface CardRepositoryCustom {
     List<Card> findAllByOrderByEfFactorAsc();
 
     List<Card> findByCategoryOrderByEfFactorAsc(Category category);
-
-    List<Card> findAllWithCategory();
-
-    Optional<Card> findByIdWithCategory(Long id);
-
-    List<Card> findAllByOrderByEfFactorAscWithCategory();
 
     List<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category);
 
@@ -32,9 +25,9 @@ public interface CardRepositoryCustom {
 
     Page<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category, Pageable pageable);
 
-    List<Card> findByCategoryOrderByEfFactorAsc(Category category, boolean includeAiCards);
-
     List<Card> findAllByOrderByEfFactorAsc(boolean includeAiCards);
+
+    List<Card> findByCategoryOrderByEfFactorAsc(Category category, boolean includeAiCards);
 
     record CategoryCount(Long categoryId, String categoryCode, Long count) {}
 }

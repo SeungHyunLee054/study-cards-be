@@ -15,6 +15,4 @@ public interface StudyRecordRepository extends JpaRepository<StudyRecord, Long>,
     Optional<StudyRecord> findByUserAndUserCard(User user, UserCard userCard);
 
     boolean existsByCard(Card card);
-
-    boolean existsByUserCard(UserCard userCard);
 }

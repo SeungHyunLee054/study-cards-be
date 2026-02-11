@@ -18,7 +18,5 @@ public interface CategoryRepository extends JpaRepository<Category, Long>, Categ
 
     List<Category> findByParentOrderByDisplayOrder(Category parent);
 
-    List<Category> findByDepth(Integer depth);
-
     Page<Category> findByParent(Category parent, Pageable pageable);
 }

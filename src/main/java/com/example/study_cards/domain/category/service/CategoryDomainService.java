@@ -8,13 +8,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class CategoryDomainService {
 
     private final CategoryRepository categoryRepository;
@@ -52,7 +50,6 @@ public class CategoryDomainService {
         return categoryRepository.findByParentOrderByDisplayOrder(parent);
     }
 
-    @Transactional
     public Category createCategory(String code, String name, Category parent, Integer displayOrder) {
         validateCodeNotExists(code);
 
@@ -66,7 +63,6 @@ public class CategoryDomainService {
         return categoryRepository.save(category);
     }
 
-    @Transactional
     public Category updateCategory(Long id, String code, String name, Integer displayOrder) {
         Category category = findById(id);
 
@@ -78,7 +74,6 @@ public class CategoryDomainService {
         return category;
     }
 
-    @Transactional
     public void deleteCategory(Long id) {
         Category category = findById(id);
 

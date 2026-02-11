@@ -11,7 +11,6 @@ import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 
 import java.util.List;
-import java.util.Optional;
 
 import static com.example.study_cards.domain.usercard.entity.QUserCard.userCard;
 
@@ -36,25 +35,6 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .where(userCard.user.eq(user), userCard.category.eq(category))
                 .orderBy(userCard.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
                 .fetch();
-    }
-
-    @Override
-    public List<UserCard> findByUserWithCategory(User user) {
-        return queryFactory
-                .selectFrom(userCard)
-                .join(userCard.category).fetchJoin()
-                .where(userCard.user.eq(user))
-                .fetch();
-    }
-
-    @Override
-    public Optional<UserCard> findByIdWithCategory(Long id) {
-        UserCard result = queryFactory
-                .selectFrom(userCard)
-                .join(userCard.category).fetchJoin()
-                .where(userCard.id.eq(id))
-                .fetchOne();
-        return Optional.ofNullable(result);
     }
 
     @Override
