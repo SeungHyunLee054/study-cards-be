@@ -1,4 +1,4 @@
-package com.example.study_cards.infra.ai;
+package com.example.study_cards.infra.ai.config;
 
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;

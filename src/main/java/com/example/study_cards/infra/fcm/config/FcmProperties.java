@@ -1,4 +1,4 @@
-package com.example.study_cards.infra.fcm;
+package com.example.study_cards.infra.fcm.config;
 
 import lombok.Getter;
 import lombok.Setter;
