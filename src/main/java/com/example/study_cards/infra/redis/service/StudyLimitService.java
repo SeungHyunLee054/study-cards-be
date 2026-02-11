@@ -2,6 +2,7 @@ package com.example.study_cards.infra.redis.service;
 
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -10,6 +11,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class StudyLimitService {
@@ -23,17 +25,25 @@ public class StudyLimitService {
             return Integer.MAX_VALUE;
         }
 
-        String key = STUDY_COUNT_PREFIX + userId;
-        Integer count = (Integer) redisTemplate.opsForValue().get(key);
-        int currentCount = count != null ? count : 0;
-
-        return Math.max(0, plan.getDailyLimit() - currentCount);
+        try {
+            String key = STUDY_COUNT_PREFIX + userId;
+            Integer count = (Integer) redisTemplate.opsForValue().get(key);
+            int currentCount = count != null ? count : 0;
+            return Math.max(0, plan.getDailyLimit() - currentCount);
+        } catch (Exception e) {
+            log.warn("Redis 조회 실패, 학습 허용: userId={}", userId);
+            return plan.getDailyLimit();
+        }
     }
 
     public void incrementStudyCount(Long userId) {
-        String key = STUDY_COUNT_PREFIX + userId;
-        redisTemplate.opsForValue().increment(key, 1);
-        redisTemplate.expire(key, getTtlUntilMidnight());
+        try {
+            String key = STUDY_COUNT_PREFIX + userId;
+            redisTemplate.opsForValue().increment(key, 1);
+            redisTemplate.expire(key, getTtlUntilMidnight());
+        } catch (Exception e) {
+            log.warn("Redis 학습 카운트 증가 실패: userId={}", userId);
+        }
     }
 
     public boolean canStudy(Long userId, SubscriptionPlan plan) {
@@ -45,9 +55,14 @@ public class StudyLimitService {
     }
 
     public int getTodayStudyCount(Long userId) {
-        String key = STUDY_COUNT_PREFIX + userId;
-        Integer count = (Integer) redisTemplate.opsForValue().get(key);
-        return count != null ? count : 0;
+        try {
+            String key = STUDY_COUNT_PREFIX + userId;
+            Integer count = (Integer) redisTemplate.opsForValue().get(key);
+            return count != null ? count : 0;
+        } catch (Exception e) {
+            log.warn("Redis 학습 카운트 조회 실패: userId={}", userId);
+            return 0;
+        }
     }
 
     private Duration getTtlUntilMidnight() {

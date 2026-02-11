@@ -1,11 +1,13 @@
 package com.example.study_cards.infra.mail.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.mail.SimpleMailMessage;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class EmailService {
@@ -36,7 +38,11 @@ public class EmailService {
                 Study Cards 팀
                 """, code));
 
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (Exception e) {
+            log.error("비밀번호 재설정 코드 메일 발송 실패 - to: {}", to, e);
+        }
     }
 
     @Async
@@ -59,6 +65,10 @@ public class EmailService {
                 Study Cards 팀
                 """, code));
 
-        mailSender.send(message);
+        try {
+            mailSender.send(message);
+        } catch (Exception e) {
+            log.error("이메일 인증 코드 발송 실패 - to: {}", to, e);
+        }
     }
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 
+import java.time.Duration;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -146,6 +147,62 @@ class RateLimitServiceIntegrationTest extends BaseIntegrationTest {
             Long ttl = redisTemplate.getExpire(key);
             assertThat(ttl).isNotNull();
             assertThat(ttl).isGreaterThan(0);
+        }
+    }
+
+    @Nested
+    @DisplayName("isRateLimited")
+    class IsRateLimitedTest {
+
+        private static final String TEST_ACTION = "test-action";
+        private static final String TEST_IDENTIFIER = "test-user";
+
+        @BeforeEach
+        void cleanUp() {
+            Set<String> keys = redisTemplate.keys("rate_limit:" + TEST_ACTION + ":*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        }
+
+        @Test
+        @DisplayName("제한 이하 요청은 허용한다")
+        void isRateLimited_underLimit_returnsNotLimited() {
+            // when
+            boolean limited = rateLimitService.isRateLimited(TEST_ACTION, TEST_IDENTIFIER, 5, Duration.ofMinutes(1));
+
+            // then
+            assertThat(limited).isFalse();
+        }
+
+        @Test
+        @DisplayName("제한 초과 요청은 차단한다")
+        void isRateLimited_overLimit_returnsLimited() {
+            // given
+            int maxAttempts = 3;
+            for (int i = 0; i < maxAttempts; i++) {
+                rateLimitService.isRateLimited(TEST_ACTION, TEST_IDENTIFIER, maxAttempts, Duration.ofMinutes(1));
+            }
+
+            // when
+            boolean limited = rateLimitService.isRateLimited(TEST_ACTION, TEST_IDENTIFIER, maxAttempts, Duration.ofMinutes(1));
+
+            // then
+            assertThat(limited).isTrue();
+        }
+
+        @Test
+        @DisplayName("다른 action은 독립적으로 카운트한다")
+        void isRateLimited_differentAction_independent() {
+            // given
+            int maxAttempts = 1;
+            rateLimitService.isRateLimited("action-a", TEST_IDENTIFIER, maxAttempts, Duration.ofMinutes(1));
+
+            // when
+            boolean limited = rateLimitService.isRateLimited("action-b", TEST_IDENTIFIER, maxAttempts, Duration.ofMinutes(1));
+
+            // then
+            assertThat(limited).isFalse();
         }
     }
 }

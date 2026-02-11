@@ -1,6 +1,7 @@
 package com.example.study_cards.infra.redis.service;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
@@ -9,6 +10,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 
+@Slf4j
 @RequiredArgsConstructor
 @Service
 public class RateLimitService {
@@ -19,9 +21,14 @@ public class RateLimitService {
     private final RedisTemplate<String, Object> redisTemplate;
 
     public int getRemainingCards(String ipAddress) {
-        String key = RATE_LIMIT_PREFIX + ipAddress;
-        Integer count = (Integer) redisTemplate.opsForValue().get(key);
-        return Math.max(0, MAX_CARDS_PER_DAY - (count != null ? count : 0));
+        try {
+            String key = RATE_LIMIT_PREFIX + ipAddress;
+            Integer count = (Integer) redisTemplate.opsForValue().get(key);
+            return Math.max(0, MAX_CARDS_PER_DAY - (count != null ? count : 0));
+        } catch (Exception e) {
+            log.warn("Redis 장애로 rate limit 조회 실패 - ip: {}, 허용 처리", ipAddress, e);
+            return MAX_CARDS_PER_DAY;
+        }
     }
 
     public void incrementCardCount(String ipAddress, int cardCount) {
@@ -29,11 +36,31 @@ public class RateLimitService {
             return;
         }
 
-        String key = RATE_LIMIT_PREFIX + ipAddress;
-        Long currentCount = redisTemplate.opsForValue().increment(key, cardCount);
+        try {
+            String key = RATE_LIMIT_PREFIX + ipAddress;
+            Long currentCount = redisTemplate.opsForValue().increment(key, cardCount);
 
-        if (currentCount != null && currentCount == cardCount) {
-            redisTemplate.expire(key, getTtlUntilMidnight());
+            if (currentCount != null && currentCount == cardCount) {
+                redisTemplate.expire(key, getTtlUntilMidnight());
+            }
+        } catch (Exception e) {
+            log.warn("Redis 장애로 rate limit 증가 실패 - ip: {}", ipAddress, e);
+        }
+    }
+
+    public boolean isRateLimited(String action, String identifier, int maxAttempts, Duration window) {
+        try {
+            String key = "rate_limit:" + action + ":" + identifier;
+            Long count = redisTemplate.opsForValue().increment(key);
+
+            if (count != null && count == 1) {
+                redisTemplate.expire(key, window);
+            }
+
+            return count != null && count > maxAttempts;
+        } catch (Exception e) {
+            log.warn("Redis 장애로 rate limit 확인 실패 - action: {}, identifier: {}, 허용 처리", action, identifier, e);
+            return false;
         }
     }
 
