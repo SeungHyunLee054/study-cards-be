@@ -3,6 +3,7 @@ package com.example.study_cards.common.util;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.ObjectInputFilter;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.time.Duration;
@@ -78,7 +79,8 @@ public final class CookieUtils {
                 .path("/")
                 .maxAge(Duration.ZERO)
                 .httpOnly(true)
-                .secure(true);
+                .secure(true)
+                .sameSite("None");
 
         if (domain != null && !domain.isBlank()) {
             cookieBuilder.domain(domain);
@@ -116,6 +118,9 @@ public final class CookieUtils {
             byte[] data = Base64.getUrlDecoder().decode(cookieValue);
             try (ByteArrayInputStream bis = new ByteArrayInputStream(data);
                  ObjectInputStream ois = new ObjectInputStream(bis)) {
+                ois.setObjectInputFilter(ObjectInputFilter.Config.createFilter(
+                        "org.springframework.security.oauth2.**;java.util.**;java.lang.**;java.net.**;!*"
+                ));
                 return cls.cast(ois.readObject());
             }
         } catch (IOException | ClassNotFoundException e) {

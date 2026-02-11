@@ -3,6 +3,7 @@ package com.example.study_cards.infra.security.oauth;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
@@ -13,6 +14,7 @@ import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 
+@Slf4j
 @RequiredArgsConstructor
 @Component
 public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler {
@@ -27,9 +29,8 @@ public class OAuth2FailureHandler extends SimpleUrlAuthenticationFailureHandler 
                                         AuthenticationException exception) throws IOException {
         cookieAuthorizationRequestRepository.removeAuthorizationRequestCookies(request, response);
 
-        String errorMessage = exception.getMessage() != null
-                ? exception.getMessage()
-                : "인증에 실패했습니다.";
+        log.warn("OAuth2 authentication failed: {}", exception.getMessage());
+        String errorMessage = "인증에 실패했습니다.";
 
         String targetUrl = UriComponentsBuilder.fromUriString(redirectUri)
                 .queryParam("error", URLEncoder.encode(errorMessage, StandardCharsets.UTF_8))

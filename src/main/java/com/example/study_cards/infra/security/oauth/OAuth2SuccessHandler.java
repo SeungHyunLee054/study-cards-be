@@ -6,6 +6,8 @@ import com.example.study_cards.infra.redis.vo.UserVo;
 import com.example.study_cards.infra.security.jwt.CookieProvider;
 import com.example.study_cards.infra.security.jwt.JwtTokenProvider;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.user.exception.UserErrorCode;
+import com.example.study_cards.domain.user.exception.UserException;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -14,12 +16,14 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.IOException;
 
 @RequiredArgsConstructor
 @Component
+@Transactional(readOnly = true)
 public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler {
 
     private final JwtTokenProvider jwtTokenProvider;
@@ -51,7 +55,8 @@ public class OAuth2SuccessHandler extends SimpleUrlAuthenticationSuccessHandler 
 
         refreshTokenService.saveRefreshToken(oAuth2User.userId(), refreshToken, refreshTokenExpiresIn);
 
-        User user = userRepository.findById(oAuth2User.userId()).orElseThrow();
+        User user = userRepository.findById(oAuth2User.userId())
+                .orElseThrow(() -> new UserException(UserErrorCode.USER_NOT_FOUND));
         userCacheService.cacheUser(UserVo.from(user), accessTokenExpiresIn);
 
         cookieProvider.addRefreshTokenCookie(response, refreshToken);
