@@ -59,6 +59,11 @@ public final class SM2Constants {
     public static final int SECOND_INTERVAL = 6;
 
     /**
+     * 카드 마스터로 인정되는 최소 반복 횟수
+     */
+    public static final int MASTERY_THRESHOLD = 5;
+
+    /**
      * E-Factor 델타 계산
      *
      * @param quality 품질 점수 (0-5)

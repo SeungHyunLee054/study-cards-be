@@ -16,6 +16,7 @@ import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
 import com.example.study_cards.domain.study.service.StudyDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
+import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.redis.service.StudyLimitService;
 import com.example.study_cards.support.BaseUnitTest;
@@ -33,7 +34,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -58,6 +58,9 @@ class StudyServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private CategoryDomainService categoryDomainService;
+
+    @Mock
+    private SubscriptionDomainService subscriptionDomainService;
 
     @Mock
     private StudyLimitService studyLimitService;
@@ -152,6 +155,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @BeforeEach
         void setUpPageable() {
             pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "efFactor"));
+            given(subscriptionDomainService.getEffectivePlan(any(User.class)))
+                    .willReturn(SubscriptionPlan.BASIC);
         }
 
         @Test
@@ -187,6 +192,12 @@ class StudyServiceUnitTest extends BaseUnitTest {
     @Nested
     @DisplayName("submitAnswer")
     class SubmitAnswerTest {
+
+        @BeforeEach
+        void setUpPlan() {
+            given(subscriptionDomainService.getEffectivePlan(any(User.class)))
+                    .willReturn(SubscriptionPlan.BASIC);
+        }
 
         @Test
         @DisplayName("정답을 제출하고 결과를 반환한다 - 기존 세션 사용")

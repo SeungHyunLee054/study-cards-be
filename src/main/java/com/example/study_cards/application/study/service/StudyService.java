@@ -11,12 +11,14 @@ import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.notification.entity.NotificationType;
+import com.example.study_cards.domain.study.constant.SM2Constants;
 import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
 import com.example.study_cards.domain.study.service.StudyDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
+import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.redis.service.StudyLimitService;
 import lombok.RequiredArgsConstructor;
@@ -37,11 +39,12 @@ public class StudyService {
     private final StudyDomainService studyDomainService;
     private final CardDomainService cardDomainService;
     private final CategoryDomainService categoryDomainService;
+    private final SubscriptionDomainService subscriptionDomainService;
     private final StudyLimitService studyLimitService;
     private final NotificationService notificationService;
 
     public Page<StudyCardResponse> getTodayCards(User user, String categoryCode, Pageable pageable) {
-        SubscriptionPlan plan = user.getSubscriptionPlan();
+        SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
         boolean includeAiCards = plan.isCanAccessAiCards();
 
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
@@ -59,7 +62,7 @@ public class StudyService {
 
     @Transactional
     public StudyResultResponse submitAnswer(User user, StudyAnswerRequest request) {
-        SubscriptionPlan plan = user.getSubscriptionPlan();
+        SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
 
         if (!studyLimitService.canStudy(user.getId(), plan)) {
             throw new StudyException(StudyErrorCode.DAILY_LIMIT_EXCEEDED);
@@ -84,7 +87,7 @@ public class StudyService {
 
         checkAndSendStreakNotification(user, previousStreak, newStreak);
 
-        if (request.isCorrect() && record.getRepetitionCount() >= 3) {
+        if (request.isCorrect() && record.getRepetitionCount() >= SM2Constants.MASTERY_THRESHOLD) {
             checkAndSendCategoryMasteryNotification(user, card.getCategory());
         }
 

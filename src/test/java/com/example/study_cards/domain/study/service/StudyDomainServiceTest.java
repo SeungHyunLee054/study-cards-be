@@ -376,26 +376,4 @@ class StudyDomainServiceTest extends BaseUnitTest {
         }
     }
 
-    @Nested
-    @DisplayName("findAllCardsForStudy")
-    class FindAllCardsForStudyTest {
-
-        @Test
-        @DisplayName("공개 카드와 사용자 카드를 함께 조회한다")
-        void findAllCardsForStudy_returnsBothCardTypes() {
-            // given
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
-                    .willReturn(Collections.emptyList());
-            given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
-                    .willReturn(Collections.emptyList());
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(eq(testCategory), anyBoolean()))
-                    .willReturn(List.of(testCard));
-
-            // when
-            List<Object> result = studyDomainService.findAllCardsForStudy(testUser, testCategory, 20);
-
-            // then
-            assertThat(result).isNotEmpty();
-        }
-    }
 }

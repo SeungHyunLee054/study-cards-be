@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.study.repository;
 
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.study.constant.SM2Constants;
 import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.user.entity.User;
@@ -156,7 +157,7 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
-                        card.category.eq(category)
+                        category != null ? card.category.eq(category) : null
                 )
                 .fetch();
     }
@@ -205,7 +206,7 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .join(card.category)
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.repetitionCount.goe(5)
+                        studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD)
                 )
                 .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
@@ -335,7 +336,7 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .where(
                         studyRecord.user.eq(user),
                         card.category.eq(category),
-                        studyRecord.repetitionCount.goe(3)
+                        studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD)
                 )
                 .fetchOne();
         return count != null ? count : 0L;

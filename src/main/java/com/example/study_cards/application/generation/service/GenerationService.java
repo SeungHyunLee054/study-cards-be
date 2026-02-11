@@ -341,8 +341,8 @@ public class GenerationService {
     }
 
     private String stripMarkdownCodeBlock(String response) {
-        if (response == null) {
-            return null;
+        if (response == null || response.isBlank()) {
+            throw new GenerationException(GenerationErrorCode.INVALID_AI_RESPONSE);
         }
 
         String trimmed = response.trim();
