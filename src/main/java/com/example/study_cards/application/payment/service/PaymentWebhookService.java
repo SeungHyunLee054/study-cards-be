@@ -6,9 +6,10 @@ import com.example.study_cards.domain.payment.entity.Payment;
 import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.Subscription;
+import com.example.study_cards.domain.subscription.exception.SubscriptionException;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
-import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
-import com.example.study_cards.infra.payment.dto.TossWebhookPayload.DataPayload;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
+import com.example.study_cards.infra.payment.dto.response.TossWebhookPayload.DataPayload;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -18,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Slf4j
 @RequiredArgsConstructor
 @Service
-@Transactional
+@Transactional(readOnly = true)
 public class PaymentWebhookService {
 
     private final SubscriptionDomainService subscriptionDomainService;
@@ -27,6 +28,7 @@ public class PaymentWebhookService {
     private final TossPaymentService tossPaymentService;
     private final NotificationService notificationService;
 
+    @Transactional
     public void handlePaymentStatusChanged(DataPayload data) {
         String status = data.status();
 
@@ -38,6 +40,7 @@ public class PaymentWebhookService {
         }
     }
 
+    @Transactional
     public void handleBillingKeyDeleted(DataPayload data) {
         String billingKey = data.billingKey();
         if (billingKey == null) {
@@ -64,7 +67,7 @@ public class PaymentWebhookService {
     }
 
     private void handlePaymentDone(DataPayload data) {
-        paymentRepository.findByOrderId(data.orderId())
+        paymentRepository.findByOrderIdForUpdate(data.orderId())
                 .ifPresentOrElse(
                         payment -> processPaymentDone(payment, data),
                         () -> log.warn("Payment not found for webhook DONE: orderId={}", data.orderId())
@@ -97,7 +100,7 @@ public class PaymentWebhookService {
             Subscription subscription = subscriptionDomainService.createSubscriptionFromPayment(payment, billingKey);
             log.info("Subscription created via webhook: userId={}, subscriptionId={}",
                     payment.getUser().getId(), subscription.getId());
-        } catch (Exception e) {
+        } catch (SubscriptionException e) {
             log.info("Subscription already exists for user, skipping: userId={}", payment.getUser().getId());
         }
     }

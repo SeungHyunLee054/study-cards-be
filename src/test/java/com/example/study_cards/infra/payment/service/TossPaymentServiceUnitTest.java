@@ -2,8 +2,8 @@ package com.example.study_cards.infra.payment.service;
 
 import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
 import com.example.study_cards.domain.payment.exception.PaymentException;
-import com.example.study_cards.infra.payment.dto.TossBillingAuthResponse;
-import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
+import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;

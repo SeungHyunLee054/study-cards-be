@@ -19,8 +19,8 @@ import com.example.study_cards.domain.subscription.exception.SubscriptionExcepti
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.payment.dto.TossBillingAuthResponse;
-import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
+import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -214,7 +214,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     3900, "카드", null, null, null, null
             );
 
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
             given(tossPaymentService.confirmPayment(PAYMENT_KEY, ORDER_ID, 3900)).willReturn(tossResponse);
             given(subscriptionDomainService.createSubscriptionFromPayment(eq(testPayment), isNull()))
                     .willReturn(testSubscription);
@@ -240,7 +240,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(anotherUser, "id", 2L);
 
             ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 3900);
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
 
             // when & then
             assertThatThrownBy(() -> paymentService.confirmPayment(anotherUser, request))
@@ -254,7 +254,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         void confirmPayment_amountMismatch_throwsException() {
             // given
             ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 5000);
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
 
             // when & then
             assertThatThrownBy(() -> paymentService.confirmPayment(testUser, request))
@@ -280,8 +280,8 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(completedPayment, "id", 1L);
 
             ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 3900);
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(completedPayment);
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
+            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
             // when
             SubscriptionResponse result = paymentService.confirmPayment(testUser, request);
@@ -310,7 +310,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     PAYMENT_KEY, ORDER_ID, "프리미엄 월간 구독", "DONE",
                     3900, "카드", null, null, null, null);
 
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
             given(tossPaymentService.issueBillingKey(AUTH_KEY, CUSTOMER_KEY)).willReturn(billingAuthResponse);
             given(tossPaymentService.billingPayment(eq(BILLING_KEY), eq(CUSTOMER_KEY),
                     eq(ORDER_ID), eq(3900), anyString())).willReturn(billingResponse);
@@ -338,7 +338,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(anotherUser, "id", 2L);
 
             ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
 
             // when & then
             assertThatThrownBy(() -> paymentService.confirmBilling(anotherUser, request))
@@ -364,8 +364,8 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(completedPayment, "id", 1L);
 
             ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(completedPayment);
-            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
+            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
             // when
             SubscriptionResponse result = paymentService.confirmBilling(testUser, request);
@@ -392,7 +392,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(canceledPayment, "id", 1L);
 
             ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
-            given(paymentDomainService.getPaymentByOrderId(ORDER_ID)).willReturn(canceledPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(canceledPayment);
 
             // when & then
             assertThatThrownBy(() -> paymentService.confirmBilling(testUser, request))

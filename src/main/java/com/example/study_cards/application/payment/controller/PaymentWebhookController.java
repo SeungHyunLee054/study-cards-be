@@ -1,10 +1,10 @@
-package com.example.study_cards.infra.payment.controller;
+package com.example.study_cards.application.payment.controller;
 
 import com.example.study_cards.application.payment.service.PaymentWebhookService;
 import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
 import com.example.study_cards.domain.payment.exception.PaymentException;
 import com.example.study_cards.infra.payment.config.TossPaymentProperties;
-import com.example.study_cards.infra.payment.dto.TossWebhookPayload;
+import com.example.study_cards.infra.payment.dto.response.TossWebhookPayload;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.util.Base64;
 
 @Slf4j
@@ -41,18 +42,12 @@ public class PaymentWebhookController {
 
         log.info("Received Toss webhook: eventType={}", payload.eventType());
 
-        if (tossPaymentProperties.getWebhookSecret() != null && !tossPaymentProperties.getWebhookSecret().isBlank()) {
-            if (!verifySignature(rawBody, signature)) {
-                log.warn("Invalid webhook signature");
-                throw new PaymentException(PaymentErrorCode.INVALID_WEBHOOK_SIGNATURE);
-            }
+        if (!verifySignature(rawBody, signature)) {
+            log.warn("Invalid webhook signature");
+            throw new PaymentException(PaymentErrorCode.INVALID_WEBHOOK_SIGNATURE);
         }
 
-        try {
-            processWebhook(payload);
-        } catch (Exception e) {
-            log.error("Webhook processing failed: {}", e.getMessage(), e);
-        }
+        processWebhook(payload);
 
         return ResponseEntity.ok().build();
     }
@@ -77,6 +72,12 @@ public class PaymentWebhookController {
     }
 
     private boolean verifySignature(String payload, String signature) {
+        String webhookSecret = tossPaymentProperties.getWebhookSecret();
+        if (webhookSecret == null || webhookSecret.isBlank()) {
+            log.error("Webhook secret is not configured");
+            return false;
+        }
+
         if (signature == null || signature.isBlank()) {
             return false;
         }
@@ -84,13 +85,13 @@ public class PaymentWebhookController {
         try {
             Mac mac = Mac.getInstance("HmacSHA256");
             SecretKeySpec secretKeySpec = new SecretKeySpec(
-                    tossPaymentProperties.getWebhookSecret().getBytes(StandardCharsets.UTF_8),
+                    webhookSecret.getBytes(StandardCharsets.UTF_8),
                     "HmacSHA256"
             );
             mac.init(secretKeySpec);
-            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            String expectedSignature = Base64.getEncoder().encodeToString(hash);
-            return expectedSignature.equals(signature);
+            byte[] expectedBytes = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
+            byte[] signatureBytes = Base64.getDecoder().decode(signature);
+            return MessageDigest.isEqual(expectedBytes, signatureBytes);
         } catch (Exception e) {
             log.error("Signature verification failed: {}", e.getMessage());
             return false;

@@ -1,8 +1,8 @@
-package com.example.study_cards.infra.payment.controller;
+package com.example.study_cards.application.payment.controller;
 
 import com.example.study_cards.application.payment.service.PaymentWebhookService;
 import com.example.study_cards.infra.payment.config.TossPaymentProperties;
-import com.example.study_cards.infra.payment.dto.TossWebhookPayload.DataPayload;
+import com.example.study_cards.infra.payment.dto.response.TossWebhookPayload.DataPayload;
 import com.example.study_cards.support.BaseIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
@@ -48,9 +48,11 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
     @MockitoBean
     private PaymentWebhookService paymentWebhookService;
 
+    private static final String WEBHOOK_SECRET = "test_webhook_secret_key";
+
     @BeforeEach
     void setUp() {
-        given(tossPaymentProperties.getWebhookSecret()).willReturn(null);
+        given(tossPaymentProperties.getWebhookSecret()).willReturn(WEBHOOK_SECRET);
     }
 
     @Nested
@@ -76,6 +78,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                     """;
 
             mockMvc.perform(post("/api/webhooks/toss")
+                            .header("Toss-Signature", generateSignature(payload, WEBHOOK_SECRET))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk())
@@ -118,6 +121,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                     """;
 
             mockMvc.perform(post("/api/webhooks/toss")
+                            .header("Toss-Signature", generateSignature(payload, WEBHOOK_SECRET))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk());
@@ -139,6 +143,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                     """;
 
             mockMvc.perform(post("/api/webhooks/toss")
+                            .header("Toss-Signature", generateSignature(payload, WEBHOOK_SECRET))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk())
@@ -172,6 +177,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                     """;
 
             mockMvc.perform(post("/api/webhooks/toss")
+                            .header("Toss-Signature", generateSignature(payload, WEBHOOK_SECRET))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk());
@@ -192,6 +198,7 @@ class PaymentWebhookControllerTest extends BaseIntegrationTest {
                     """;
 
             mockMvc.perform(post("/api/webhooks/toss")
+                            .header("Toss-Signature", generateSignature(payload, WEBHOOK_SECRET))
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(payload))
                     .andExpect(status().isOk());

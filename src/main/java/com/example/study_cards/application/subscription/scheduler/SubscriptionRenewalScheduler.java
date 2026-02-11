@@ -1,6 +1,7 @@
 package com.example.study_cards.application.subscription.scheduler;
 
 import com.example.study_cards.application.notification.service.NotificationService;
+import com.example.study_cards.common.aop.DistributedLock;
 import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.payment.entity.Payment;
 import com.example.study_cards.domain.payment.entity.PaymentType;
@@ -8,7 +9,7 @@ import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
-import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -38,6 +39,7 @@ public class SubscriptionRenewalScheduler {
 
     @Scheduled(cron = "${app.subscription.renewal-check-cron:0 0 9 * * *}")
     @Transactional
+    @DistributedLock(key = "scheduler:subscription-renewal", ttlMinutes = 30)
     public void checkAndRenewSubscriptions() {
         log.info("Starting subscription renewal check");
 
@@ -132,6 +134,7 @@ public class SubscriptionRenewalScheduler {
 
     @Scheduled(cron = "${app.notification.expiry-check-cron:0 0 9 * * *}")
     @Transactional(readOnly = true)
+    @DistributedLock(key = "scheduler:expiry-notification", ttlMinutes = 30)
     public void checkExpiringSubscriptions() {
         log.info("Starting subscription expiry notification check");
 

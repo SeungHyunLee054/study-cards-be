@@ -2,7 +2,11 @@ package com.example.study_cards.infra.payment.service;
 
 import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
 import com.example.study_cards.domain.payment.exception.PaymentException;
-import com.example.study_cards.infra.payment.dto.*;
+import com.example.study_cards.infra.payment.dto.request.TossBillingAuthRequest;
+import com.example.study_cards.infra.payment.dto.request.TossBillingRequest;
+import com.example.study_cards.infra.payment.dto.request.TossConfirmRequest;
+import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatusCode;

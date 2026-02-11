@@ -10,7 +10,7 @@ import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.repository.UserRepository;
-import com.example.study_cards.infra.payment.dto.TossConfirmResponse;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import com.example.study_cards.support.BaseIntegrationTest;
 import com.fasterxml.jackson.databind.ObjectMapper;

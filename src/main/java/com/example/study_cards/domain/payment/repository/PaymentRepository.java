@@ -6,20 +6,13 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 
-import java.util.List;
 import java.util.Optional;
 
-public interface PaymentRepository extends JpaRepository<Payment, Long> {
+public interface PaymentRepository extends JpaRepository<Payment, Long>, PaymentRepositoryCustom {
 
     Optional<Payment> findByOrderId(String orderId);
 
     Optional<Payment> findByPaymentKey(String paymentKey);
 
-    Page<Payment> findByUserIdOrderByCreatedAtDesc(Long userId, Pageable pageable);
-
-    List<Payment> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, PaymentStatus status);
-
     Page<Payment> findByUserIdAndStatusOrderByCreatedAtDesc(Long userId, PaymentStatus status, Pageable pageable);
-
-    boolean existsByOrderId(String orderId);
 }

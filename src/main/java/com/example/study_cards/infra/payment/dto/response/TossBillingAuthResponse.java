@@ -1,4 +1,4 @@
-package com.example.study_cards.infra.payment.dto;
+package com.example.study_cards.infra.payment.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 

@@ -19,7 +19,7 @@ import com.example.study_cards.domain.subscription.exception.SubscriptionExcepti
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.payment.dto.TossBillingAuthResponse;
+import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,7 +77,7 @@ public class PaymentService {
 
     @Transactional
     public SubscriptionResponse confirmBilling(User user, ConfirmBillingRequest request) {
-        Payment payment = paymentDomainService.getPaymentByOrderId(request.orderId());
+        Payment payment = paymentDomainService.getPaymentByOrderIdForUpdate(request.orderId());
 
         if (!payment.getUser().getId().equals(user.getId())) {
             throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -130,7 +130,7 @@ public class PaymentService {
 
     @Transactional
     public SubscriptionResponse confirmPayment(User user, ConfirmPaymentRequest request) {
-        Payment payment = paymentDomainService.getPaymentByOrderId(request.orderId());
+        Payment payment = paymentDomainService.getPaymentByOrderIdForUpdate(request.orderId());
 
         if (!payment.getUser().getId().equals(user.getId())) {
             throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND);
@@ -177,7 +177,7 @@ public class PaymentService {
     }
 
     private SubscriptionResponse findExistingSubscription(Long userId) {
-        return subscriptionRepository.findByUserId(userId)
+        return subscriptionRepository.findActiveByUserId(userId)
                 .map(SubscriptionResponse::from)
                 .orElseThrow(() -> new PaymentException(PaymentErrorCode.PAYMENT_ALREADY_PROCESSED));
     }

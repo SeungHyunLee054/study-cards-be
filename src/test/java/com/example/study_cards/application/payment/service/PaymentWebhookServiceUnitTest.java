@@ -15,7 +15,7 @@ import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCo
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.payment.dto.TossWebhookPayload.DataPayload;
+import com.example.study_cards.infra.payment.dto.response.TossWebhookPayload.DataPayload;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.DisplayName;
@@ -66,7 +66,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Subscription subscription = createMockSubscription(user);
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(true);
                 given(subscriptionDomainService.createSubscriptionFromPayment(payment, null)).willReturn(subscription);
 
@@ -82,7 +82,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createCompletedPayment();
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(false);
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
@@ -97,7 +97,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createPendingPayment(user);
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(true);
                 given(subscriptionDomainService.createSubscriptionFromPayment(payment, null))
                         .willThrow(new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS));
@@ -112,7 +112,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
             void handleDone_paymentNotFound_ignores() {
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.empty());
+                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.empty());
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 
