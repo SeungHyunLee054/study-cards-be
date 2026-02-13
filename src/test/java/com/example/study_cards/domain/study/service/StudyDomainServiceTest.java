@@ -21,11 +21,18 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.test.util.ReflectionTestUtils;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
+import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.*;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
@@ -603,6 +610,425 @@ class StudyDomainServiceTest extends BaseUnitTest {
             // then
             assertThat(result).hasSize(2);
             assertThat(result.get(0).score()).isGreaterThanOrEqualTo(result.get(1).score());
+        }
+    }
+
+    @Nested
+    @DisplayName("endSession")
+    class EndSessionTest {
+
+        @Test
+        @DisplayName("세션을 종료한다")
+        void endSession_success() {
+            // given
+            given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.of(testSession));
+
+            // when
+            studyDomainService.endSession(SESSION_ID);
+
+            // then
+            assertThat(testSession.getEndedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 세션 종료 시 예외를 발생시킨다")
+        void endSession_notFound_throwsException() {
+            // given
+            given(studySessionRepository.findById(SESSION_ID)).willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> studyDomainService.endSession(SESSION_ID))
+                    .isInstanceOf(StudyException.class)
+                    .satisfies(exception -> {
+                        StudyException e = (StudyException) exception;
+                        assertThat(e.getErrorCode()).isEqualTo(StudyErrorCode.SESSION_NOT_FOUND);
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("findActiveSession")
+    class FindActiveSessionTest {
+
+        @Test
+        @DisplayName("활성 세션이 있으면 반환한다")
+        void findActiveSession_exists_returnsSession() {
+            // given
+            given(studySessionRepository.findByUserAndEndedAtIsNull(testUser))
+                    .willReturn(Optional.of(testSession));
+
+            // when
+            Optional<StudySession> result = studyDomainService.findActiveSession(testUser);
+
+            // then
+            assertThat(result).isPresent();
+            assertThat(result.get().getId()).isEqualTo(SESSION_ID);
+        }
+
+        @Test
+        @DisplayName("활성 세션이 없으면 빈 Optional을 반환한다")
+        void findActiveSession_notExists_returnsEmpty() {
+            // given
+            given(studySessionRepository.findByUserAndEndedAtIsNull(testUser))
+                    .willReturn(Optional.empty());
+
+            // when
+            Optional<StudySession> result = studyDomainService.findActiveSession(testUser);
+
+            // then
+            assertThat(result).isEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("findSessionHistory")
+    class FindSessionHistoryTest {
+
+        @Test
+        @DisplayName("사용자의 세션 히스토리를 페이지네이션으로 조회한다")
+        void findSessionHistory_returnsPagedResult() {
+            // given
+            Pageable pageable = PageRequest.of(0, 10);
+            Page<StudySession> page = new PageImpl<>(List.of(testSession), pageable, 1);
+            given(studySessionRepository.findByUserOrderByStartedAtDesc(testUser, pageable))
+                    .willReturn(page);
+
+            // when
+            Page<StudySession> result = studyDomainService.findSessionHistory(testUser, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getTotalElements()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("validateSessionOwnership")
+    class ValidateSessionOwnershipTest {
+
+        @Test
+        @DisplayName("세션 소유자와 요청 유저가 같으면 정상 통과한다")
+        void validateSessionOwnership_sameUser_success() {
+            // when & then (예외 없이 통과)
+            studyDomainService.validateSessionOwnership(testSession, testUser);
+        }
+
+        @Test
+        @DisplayName("세션 소유자와 요청 유저가 다르면 예외를 발생시킨다")
+        void validateSessionOwnership_differentUser_throwsException() {
+            // given
+            User otherUser = User.builder()
+                    .email("other@example.com")
+                    .password("password")
+                    .nickname("다른유저")
+                    .build();
+            ReflectionTestUtils.setField(otherUser, "id", 999L);
+
+            // when & then
+            assertThatThrownBy(() -> studyDomainService.validateSessionOwnership(testSession, otherUser))
+                    .isInstanceOf(StudyException.class)
+                    .satisfies(exception -> {
+                        StudyException e = (StudyException) exception;
+                        assertThat(e.getErrorCode()).isEqualTo(StudyErrorCode.SESSION_ACCESS_DENIED);
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("validateSessionActive")
+    class ValidateSessionActiveTest {
+
+        @Test
+        @DisplayName("활성 세션이면 정상 통과한다")
+        void validateSessionActive_active_success() {
+            // when & then (endedAt이 null이므로 예외 없이 통과)
+            studyDomainService.validateSessionActive(testSession);
+        }
+
+        @Test
+        @DisplayName("종료된 세션이면 예외를 발생시킨다")
+        void validateSessionActive_ended_throwsException() {
+            // given
+            testSession.endSession();
+
+            // when & then
+            assertThatThrownBy(() -> studyDomainService.validateSessionActive(testSession))
+                    .isInstanceOf(StudyException.class)
+                    .satisfies(exception -> {
+                        StudyException e = (StudyException) exception;
+                        assertThat(e.getErrorCode()).isEqualTo(StudyErrorCode.SESSION_ALREADY_ENDED);
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("countDueCards")
+    class CountDueCardsTest {
+
+        @Test
+        @DisplayName("복습 대상 카드 수를 반환한다")
+        void countDueCards_returnsCount() {
+            // given
+            given(studyRecordRepository.countDueCards(testUser, LocalDate.now())).willReturn(5);
+
+            // when
+            int result = studyDomainService.countDueCards(testUser, LocalDate.now());
+
+            // then
+            assertThat(result).isEqualTo(5);
+        }
+    }
+
+    @Nested
+    @DisplayName("countTotalStudiedCards")
+    class CountTotalStudiedCardsTest {
+
+        @Test
+        @DisplayName("총 학습한 카드 수를 반환한다")
+        void countTotalStudiedCards_returnsCount() {
+            // given
+            given(studyRecordRepository.countTotalStudiedCards(testUser)).willReturn(42);
+
+            // when
+            int result = studyDomainService.countTotalStudiedCards(testUser);
+
+            // then
+            assertThat(result).isEqualTo(42);
+        }
+    }
+
+    @Nested
+    @DisplayName("countTotalAndCorrect")
+    class CountTotalAndCorrectTest {
+
+        @Test
+        @DisplayName("전체 학습 수와 정답 수를 반환한다")
+        void countTotalAndCorrect_returnsCounts() {
+            // given
+            TotalAndCorrect expected = new TotalAndCorrect(100L, 80L);
+            given(studyRecordRepository.countTotalAndCorrect(testUser)).willReturn(expected);
+
+            // when
+            TotalAndCorrect result = studyDomainService.countTotalAndCorrect(testUser);
+
+            // then
+            assertThat(result.totalCount()).isEqualTo(100L);
+            assertThat(result.correctCount()).isEqualTo(80L);
+        }
+    }
+
+    @Nested
+    @DisplayName("countTodayStudy")
+    class CountTodayStudyTest {
+
+        @Test
+        @DisplayName("오늘 학습 수와 정답 수를 반환한다")
+        void countTodayStudy_returnsCounts() {
+            // given
+            var todayCount = new TodayStudyCount(10L, 7L);
+            given(studyRecordRepository.countTodayStudy(testUser, LocalDate.now())).willReturn(todayCount);
+
+            // when
+            TotalAndCorrect result = studyDomainService.countTodayStudy(testUser, LocalDate.now());
+
+            // then
+            assertThat(result.totalCount()).isEqualTo(10L);
+            assertThat(result.correctCount()).isEqualTo(7L);
+        }
+    }
+
+    @Nested
+    @DisplayName("countStudiedByCategory")
+    class CountStudiedByCategoryTest {
+
+        @Test
+        @DisplayName("카테고리별 학습 카드 수를 반환한다")
+        void countStudiedByCategory_returnsCategoryCounts() {
+            // given
+            List<CategoryCount> expected = List.of(new CategoryCount(CATEGORY_ID, "CS", 15L));
+            given(studyRecordRepository.countStudiedByCategory(testUser)).willReturn(expected);
+
+            // when
+            List<CategoryCount> result = studyDomainService.countStudiedByCategory(testUser);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).categoryCode()).isEqualTo("CS");
+            assertThat(result.get(0).count()).isEqualTo(15L);
+        }
+    }
+
+    @Nested
+    @DisplayName("countLearningByCategory")
+    class CountLearningByCategoryTest {
+
+        @Test
+        @DisplayName("카테고리별 학습 중인 카드 수를 반환한다")
+        void countLearningByCategory_returnsCategoryCounts() {
+            // given
+            List<CategoryCount> expected = List.of(new CategoryCount(CATEGORY_ID, "CS", 8L));
+            given(studyRecordRepository.countLearningByCategory(testUser)).willReturn(expected);
+
+            // when
+            List<CategoryCount> result = studyDomainService.countLearningByCategory(testUser);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).count()).isEqualTo(8L);
+        }
+    }
+
+    @Nested
+    @DisplayName("countDueByCategory")
+    class CountDueByCategoryTest {
+
+        @Test
+        @DisplayName("카테고리별 복습 대상 카드 수를 반환한다")
+        void countDueByCategory_returnsCategoryCounts() {
+            // given
+            List<CategoryCount> expected = List.of(new CategoryCount(CATEGORY_ID, "CS", 3L));
+            given(studyRecordRepository.countDueByCategory(testUser, LocalDate.now())).willReturn(expected);
+
+            // when
+            List<CategoryCount> result = studyDomainService.countDueByCategory(testUser, LocalDate.now());
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).count()).isEqualTo(3L);
+        }
+    }
+
+    @Nested
+    @DisplayName("countMasteredByCategory")
+    class CountMasteredByCategoryTest {
+
+        @Test
+        @DisplayName("카테고리별 마스터한 카드 수를 반환한다")
+        void countMasteredByCategory_returnsCategoryCounts() {
+            // given
+            List<CategoryCount> expected = List.of(new CategoryCount(CATEGORY_ID, "CS", 20L));
+            given(studyRecordRepository.countMasteredByCategory(testUser)).willReturn(expected);
+
+            // when
+            List<CategoryCount> result = studyDomainService.countMasteredByCategory(testUser);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).count()).isEqualTo(20L);
+        }
+    }
+
+    @Nested
+    @DisplayName("findDailyActivity")
+    class FindDailyActivityTest {
+
+        @Test
+        @DisplayName("일별 학습 활동 내역을 반환한다")
+        void findDailyActivity_returnsActivities() {
+            // given
+            LocalDateTime since = LocalDateTime.now().minusDays(7);
+            List<DailyActivity> expected = List.of(
+                    new DailyActivity(LocalDate.now(), 10L, 8L),
+                    new DailyActivity(LocalDate.now().minusDays(1), 5L, 3L)
+            );
+            given(studyRecordRepository.findDailyActivity(testUser, since)).willReturn(expected);
+
+            // when
+            List<DailyActivity> result = studyDomainService.findDailyActivity(testUser, since);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).totalCount()).isEqualTo(10L);
+        }
+    }
+
+    @Nested
+    @DisplayName("findRecordsBySession")
+    class FindRecordsBySessionTest {
+
+        @Test
+        @DisplayName("세션에 속한 학습 기록을 반환한다")
+        void findRecordsBySession_returnsRecords() {
+            // given
+            StudyRecord record = StudyRecord.builder()
+                    .user(testUser).card(testCard).session(testSession)
+                    .isCorrect(true).nextReviewDate(LocalDate.now()).efFactor(2.5).build();
+            given(studyRecordRepository.findBySessionWithDetails(testSession)).willReturn(List.of(record));
+
+            // when
+            List<StudyRecord> result = studyDomainService.findRecordsBySession(testSession);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("isCategoryFullyMastered")
+    class IsCategoryFullyMasteredTest {
+
+        @Test
+        @DisplayName("카테고리에 카드가 없으면 false를 반환한다")
+        void isCategoryFullyMastered_noCards_returnsFalse() {
+            // given
+            given(cardRepository.countByCategory(testCategory)).willReturn(0L);
+
+            // when
+            boolean result = studyDomainService.isCategoryFullyMastered(testUser, testCategory);
+
+            // then
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DisplayName("모든 카드를 마스터하면 true를 반환한다")
+        void isCategoryFullyMastered_allMastered_returnsTrue() {
+            // given
+            given(cardRepository.countByCategory(testCategory)).willReturn(10L);
+            given(studyRecordRepository.countMasteredCardsInCategory(testUser, testCategory)).willReturn(10L);
+
+            // when
+            boolean result = studyDomainService.isCategoryFullyMastered(testUser, testCategory);
+
+            // then
+            assertThat(result).isTrue();
+        }
+
+        @Test
+        @DisplayName("일부만 마스터하면 false를 반환한다")
+        void isCategoryFullyMastered_partial_returnsFalse() {
+            // given
+            given(cardRepository.countByCategory(testCategory)).willReturn(10L);
+            given(studyRecordRepository.countMasteredCardsInCategory(testUser, testCategory)).willReturn(5L);
+
+            // when
+            boolean result = studyDomainService.isCategoryFullyMastered(testUser, testCategory);
+
+            // then
+            assertThat(result).isFalse();
+        }
+    }
+
+    @Nested
+    @DisplayName("calculateCategoryAccuracy")
+    class CalculateCategoryAccuracyTest {
+
+        @Test
+        @DisplayName("카테고리별 정확도를 반환한다")
+        void calculateCategoryAccuracy_returnsAccuracies() {
+            // given
+            List<CategoryAccuracy> expected = List.of(
+                    new CategoryAccuracy(CATEGORY_ID, "CS", "컴퓨터 과학", 50L, 40L, 0.8)
+            );
+            given(studyRecordRepository.calculateCategoryAccuracy(testUser)).willReturn(expected);
+
+            // when
+            List<CategoryAccuracy> result = studyDomainService.calculateCategoryAccuracy(testUser);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).accuracy()).isEqualTo(0.8);
+            assertThat(result.get(0).categoryName()).isEqualTo("컴퓨터 과학");
         }
     }
 }

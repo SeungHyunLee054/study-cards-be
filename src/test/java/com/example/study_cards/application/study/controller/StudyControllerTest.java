@@ -303,6 +303,21 @@ class StudyControllerTest extends BaseIntegrationTest {
     class EndCurrentSessionTest {
 
         @Test
+        @DisplayName("활성 세션을 종료한다")
+        void endCurrentSession_success() throws Exception {
+            // given - 활성 세션 생성
+            studySessionRepository.save(StudySession.builder().user(user).build());
+
+            // when & then
+            mockMvc.perform(put("/api/study/sessions/end")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").isNumber())
+                    .andExpect(jsonPath("$.endedAt").isNotEmpty())
+                    .andExpect(jsonPath("$.totalCards").value(0));
+        }
+
+        @Test
         @DisplayName("인증 없이 요청하면 401을 반환한다")
         void endCurrentSession_unauthorized_returns401() throws Exception {
             mockMvc.perform(put("/api/study/sessions/end"))
@@ -315,9 +330,129 @@ class StudyControllerTest extends BaseIntegrationTest {
     class GetCurrentSessionTest {
 
         @Test
+        @DisplayName("현재 활성 세션을 조회한다")
+        void getCurrentSession_success() throws Exception {
+            // given
+            studySessionRepository.save(StudySession.builder().user(user).build());
+
+            // when & then
+            mockMvc.perform(get("/api/study/sessions/current")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").isNumber())
+                    .andExpect(jsonPath("$.startedAt").isNotEmpty())
+                    .andExpect(jsonPath("$.endedAt").isEmpty());
+        }
+
+        @Test
         @DisplayName("인증 없이 요청하면 401을 반환한다")
         void getCurrentSession_unauthorized_returns401() throws Exception {
             mockMvc.perform(get("/api/study/sessions/current"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/study/sessions/{sessionId}")
+    class GetSessionTest {
+
+        @Test
+        @DisplayName("특정 세션을 조회한다")
+        void getSession_success() throws Exception {
+            // given
+            StudySession session = studySessionRepository.save(StudySession.builder().user(user).build());
+
+            // when & then
+            mockMvc.perform(get("/api/study/sessions/{sessionId}", session.getId())
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(session.getId()))
+                    .andExpect(jsonPath("$.startedAt").isNotEmpty());
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 세션 조회 시 404를 반환한다")
+        void getSession_notFound_returns404() throws Exception {
+            mockMvc.perform(get("/api/study/sessions/{sessionId}", 99999L)
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isNotFound());
+        }
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void getSession_unauthorized_returns401() throws Exception {
+            mockMvc.perform(get("/api/study/sessions/{sessionId}", 1L))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/study/sessions/{sessionId}/stats")
+    class GetSessionStatsTest {
+
+        @Test
+        @DisplayName("세션 통계를 조회한다")
+        void getSessionStats_success() throws Exception {
+            // given
+            StudySession session = studySessionRepository.save(StudySession.builder().user(user).build());
+
+            // when & then
+            mockMvc.perform(get("/api/study/sessions/{sessionId}/stats", session.getId())
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.id").value(session.getId()))
+                    .andExpect(jsonPath("$.totalCards").value(0))
+                    .andExpect(jsonPath("$.correctCount").value(0))
+                    .andExpect(jsonPath("$.records").isArray());
+        }
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void getSessionStats_unauthorized_returns401() throws Exception {
+            mockMvc.perform(get("/api/study/sessions/{sessionId}/stats", 1L))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/study/recommendations")
+    class GetRecommendationsTest {
+
+        @Test
+        @DisplayName("학습 추천을 조회한다")
+        void getRecommendations_success() throws Exception {
+            mockMvc.perform(get("/api/study/recommendations")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.recommendations").isArray())
+                    .andExpect(jsonPath("$.totalCount").isNumber());
+        }
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void getRecommendations_unauthorized_returns401() throws Exception {
+            mockMvc.perform(get("/api/study/recommendations"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/study/category-accuracy")
+    class GetCategoryAccuracyTest {
+
+        @Test
+        @DisplayName("카테고리별 정확도를 조회한다")
+        void getCategoryAccuracy_success() throws Exception {
+            mockMvc.perform(get("/api/study/category-accuracy")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$").isArray());
+        }
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void getCategoryAccuracy_unauthorized_returns401() throws Exception {
+            mockMvc.perform(get("/api/study/category-accuracy"))
                     .andExpect(status().isUnauthorized());
         }
     }
