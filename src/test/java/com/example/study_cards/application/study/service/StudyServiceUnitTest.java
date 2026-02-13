@@ -233,7 +233,11 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("공용카드 정답을 제출하고 결과를 반환한다")
         void submitAnswer_withPublicCard_returnsResult() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, true);
+            StudyAnswerRequest request = fixtureMonkey.giveMeBuilder(StudyAnswerRequest.class)
+                    .set("cardId", CARD_ID)
+                    .set("cardType", CardType.PUBLIC)
+                    .set("isCorrect", true)
+                    .sample();
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
             given(studyDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true)))
@@ -265,7 +269,11 @@ class StudyServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(userCardRecord, "id", 2L);
 
-            StudyAnswerRequest request = new StudyAnswerRequest(USER_CARD_ID, CardType.CUSTOM, true);
+            StudyAnswerRequest request = fixtureMonkey.giveMeBuilder(StudyAnswerRequest.class)
+                    .set("cardId", USER_CARD_ID)
+                    .set("cardType", CardType.CUSTOM)
+                    .set("isCorrect", true)
+                    .sample();
             given(userCardDomainService.findById(USER_CARD_ID)).willReturn(testUserCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
             given(studyDomainService.processUserCardAnswer(eq(testUser), eq(testUserCard), eq(testSession), eq(true)))
@@ -284,7 +292,11 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("활성 세션이 없으면 새 세션을 생성한다")
         void submitAnswer_withNoActiveSession_createsNewSession() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, true);
+            StudyAnswerRequest request = fixtureMonkey.giveMeBuilder(StudyAnswerRequest.class)
+                    .set("cardId", CARD_ID)
+                    .set("cardType", CardType.PUBLIC)
+                    .set("isCorrect", true)
+                    .sample();
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
             given(studyDomainService.createSession(testUser)).willReturn(testSession);
@@ -303,7 +315,11 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("오답을 제출하고 결과를 반환한다")
         void submitAnswer_withIncorrectAnswer_returnsResult() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, false);
+            StudyAnswerRequest request = fixtureMonkey.giveMeBuilder(StudyAnswerRequest.class)
+                    .set("cardId", CARD_ID)
+                    .set("cardType", CardType.PUBLIC)
+                    .set("isCorrect", false)
+                    .sample();
             StudyRecord incorrectRecord = StudyRecord.builder()
                     .user(testUser)
                     .card(testCard)

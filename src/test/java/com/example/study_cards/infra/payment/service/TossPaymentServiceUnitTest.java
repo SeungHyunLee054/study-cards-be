@@ -15,8 +15,7 @@ import org.springframework.web.client.RestClient;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.*;
+import static org.mockito.BDDMockito.*;;
 
 @MockitoSettings(strictness = Strictness.LENIENT)
 class TossPaymentServiceUnitTest extends BaseUnitTest {
@@ -40,17 +39,17 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         requestHeadersSpec = mock(RestClient.RequestHeadersSpec.class);
 
         // Setup common mock chain for POST
-        when(tossPaymentRestClient.post()).thenReturn(requestBodyUriSpec);
-        when(requestBodyUriSpec.uri(anyString())).thenReturn(requestBodySpec);
-        when(requestBodyUriSpec.uri(anyString(), any(Object.class))).thenReturn(requestBodySpec);
-        when(requestBodySpec.body(any(Object.class))).thenAnswer(invocation -> requestBodySpec);
-        when(requestBodySpec.retrieve()).thenReturn(responseSpec);
-        when(responseSpec.onStatus(any(), any())).thenReturn(responseSpec);
+        given(tossPaymentRestClient.post()).willReturn(requestBodyUriSpec);
+        given(requestBodyUriSpec.uri(anyString())).willReturn(requestBodySpec);
+        given(requestBodyUriSpec.uri(anyString(), any(Object.class))).willReturn(requestBodySpec);
+        given(requestBodySpec.body(any(Object.class))).willAnswer(invocation -> requestBodySpec);
+        given(requestBodySpec.retrieve()).willReturn(responseSpec);
+        given(responseSpec.onStatus(any(), any())).willReturn(responseSpec);
 
         // Setup common mock chain for GET
-        doReturn(requestHeadersUriSpec).when(tossPaymentRestClient).get();
-        doReturn(requestHeadersSpec).when(requestHeadersUriSpec).uri(anyString(), any(Object.class));
-        doReturn(responseSpec).when(requestHeadersSpec).retrieve();
+        willReturn(requestHeadersUriSpec).given(tossPaymentRestClient).get();
+        willReturn(requestHeadersSpec).given(requestHeadersUriSpec).uri(anyString(), any(Object.class));
+        willReturn(responseSpec).given(requestHeadersSpec).retrieve();
 
         tossPaymentService = new TossPaymentService(tossPaymentRestClient);
     }
@@ -65,7 +64,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
             // given
             TossBillingAuthResponse expectedResponse = new TossBillingAuthResponse(
                     "billing_key_123", "customer_key_123", "2024-01-01T10:00:00", "카드", null);
-            when(responseSpec.body(TossBillingAuthResponse.class)).thenReturn(expectedResponse);
+            given(responseSpec.body(TossBillingAuthResponse.class)).willReturn(expectedResponse);
 
             // when
             TossBillingAuthResponse result = tossPaymentService.issueBillingKey("auth_key", "customer_key_123");
@@ -79,7 +78,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("응답이 null이면 예외를 발생시킨다")
         void issueBillingKey_nullResponse_throwsException() {
             // given
-            when(responseSpec.body(TossBillingAuthResponse.class)).thenReturn(null);
+            given(responseSpec.body(TossBillingAuthResponse.class)).willReturn(null);
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.issueBillingKey("auth_key", "customer_key"))
@@ -104,7 +103,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
             Integer amount = 3900;
 
             TossConfirmResponse expectedResponse = createMockResponse(paymentKey, orderId, amount);
-            when(responseSpec.body(TossConfirmResponse.class)).thenReturn(expectedResponse);
+            given(responseSpec.body(TossConfirmResponse.class)).willReturn(expectedResponse);
 
             // when
             TossConfirmResponse result = tossPaymentService.confirmPayment(paymentKey, orderId, amount);
@@ -120,7 +119,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("응답이 null이면 예외를 발생시킨다")
         void confirmPayment_nullResponse_throwsException() {
             // given
-            when(responseSpec.body(TossConfirmResponse.class)).thenReturn(null);
+            given(responseSpec.body(TossConfirmResponse.class)).willReturn(null);
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.confirmPayment("key", "order", 1000))
@@ -135,7 +134,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
         void confirmPayment_exception_throwsPaymentException() {
             // given
-            when(tossPaymentRestClient.post()).thenThrow(new RuntimeException("Connection error"));
+            given(tossPaymentRestClient.post()).willThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.confirmPayment("key", "order", 1000))
@@ -162,7 +161,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
             String orderName = "프리미엄 구독";
 
             TossConfirmResponse expectedResponse = createMockResponse("payment_key", orderId, amount);
-            when(responseSpec.body(TossConfirmResponse.class)).thenReturn(expectedResponse);
+            given(responseSpec.body(TossConfirmResponse.class)).willReturn(expectedResponse);
 
             // when
             TossConfirmResponse result = tossPaymentService.billingPayment(
@@ -178,7 +177,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("응답이 null이면 예외를 발생시킨다")
         void billingPayment_nullResponse_throwsException() {
             // given
-            when(responseSpec.body(TossConfirmResponse.class)).thenReturn(null);
+            given(responseSpec.body(TossConfirmResponse.class)).willReturn(null);
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.billingPayment(
@@ -194,7 +193,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
         void billingPayment_exception_throwsPaymentException() {
             // given
-            when(tossPaymentRestClient.post()).thenThrow(new RuntimeException("Connection error"));
+            given(tossPaymentRestClient.post()).willThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.billingPayment(
@@ -218,7 +217,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
             String paymentKey = "payment_key_123";
             String cancelReason = "고객 요청에 의한 취소";
 
-            when(responseSpec.toBodilessEntity()).thenReturn(null);
+            given(responseSpec.toBodilessEntity()).willReturn(null);
 
             // when & then (no exception)
             tossPaymentService.cancelPayment(paymentKey, cancelReason);
@@ -228,7 +227,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
         void cancelPayment_exception_throwsPaymentException() {
             // given
-            when(tossPaymentRestClient.post()).thenThrow(new RuntimeException("Connection error"));
+            given(tossPaymentRestClient.post()).willThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.cancelPayment("key", "reason"))
@@ -251,7 +250,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
             String paymentKey = "payment_key_123";
             TossConfirmResponse expectedResponse = createMockResponse(paymentKey, "ORDER_123", 3900);
 
-            when(responseSpec.body(TossConfirmResponse.class)).thenReturn(expectedResponse);
+            given(responseSpec.body(TossConfirmResponse.class)).willReturn(expectedResponse);
 
             // when
             TossConfirmResponse result = tossPaymentService.getPayment(paymentKey);
@@ -265,7 +264,7 @@ class TossPaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("예외 발생 시 PaymentException을 발생시킨다")
         void getPayment_exception_throwsPaymentException() {
             // given
-            when(tossPaymentRestClient.get()).thenThrow(new RuntimeException("Connection error"));
+            given(tossPaymentRestClient.get()).willThrow(new RuntimeException("Connection error"));
 
             // when & then
             assertThatThrownBy(() -> tossPaymentService.getPayment("key"))

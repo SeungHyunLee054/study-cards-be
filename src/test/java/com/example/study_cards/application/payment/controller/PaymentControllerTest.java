@@ -93,7 +93,10 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("체크아웃 성공 시 주문 정보를 반환한다")
         void checkout_success() throws Exception {
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
+            CheckoutRequest request = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
 
             mockMvc.perform(post("/api/payments/checkout")
                             .header("Authorization", "Bearer " + accessToken)
@@ -158,7 +161,10 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("인증 없이 요청하면 401을 반환한다")
         void checkout_unauthorized_returns401() throws Exception {
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
+            CheckoutRequest request = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
 
             mockMvc.perform(post("/api/payments/checkout")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -174,7 +180,10 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("결제 확인 성공 시 구독 정보를 반환한다")
         void confirmPayment_success() throws Exception {
-            CheckoutRequest checkoutRequest = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
+            CheckoutRequest checkoutRequest = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
             String checkoutResponseBody = mockMvc.perform(post("/api/payments/checkout")
                             .header("Authorization", "Bearer " + accessToken)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -190,11 +199,11 @@ class PaymentControllerTest extends BaseIntegrationTest {
             given(tossPaymentService.confirmPayment(anyString(), anyString(), anyInt()))
                     .willReturn(tossResponse);
 
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(
-                    "test_payment_key_123",
-                    orderId,
-                    amount
-            );
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", "test_payment_key_123")
+                    .set("orderId", orderId)
+                    .set("amount", amount)
+                    .sample();
 
             mockMvc.perform(post("/api/payments/confirm")
                             .header("Authorization", "Bearer " + accessToken)
@@ -234,7 +243,11 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("paymentKey가 비어있으면 400을 반환한다")
         void confirmPayment_blankPaymentKey_returns400() throws Exception {
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest("", "ORDER_12345", 3900);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", "")
+                    .set("orderId", "ORDER_12345")
+                    .set("amount", 3900)
+                    .sample();
 
             mockMvc.perform(post("/api/payments/confirm")
                             .header("Authorization", "Bearer " + accessToken)
@@ -246,7 +259,11 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("amount가 음수면 400을 반환한다")
         void confirmPayment_negativeAmount_returns400() throws Exception {
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest("payment_key", "ORDER_12345", -100);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", "payment_key")
+                    .set("orderId", "ORDER_12345")
+                    .set("amount", -100)
+                    .sample();
 
             mockMvc.perform(post("/api/payments/confirm")
                             .header("Authorization", "Bearer " + accessToken)

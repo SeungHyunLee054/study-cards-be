@@ -98,12 +98,12 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(testCategory, "id", 1L);
 
-        testRequest = new GenerateUserCardRequest(
-                "REST API는 웹 서비스를 위한 아키텍처 스타일입니다.",
-                "CS",
-                2,
-                "보통"
-        );
+        testRequest = fixtureMonkey.giveMeBuilder(GenerateUserCardRequest.class)
+                .set("sourceText", "REST API는 웹 서비스를 위한 아키텍처 스타일입니다.")
+                .set("categoryCode", "CS")
+                .set("count", 2)
+                .set("difficulty", "보통")
+                .sample();
     }
 
     @Nested

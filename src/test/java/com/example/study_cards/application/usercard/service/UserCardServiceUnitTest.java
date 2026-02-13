@@ -84,21 +84,21 @@ class UserCardServiceUnitTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(testUserCard, "id", USER_CARD_ID);
 
-        createRequest = new UserCardCreateRequest(
-                QUESTION,
-                QUESTION_SUB,
-                ANSWER,
-                ANSWER_SUB,
-                "CS"
-        );
+        createRequest = fixtureMonkey.giveMeBuilder(UserCardCreateRequest.class)
+                .set("question", QUESTION)
+                .set("questionSub", QUESTION_SUB)
+                .set("answer", ANSWER)
+                .set("answerSub", ANSWER_SUB)
+                .set("category", "CS")
+                .sample();
 
-        updateRequest = new UserCardUpdateRequest(
-                "수정된 질문",
-                QUESTION_SUB,
-                "수정된 답변",
-                ANSWER_SUB,
-                "CS"
-        );
+        updateRequest = fixtureMonkey.giveMeBuilder(UserCardUpdateRequest.class)
+                .set("question", "수정된 질문")
+                .set("questionSub", QUESTION_SUB)
+                .set("answer", "수정된 답변")
+                .set("answerSub", ANSWER_SUB)
+                .set("category", "CS")
+                .sample();
     }
 
     @Nested

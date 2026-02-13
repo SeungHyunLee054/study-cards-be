@@ -129,7 +129,10 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("결제 세션을 생성한다")
         void checkout_success() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
+            CheckoutRequest request = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
             given(subscriptionDomainService.hasActiveSubscription(USER_ID)).willReturn(false);
             given(paymentDomainService.createInitialPayment(eq(testUser), eq(SubscriptionPlan.PRO),
                     eq(BillingCycle.MONTHLY), anyString(), eq(9900))).willReturn(testPayment);
@@ -147,7 +150,10 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("이미 구독이 있으면 예외를 던진다")
         void checkout_alreadySubscribed_throwsException() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
+            CheckoutRequest request = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
             given(subscriptionDomainService.hasActiveSubscription(USER_ID)).willReturn(true);
 
             // when & then
@@ -161,7 +167,10 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("무료 플랜은 구매할 수 없다")
         void checkout_freePlan_throwsException() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.FREE, BillingCycle.MONTHLY);
+            CheckoutRequest request = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.FREE)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
 
             // when & then
             assertThatThrownBy(() -> paymentService.checkout(testUser, request))
@@ -174,7 +183,10 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("연간 구독은 99000원이다")
         void checkout_yearlyPlan_correctAmount() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.YEARLY);
+            CheckoutRequest request = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.YEARLY)
+                    .sample();
             Payment yearlyPayment = Payment.builder()
                     .user(testUser)
                     .orderId(ORDER_ID)
@@ -208,7 +220,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("결제를 확정한다")
         void confirmPayment_success() {
             // given
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 9900);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", PAYMENT_KEY)
+                    .set("orderId", ORDER_ID)
+                    .set("amount", 9900)
+                    .sample();
             TossConfirmResponse tossResponse = new TossConfirmResponse(
                     PAYMENT_KEY, ORDER_ID, "프로 월간 구독", "DONE",
                     9900, "카드", null, null, null, null
@@ -239,7 +255,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(anotherUser, "id", 2L);
 
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 3900);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", PAYMENT_KEY)
+                    .set("orderId", ORDER_ID)
+                    .set("amount", 3900)
+                    .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
 
             // when & then
@@ -253,7 +273,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("금액이 일치하지 않으면 예외를 던진다")
         void confirmPayment_amountMismatch_throwsException() {
             // given
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 5000);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", PAYMENT_KEY)
+                    .set("orderId", ORDER_ID)
+                    .set("amount", 5000)
+                    .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
 
             // when & then
@@ -279,7 +303,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(completedPayment, "id", 1L);
 
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 9900);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", PAYMENT_KEY)
+                    .set("orderId", ORDER_ID)
+                    .set("amount", 9900)
+                    .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
             given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
@@ -303,7 +331,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("빌링 결제를 확정한다")
         void confirmBilling_success() {
             // given
-            ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
+            ConfirmBillingRequest request = fixtureMonkey.giveMeBuilder(ConfirmBillingRequest.class)
+                    .set("authKey", AUTH_KEY)
+                    .set("customerKey", CUSTOMER_KEY)
+                    .set("orderId", ORDER_ID)
+                    .sample();
             TossBillingAuthResponse billingAuthResponse = new TossBillingAuthResponse(
                     BILLING_KEY, CUSTOMER_KEY, "2024-01-01T10:00:00", "카드", null);
             TossConfirmResponse billingResponse = new TossConfirmResponse(
@@ -337,7 +369,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(anotherUser, "id", 2L);
 
-            ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
+            ConfirmBillingRequest request = fixtureMonkey.giveMeBuilder(ConfirmBillingRequest.class)
+                    .set("authKey", AUTH_KEY)
+                    .set("customerKey", CUSTOMER_KEY)
+                    .set("orderId", ORDER_ID)
+                    .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
 
             // when & then
@@ -363,7 +399,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(completedPayment, "id", 1L);
 
-            ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
+            ConfirmBillingRequest request = fixtureMonkey.giveMeBuilder(ConfirmBillingRequest.class)
+                    .set("authKey", AUTH_KEY)
+                    .set("customerKey", CUSTOMER_KEY)
+                    .set("orderId", ORDER_ID)
+                    .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
             given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
@@ -391,7 +431,11 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(canceledPayment, "id", 1L);
 
-            ConfirmBillingRequest request = new ConfirmBillingRequest(AUTH_KEY, CUSTOMER_KEY, ORDER_ID);
+            ConfirmBillingRequest request = fixtureMonkey.giveMeBuilder(ConfirmBillingRequest.class)
+                    .set("authKey", AUTH_KEY)
+                    .set("customerKey", CUSTOMER_KEY)
+                    .set("orderId", ORDER_ID)
+                    .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(canceledPayment);
 
             // when & then
