@@ -205,4 +205,77 @@ class RateLimitServiceIntegrationTest extends BaseIntegrationTest {
             assertThat(limited).isFalse();
         }
     }
+
+    @Nested
+    @DisplayName("isBlocked / recordFailedAttempt / resetAttempts")
+    class BlockedAndAttemptTest {
+
+        private static final String TEST_ACTION = "signin";
+        private static final String TEST_IDENTIFIER = "blocked-user";
+
+        @BeforeEach
+        void cleanUp() {
+            Set<String> keys = redisTemplate.keys("rate_limit:" + TEST_ACTION + ":*");
+            if (keys != null && !keys.isEmpty()) {
+                redisTemplate.delete(keys);
+            }
+        }
+
+        @Test
+        @DisplayName("실패 기록이 없으면 차단되지 않는다")
+        void isBlocked_noAttempts_returnsNotBlocked() {
+            // when
+            boolean blocked = rateLimitService.isBlocked(TEST_ACTION, TEST_IDENTIFIER, 5);
+
+            // then
+            assertThat(blocked).isFalse();
+        }
+
+        @Test
+        @DisplayName("실패 횟수가 제한 미만이면 차단되지 않는다")
+        void isBlocked_underLimit_returnsNotBlocked() {
+            // given
+            rateLimitService.recordFailedAttempt(TEST_ACTION, TEST_IDENTIFIER, Duration.ofMinutes(1));
+            rateLimitService.recordFailedAttempt(TEST_ACTION, TEST_IDENTIFIER, Duration.ofMinutes(1));
+
+            // when
+            boolean blocked = rateLimitService.isBlocked(TEST_ACTION, TEST_IDENTIFIER, 5);
+
+            // then
+            assertThat(blocked).isFalse();
+        }
+
+        @Test
+        @DisplayName("실패 횟수가 제한 이상이면 차단된다")
+        void isBlocked_atLimit_returnsBlocked() {
+            // given
+            int maxAttempts = 3;
+            for (int i = 0; i < maxAttempts; i++) {
+                rateLimitService.recordFailedAttempt(TEST_ACTION, TEST_IDENTIFIER, Duration.ofMinutes(1));
+            }
+
+            // when
+            boolean blocked = rateLimitService.isBlocked(TEST_ACTION, TEST_IDENTIFIER, maxAttempts);
+
+            // then
+            assertThat(blocked).isTrue();
+        }
+
+        @Test
+        @DisplayName("resetAttempts 호출 후 차단이 해제된다")
+        void resetAttempts_clearsBlock() {
+            // given
+            int maxAttempts = 3;
+            for (int i = 0; i < maxAttempts; i++) {
+                rateLimitService.recordFailedAttempt(TEST_ACTION, TEST_IDENTIFIER, Duration.ofMinutes(1));
+            }
+            assertThat(rateLimitService.isBlocked(TEST_ACTION, TEST_IDENTIFIER, maxAttempts)).isTrue();
+
+            // when
+            rateLimitService.resetAttempts(TEST_ACTION, TEST_IDENTIFIER);
+
+            // then
+            assertThat(rateLimitService.isBlocked(TEST_ACTION, TEST_IDENTIFIER, maxAttempts)).isFalse();
+        }
+    }
 }

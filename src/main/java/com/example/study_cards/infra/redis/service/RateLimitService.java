@@ -57,6 +57,36 @@ public class RateLimitService {
         }
     }
 
+    public boolean isBlocked(String action, String identifier, int maxAttempts) {
+        try {
+            String key = "rate_limit:" + action + ":" + identifier;
+            Integer count = (Integer) redisTemplate.opsForValue().get(key);
+            return count != null && count >= maxAttempts;
+        } catch (Exception e) {
+            log.warn("Redis 장애로 rate limit 확인 실패 - action: {}, identifier: {}, 허용 처리", action, identifier, e);
+            return false;
+        }
+    }
+
+    public void recordFailedAttempt(String action, String identifier, Duration window) {
+        try {
+            String key = "rate_limit:" + action + ":" + identifier;
+            redisTemplate.opsForValue().increment(key);
+            redisTemplate.expire(key, window);
+        } catch (Exception e) {
+            log.warn("Redis 장애로 rate limit 기록 실패 - action: {}, identifier: {}", action, identifier, e);
+        }
+    }
+
+    public void resetAttempts(String action, String identifier) {
+        try {
+            String key = "rate_limit:" + action + ":" + identifier;
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            log.warn("Redis 장애로 rate limit 초기화 실패 - action: {}, identifier: {}", action, identifier, e);
+        }
+    }
+
     private Duration getTtlUntilMidnight() {
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime midnight = LocalDate.now().plusDays(1).atTime(LocalTime.MIDNIGHT);

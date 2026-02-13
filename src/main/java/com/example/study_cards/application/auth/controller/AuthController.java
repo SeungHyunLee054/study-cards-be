@@ -47,10 +47,18 @@ public class AuthController {
     public ResponseEntity<SignInResponse> signIn(
             @Valid @RequestBody SignInRequest request,
             HttpServletResponse response) {
-        checkRateLimit("signin", request.email());
-        TokenResult result = authService.signIn(request);
-        cookieProvider.addRefreshTokenCookie(response, result.refreshToken());
-        return ResponseEntity.ok(new SignInResponse(result.accessToken(), result.accessTokenExpiresIn()));
+        if (rateLimitService.isBlocked("signin", request.email(), MAX_AUTH_ATTEMPTS)) {
+            throw new AuthException(AuthErrorCode.TOO_MANY_ATTEMPTS);
+        }
+        try {
+            TokenResult result = authService.signIn(request);
+            rateLimitService.resetAttempts("signin", request.email());
+            cookieProvider.addRefreshTokenCookie(response, result.refreshToken());
+            return ResponseEntity.ok(new SignInResponse(result.accessToken(), result.accessTokenExpiresIn()));
+        } catch (Exception e) {
+            rateLimitService.recordFailedAttempt("signin", request.email(), AUTH_RATE_LIMIT_WINDOW);
+            throw e;
+        }
     }
 
     @PostMapping("/signout")
