@@ -58,7 +58,10 @@ public class AuthController {
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestHeader("Authorization") String authorization,
             HttpServletResponse response) {
-        String accessToken = authorization.substring("Bearer ".length());
+        if (!authorization.startsWith("Bearer ")) {
+            throw new AuthException(AuthErrorCode.INVALID_TOKEN);
+        }
+        String accessToken = authorization.substring(7);
         authService.signOut(userDetails.userId(), accessToken);
         cookieProvider.deleteRefreshTokenCookie(response);
         return ResponseEntity.noContent().build();

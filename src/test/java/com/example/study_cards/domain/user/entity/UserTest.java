@@ -73,18 +73,5 @@ class UserTest {
             assertThat(user.getStreak()).isEqualTo(0);
         }
 
-        @Test
-        @DisplayName("masteryRate 기본값은 0.0이다")
-        void builder_masteryRateDefaultsToZero() {
-            // when
-            User user = User.builder()
-                    .email("test@example.com")
-                    .password("encodedPassword")
-                    .nickname("testUser")
-                    .build();
-
-            // then
-            assertThat(user.getMasteryRate()).isEqualTo(0.0);
-        }
     }
 }

@@ -12,8 +12,7 @@ public record UserResponse(
         String nickname,
         Set<Role> roles,
         OAuthProvider provider,
-        Integer streak,
-        Double masteryRate
+        Integer streak
 ) {
     public static UserResponse from(User user) {
         return new UserResponse(
@@ -22,8 +21,7 @@ public record UserResponse(
                 user.getNickname(),
                 user.getRoles(),
                 user.getProvider(),
-                user.getStreak(),
-                user.getMasteryRate()
+                user.getStreak()
         );
     }
 }

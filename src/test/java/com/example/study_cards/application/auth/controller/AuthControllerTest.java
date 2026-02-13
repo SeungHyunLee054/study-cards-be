@@ -101,8 +101,7 @@ class AuthControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("nickname").type(JsonFieldType.STRING).description("닉네임"),
                                     fieldWithPath("roles").type(JsonFieldType.ARRAY).description("사용자 역할"),
                                     fieldWithPath("provider").type(JsonFieldType.STRING).description("OAuth 제공자"),
-                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수"),
-                                    fieldWithPath("masteryRate").type(JsonFieldType.NUMBER).description("숙련도")
+                                    fieldWithPath("streak").type(JsonFieldType.NUMBER).description("연속 학습 일수")
                             )
                     ));
         }

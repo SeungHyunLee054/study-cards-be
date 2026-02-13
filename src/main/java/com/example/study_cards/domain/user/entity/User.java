@@ -44,9 +44,6 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Integer streak;
 
-    @Column(nullable = false)
-    private Double masteryRate;
-
     private LocalDate lastStudyDate;
 
     private String fcmToken;
@@ -70,7 +67,6 @@ public class User extends BaseEntity {
         this.provider = provider != null ? provider : OAuthProvider.LOCAL;
         this.providerId = providerId;
         this.streak = 0;
-        this.masteryRate = 0.0;
         this.pushEnabled = true;
         this.emailVerified = false;
     }

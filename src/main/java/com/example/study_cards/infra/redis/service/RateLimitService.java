@@ -38,11 +38,8 @@ public class RateLimitService {
 
         try {
             String key = RATE_LIMIT_PREFIX + ipAddress;
-            Long currentCount = redisTemplate.opsForValue().increment(key, cardCount);
-
-            if (currentCount != null && currentCount == cardCount) {
-                redisTemplate.expire(key, getTtlUntilMidnight());
-            }
+            redisTemplate.opsForValue().increment(key, cardCount);
+            redisTemplate.expire(key, getTtlUntilMidnight());
         } catch (Exception e) {
             log.warn("Redis 장애로 rate limit 증가 실패 - ip: {}", ipAddress, e);
         }
@@ -52,11 +49,7 @@ public class RateLimitService {
         try {
             String key = "rate_limit:" + action + ":" + identifier;
             Long count = redisTemplate.opsForValue().increment(key);
-
-            if (count != null && count == 1) {
-                redisTemplate.expire(key, window);
-            }
-
+            redisTemplate.expire(key, window);
             return count != null && count > maxAttempts;
         } catch (Exception e) {
             log.warn("Redis 장애로 rate limit 확인 실패 - action: {}, identifier: {}, 허용 처리", action, identifier, e);
