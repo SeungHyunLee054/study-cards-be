@@ -260,7 +260,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 .amount(3900)
                 .status(PaymentStatus.PENDING)
                 .type(PaymentType.INITIAL)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .billingCycle(BillingCycle.MONTHLY)
                 .customerKey("ck_123")
                 .build();
@@ -303,7 +303,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
     private Subscription createMockSubscription(User user) {
         return Subscription.builder()
                 .user(user)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .startDate(java.time.LocalDateTime.now())

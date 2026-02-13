@@ -93,7 +93,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("체크아웃 성공 시 주문 정보를 반환한다")
         void checkout_success() throws Exception {
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PREMIUM, BillingCycle.MONTHLY);
+            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
 
             mockMvc.perform(post("/api/payments/checkout")
                             .header("Authorization", "Bearer " + accessToken)
@@ -102,7 +102,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.orderId").exists())
                     .andExpect(jsonPath("$.customerKey").exists())
-                    .andExpect(jsonPath("$.amount").value(3900))
+                    .andExpect(jsonPath("$.amount").value(9900))
                     .andExpect(jsonPath("$.orderName").exists())
                     .andDo(document("payment/checkout",
                             preprocessRequest(prettyPrint()),
@@ -111,7 +111,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
                                     headerWithName("Authorization").description("Bearer 액세스 토큰")
                             ),
                             requestFields(
-                                    fieldWithPath("plan").type(JsonFieldType.STRING).description("구독 플랜 (PREMIUM)"),
+                                    fieldWithPath("plan").type(JsonFieldType.STRING).description("구독 플랜 (PRO)"),
                                     fieldWithPath("billingCycle").type(JsonFieldType.STRING).description("결제 주기 (MONTHLY, YEARLY)")
                             ),
                             responseFields(
@@ -144,7 +144,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
         void checkout_nullBillingCycle_returns400() throws Exception {
             String invalidRequest = """
                     {
-                        "plan": "PREMIUM"
+                        "plan": "PRO"
                     }
                     """;
 
@@ -158,7 +158,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("인증 없이 요청하면 401을 반환한다")
         void checkout_unauthorized_returns401() throws Exception {
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PREMIUM, BillingCycle.MONTHLY);
+            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
 
             mockMvc.perform(post("/api/payments/checkout")
                             .contentType(MediaType.APPLICATION_JSON)
@@ -174,7 +174,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("결제 확인 성공 시 구독 정보를 반환한다")
         void confirmPayment_success() throws Exception {
-            CheckoutRequest checkoutRequest = new CheckoutRequest(SubscriptionPlan.PREMIUM, BillingCycle.MONTHLY);
+            CheckoutRequest checkoutRequest = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
             String checkoutResponseBody = mockMvc.perform(post("/api/payments/checkout")
                             .header("Authorization", "Bearer " + accessToken)
                             .contentType(MediaType.APPLICATION_JSON)
@@ -202,7 +202,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").exists())
-                    .andExpect(jsonPath("$.plan").value("PREMIUM"))
+                    .andExpect(jsonPath("$.plan").value("PRO"))
                     .andExpect(jsonPath("$.status").exists())
                     .andDo(document("payment/confirm-payment",
                             preprocessRequest(prettyPrint()),
@@ -224,8 +224,9 @@ class PaymentControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("startDate").type(JsonFieldType.STRING).description("시작일"),
                                     fieldWithPath("endDate").type(JsonFieldType.STRING).description("종료일"),
                                     fieldWithPath("isActive").type(JsonFieldType.BOOLEAN).description("활성화 여부"),
-                                    fieldWithPath("dailyLimit").type(JsonFieldType.NUMBER).description("일일 학습 제한"),
-                                    fieldWithPath("canAccessAiCards").type(JsonFieldType.BOOLEAN).description("AI 카드 접근 가능 여부")
+                                    fieldWithPath("canGenerateAiCards").type(JsonFieldType.BOOLEAN).description("AI 카드 생성 가능 여부"),
+                                    fieldWithPath("canUseAiRecommendations").type(JsonFieldType.BOOLEAN).description("AI 복습 추천 사용 가능 여부"),
+                                    fieldWithPath("aiGenerationDailyLimit").type(JsonFieldType.NUMBER).description("AI 생성 일일 제한")
                             )
                     ));
         }

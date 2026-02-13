@@ -23,7 +23,7 @@ class PaymentTest {
                 .amount(3900)
                 .status(PaymentStatus.PENDING)
                 .type(PaymentType.INITIAL)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .billingCycle(BillingCycle.MONTHLY)
                 .customerKey("customer_123")
                 .build();
@@ -55,7 +55,7 @@ class PaymentTest {
             assertThat(payment.getAmount()).isEqualTo(3900);
             assertThat(payment.getStatus()).isEqualTo(PaymentStatus.PENDING);
             assertThat(payment.getType()).isEqualTo(PaymentType.INITIAL);
-            assertThat(payment.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(payment.getPlan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(payment.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
         }
     }
@@ -167,7 +167,7 @@ class PaymentTest {
         void linkSubscription_setsSubscription() {
             // given
             Subscription subscription = Subscription.builder()
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusMonths(1))

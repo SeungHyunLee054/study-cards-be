@@ -66,7 +66,7 @@ class PaymentDomainServiceTest extends BaseUnitTest {
     private Subscription createTestSubscription() {
         Subscription subscription = Subscription.builder()
                 .user(testUser)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .startDate(LocalDateTime.now())
@@ -84,7 +84,7 @@ class PaymentDomainServiceTest extends BaseUnitTest {
                 .amount(3900)
                 .status(PaymentStatus.PENDING)
                 .type(PaymentType.INITIAL)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .billingCycle(BillingCycle.MONTHLY)
                 .customerKey(CUSTOMER_KEY)
                 .build();
@@ -136,11 +136,11 @@ class PaymentDomainServiceTest extends BaseUnitTest {
 
             // when
             Payment result = paymentDomainService.createInitialPayment(
-                    testUser, SubscriptionPlan.PREMIUM, BillingCycle.MONTHLY, CUSTOMER_KEY, 3900);
+                    testUser, SubscriptionPlan.PRO, BillingCycle.MONTHLY, CUSTOMER_KEY, 3900);
 
             // then
             assertThat(result.getUser()).isEqualTo(testUser);
-            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
             assertThat(result.getCustomerKey()).isEqualTo(CUSTOMER_KEY);
             assertThat(result.getAmount()).isEqualTo(3900);

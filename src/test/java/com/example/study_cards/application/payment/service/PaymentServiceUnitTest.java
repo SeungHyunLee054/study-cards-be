@@ -95,7 +95,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
     private Subscription createTestSubscription() {
         Subscription subscription = Subscription.builder()
                 .user(testUser)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .startDate(LocalDateTime.now())
@@ -110,10 +110,10 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         Payment payment = Payment.builder()
                 .user(testUser)
                 .orderId(ORDER_ID)
-                .amount(3900)
+                .amount(9900)
                 .status(PaymentStatus.PENDING)
                 .type(PaymentType.INITIAL)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .billingCycle(BillingCycle.MONTHLY)
                 .customerKey(CUSTOMER_KEY)
                 .build();
@@ -129,25 +129,25 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("결제 세션을 생성한다")
         void checkout_success() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PREMIUM, BillingCycle.MONTHLY);
+            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
             given(subscriptionDomainService.hasActiveSubscription(USER_ID)).willReturn(false);
-            given(paymentDomainService.createInitialPayment(eq(testUser), eq(SubscriptionPlan.PREMIUM),
-                    eq(BillingCycle.MONTHLY), anyString(), eq(3900))).willReturn(testPayment);
+            given(paymentDomainService.createInitialPayment(eq(testUser), eq(SubscriptionPlan.PRO),
+                    eq(BillingCycle.MONTHLY), anyString(), eq(9900))).willReturn(testPayment);
 
             // when
             CheckoutResponse result = paymentService.checkout(testUser, request);
 
             // then
             assertThat(result.orderId()).isEqualTo(ORDER_ID);
-            assertThat(result.amount()).isEqualTo(3900);
-            assertThat(result.orderName()).contains("프리미엄", "월간");
+            assertThat(result.amount()).isEqualTo(9900);
+            assertThat(result.orderName()).contains("프로", "월간");
         }
 
         @Test
         @DisplayName("이미 구독이 있으면 예외를 던진다")
         void checkout_alreadySubscribed_throwsException() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PREMIUM, BillingCycle.MONTHLY);
+            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.MONTHLY);
             given(subscriptionDomainService.hasActiveSubscription(USER_ID)).willReturn(true);
 
             // when & then
@@ -171,31 +171,31 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("연간 구독은 39000원이다")
+        @DisplayName("연간 구독은 99000원이다")
         void checkout_yearlyPlan_correctAmount() {
             // given
-            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PREMIUM, BillingCycle.YEARLY);
+            CheckoutRequest request = new CheckoutRequest(SubscriptionPlan.PRO, BillingCycle.YEARLY);
             Payment yearlyPayment = Payment.builder()
                     .user(testUser)
                     .orderId(ORDER_ID)
-                    .amount(39000)
+                    .amount(99000)
                     .status(PaymentStatus.PENDING)
                     .type(PaymentType.INITIAL)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.YEARLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();
             ReflectionTestUtils.setField(yearlyPayment, "id", 1L);
 
             given(subscriptionDomainService.hasActiveSubscription(USER_ID)).willReturn(false);
-            given(paymentDomainService.createInitialPayment(eq(testUser), eq(SubscriptionPlan.PREMIUM),
-                    eq(BillingCycle.YEARLY), anyString(), eq(39000))).willReturn(yearlyPayment);
+            given(paymentDomainService.createInitialPayment(eq(testUser), eq(SubscriptionPlan.PRO),
+                    eq(BillingCycle.YEARLY), anyString(), eq(99000))).willReturn(yearlyPayment);
 
             // when
             CheckoutResponse result = paymentService.checkout(testUser, request);
 
             // then
-            assertThat(result.amount()).isEqualTo(39000);
+            assertThat(result.amount()).isEqualTo(99000);
             assertThat(result.orderName()).contains("연간");
         }
     }
@@ -208,14 +208,14 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("결제를 확정한다")
         void confirmPayment_success() {
             // given
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 3900);
+            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 9900);
             TossConfirmResponse tossResponse = new TossConfirmResponse(
-                    PAYMENT_KEY, ORDER_ID, "프리미엄 월간 구독", "DONE",
-                    3900, "카드", null, null, null, null
+                    PAYMENT_KEY, ORDER_ID, "프로 월간 구독", "DONE",
+                    9900, "카드", null, null, null, null
             );
 
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
-            given(tossPaymentService.confirmPayment(PAYMENT_KEY, ORDER_ID, 3900)).willReturn(tossResponse);
+            given(tossPaymentService.confirmPayment(PAYMENT_KEY, ORDER_ID, 9900)).willReturn(tossResponse);
             given(subscriptionDomainService.createSubscriptionFromPayment(eq(testPayment), isNull()))
                     .willReturn(testSubscription);
 
@@ -223,7 +223,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             SubscriptionResponse result = paymentService.confirmPayment(testUser, request);
 
             // then
-            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
             verify(paymentDomainService).completePayment(testPayment, PAYMENT_KEY, "카드");
             verify(subscriptionDomainService).createSubscriptionFromPayment(eq(testPayment), isNull());
         }
@@ -270,16 +270,16 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             Payment completedPayment = Payment.builder()
                     .user(testUser)
                     .orderId(ORDER_ID)
-                    .amount(3900)
+                    .amount(9900)
                     .status(PaymentStatus.COMPLETED)
                     .type(PaymentType.INITIAL)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();
             ReflectionTestUtils.setField(completedPayment, "id", 1L);
 
-            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 3900);
+            ConfirmPaymentRequest request = new ConfirmPaymentRequest(PAYMENT_KEY, ORDER_ID, 9900);
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
             given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
@@ -287,7 +287,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             SubscriptionResponse result = paymentService.confirmPayment(testUser, request);
 
             // then
-            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.isActive()).isTrue();
         }
     }
@@ -307,13 +307,13 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             TossBillingAuthResponse billingAuthResponse = new TossBillingAuthResponse(
                     BILLING_KEY, CUSTOMER_KEY, "2024-01-01T10:00:00", "카드", null);
             TossConfirmResponse billingResponse = new TossConfirmResponse(
-                    PAYMENT_KEY, ORDER_ID, "프리미엄 월간 구독", "DONE",
-                    3900, "카드", null, null, null, null);
+                    PAYMENT_KEY, ORDER_ID, "프로 월간 구독", "DONE",
+                    9900, "카드", null, null, null, null);
 
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
             given(tossPaymentService.issueBillingKey(AUTH_KEY, CUSTOMER_KEY)).willReturn(billingAuthResponse);
             given(tossPaymentService.billingPayment(eq(BILLING_KEY), eq(CUSTOMER_KEY),
-                    eq(ORDER_ID), eq(3900), anyString())).willReturn(billingResponse);
+                    eq(ORDER_ID), eq(9900), anyString())).willReturn(billingResponse);
             given(subscriptionDomainService.createSubscriptionFromPayment(testPayment, BILLING_KEY))
                     .willReturn(testSubscription);
 
@@ -321,7 +321,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             SubscriptionResponse result = paymentService.confirmBilling(testUser, request);
 
             // then
-            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
             verify(paymentDomainService).completePayment(testPayment, PAYMENT_KEY, "카드");
             verify(subscriptionDomainService).createSubscriptionFromPayment(testPayment, BILLING_KEY);
         }
@@ -357,7 +357,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .amount(3900)
                     .status(PaymentStatus.COMPLETED)
                     .type(PaymentType.INITIAL)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();
@@ -371,7 +371,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             SubscriptionResponse result = paymentService.confirmBilling(testUser, request);
 
             // then
-            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.isActive()).isTrue();
         }
 
@@ -385,7 +385,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .amount(3900)
                     .status(PaymentStatus.CANCELED)
                     .type(PaymentType.INITIAL)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();
@@ -416,7 +416,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .amount(3900)
                     .status(PaymentStatus.COMPLETED)
                     .type(PaymentType.INITIAL)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();

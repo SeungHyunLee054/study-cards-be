@@ -75,6 +75,12 @@ public class PaymentWebhookService {
     }
 
     private void processPaymentDone(Payment payment, DataPayload data) {
+        if (data.totalAmount() != null && !payment.getAmount().equals(data.totalAmount())) {
+            log.error("Webhook 금액 불일치: orderId={}, expected={}, received={}",
+                    data.orderId(), payment.getAmount(), data.totalAmount());
+            return;
+        }
+
         boolean completed = paymentDomainService.tryCompletePayment(
                 payment, data.paymentKey(), data.method());
 

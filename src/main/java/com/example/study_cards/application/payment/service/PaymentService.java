@@ -44,7 +44,7 @@ public class PaymentService {
 
     @Transactional
     public CheckoutResponse checkout(User user, CheckoutRequest request) {
-        if (request.plan() == SubscriptionPlan.FREE || request.plan() == SubscriptionPlan.BASIC) {
+        if (request.plan() == SubscriptionPlan.FREE) {
             throw new SubscriptionException(SubscriptionErrorCode.FREE_PLAN_NOT_PURCHASABLE);
         }
 
