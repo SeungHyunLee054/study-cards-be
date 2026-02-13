@@ -19,7 +19,7 @@ public record UserResponse(
                 user.getId(),
                 user.getEmail(),
                 user.getNickname(),
-                user.getRoles(),
+                Set.copyOf(user.getRoles()),
                 user.getProvider(),
                 user.getStreak()
         );
