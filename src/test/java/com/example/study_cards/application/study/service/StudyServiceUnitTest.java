@@ -1,5 +1,6 @@
 package com.example.study_cards.application.study.service;
 
+import com.example.study_cards.application.card.dto.response.CardType;
 import com.example.study_cards.application.notification.service.NotificationService;
 import com.example.study_cards.application.study.dto.request.StudyAnswerRequest;
 import com.example.study_cards.application.study.dto.response.SessionResponse;
@@ -15,10 +16,10 @@ import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
 import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
-import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.domain.study.service.StudyDomainService.StudyCardItem;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.redis.service.StudyLimitService;
+import com.example.study_cards.domain.usercard.entity.UserCard;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,13 +58,10 @@ class StudyServiceUnitTest extends BaseUnitTest {
     private CardDomainService cardDomainService;
 
     @Mock
+    private UserCardDomainService userCardDomainService;
+
+    @Mock
     private CategoryDomainService categoryDomainService;
-
-    @Mock
-    private SubscriptionDomainService subscriptionDomainService;
-
-    @Mock
-    private StudyLimitService studyLimitService;
 
     @Mock
     private NotificationService notificationService;
@@ -73,12 +71,14 @@ class StudyServiceUnitTest extends BaseUnitTest {
 
     private User testUser;
     private Card testCard;
+    private UserCard testUserCard;
     private Category testCategory;
     private StudyRecord testRecord;
     private StudySession testSession;
 
     private static final Long USER_ID = 1L;
     private static final Long CARD_ID = 1L;
+    private static final Long USER_CARD_ID = 2L;
     private static final Long CATEGORY_ID = 1L;
     private static final Long SESSION_ID = 1L;
 
@@ -87,6 +87,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         testUser = createTestUser();
         testCategory = createTestCategory();
         testCard = createTestCard();
+        testUserCard = createTestUserCard();
         testSession = createTestSession();
         testRecord = createTestRecord();
     }
@@ -132,6 +133,20 @@ class StudyServiceUnitTest extends BaseUnitTest {
         return session;
     }
 
+    private UserCard createTestUserCard() {
+        UserCard userCard = UserCard.builder()
+                .user(testUser)
+                .question("사용자 질문")
+                .questionSub("User Question")
+                .answer("사용자 답변")
+                .answerSub("User Answer")
+                .efFactor(2.5)
+                .category(testCategory)
+                .build();
+        ReflectionTestUtils.setField(userCard, "id", USER_CARD_ID);
+        return userCard;
+    }
+
     private StudyRecord createTestRecord() {
         StudyRecord record = StudyRecord.builder()
                 .user(testUser)
@@ -155,8 +170,6 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @BeforeEach
         void setUpPageable() {
             pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.ASC, "efFactor"));
-            given(subscriptionDomainService.getEffectivePlan(any(User.class)))
-                    .willReturn(SubscriptionPlan.BASIC);
         }
 
         @Test
@@ -164,7 +177,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
         void getTodayCards_withCategoryCode_returnsCards() {
             // given
             given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
-            given(studyDomainService.findTodayStudyCards(eq(testUser), eq(testCategory), anyInt(), eq(false))).willReturn(List.of(testCard));
+            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(testCategory), anyInt()))
+                    .willReturn(List.of(StudyCardItem.ofCard(testCard)));
 
             // when
             Page<StudyCardResponse> result = studyService.getTodayCards(testUser, "CS", pageable);
@@ -173,13 +187,15 @@ class StudyServiceUnitTest extends BaseUnitTest {
             assertThat(result.getContent()).hasSize(1);
             assertThat(result.getContent().get(0).id()).isEqualTo(CARD_ID);
             assertThat(result.getContent().get(0).question()).isEqualTo("테스트 질문");
+            assertThat(result.getContent().get(0).cardType()).isEqualTo(CardType.PUBLIC);
         }
 
         @Test
         @DisplayName("카테고리 없이 모든 학습 카드를 페이지네이션하여 조회한다")
         void getTodayCards_withoutCategoryCode_returnsAllCards() {
             // given
-            given(studyDomainService.findTodayStudyCards(eq(testUser), isNull(), anyInt(), eq(false))).willReturn(List.of(testCard));
+            given(studyDomainService.findTodayAllStudyCards(eq(testUser), isNull(), anyInt()))
+                    .willReturn(List.of(StudyCardItem.ofCard(testCard)));
 
             // when
             Page<StudyCardResponse> result = studyService.getTodayCards(testUser, null, pageable);
@@ -187,24 +203,37 @@ class StudyServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(result.getContent()).hasSize(1);
         }
+
+        @Test
+        @DisplayName("UserCard와 Card가 혼합되어 반환된다")
+        void getTodayCards_withMixedCards_returnsUserCardFirst() {
+            // given
+            given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
+            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(testCategory), anyInt()))
+                    .willReturn(List.of(
+                            StudyCardItem.ofUserCard(testUserCard),
+                            StudyCardItem.ofCard(testCard)
+                    ));
+
+            // when
+            Page<StudyCardResponse> result = studyService.getTodayCards(testUser, "CS", pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getContent().get(0).cardType()).isEqualTo(CardType.CUSTOM);
+            assertThat(result.getContent().get(1).cardType()).isEqualTo(CardType.PUBLIC);
+        }
     }
 
     @Nested
     @DisplayName("submitAnswer")
     class SubmitAnswerTest {
 
-        @BeforeEach
-        void setUpPlan() {
-            given(subscriptionDomainService.getEffectivePlan(any(User.class)))
-                    .willReturn(SubscriptionPlan.BASIC);
-        }
-
         @Test
-        @DisplayName("정답을 제출하고 결과를 반환한다 - 기존 세션 사용")
-        void submitAnswer_withCorrectAnswer_returnsResult() {
+        @DisplayName("공용카드 정답을 제출하고 결과를 반환한다")
+        void submitAnswer_withPublicCard_returnsResult() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, true);
-            given(studyLimitService.canStudy(eq(USER_ID), any(SubscriptionPlan.class))).willReturn(true);
+            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, true);
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
             given(studyDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true)))
@@ -215,18 +244,47 @@ class StudyServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(result.cardId()).isEqualTo(CARD_ID);
+            assertThat(result.cardType()).isEqualTo(CardType.PUBLIC);
             assertThat(result.isCorrect()).isTrue();
             assertThat(result.nextReviewDate()).isEqualTo(testRecord.getNextReviewDate());
             assertThat(result.newEfFactor()).isEqualTo(testRecord.getEfFactor());
-            verify(studyLimitService).incrementStudyCount(USER_ID);
+        }
+
+        @Test
+        @DisplayName("개인카드 정답을 제출하고 결과를 반환한다")
+        void submitAnswer_withCustomCard_returnsResult() {
+            // given
+            StudyRecord userCardRecord = StudyRecord.builder()
+                    .user(testUser)
+                    .userCard(testUserCard)
+                    .session(testSession)
+                    .isCorrect(true)
+                    .nextReviewDate(LocalDate.now().plusDays(1))
+                    .interval(1)
+                    .efFactor(2.6)
+                    .build();
+            ReflectionTestUtils.setField(userCardRecord, "id", 2L);
+
+            StudyAnswerRequest request = new StudyAnswerRequest(USER_CARD_ID, CardType.CUSTOM, true);
+            given(userCardDomainService.findById(USER_CARD_ID)).willReturn(testUserCard);
+            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studyDomainService.processUserCardAnswer(eq(testUser), eq(testUserCard), eq(testSession), eq(true)))
+                    .willReturn(userCardRecord);
+
+            // when
+            StudyResultResponse result = studyService.submitAnswer(testUser, request);
+
+            // then
+            assertThat(result.cardId()).isEqualTo(USER_CARD_ID);
+            assertThat(result.cardType()).isEqualTo(CardType.CUSTOM);
+            assertThat(result.isCorrect()).isTrue();
         }
 
         @Test
         @DisplayName("활성 세션이 없으면 새 세션을 생성한다")
         void submitAnswer_withNoActiveSession_createsNewSession() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, true);
-            given(studyLimitService.canStudy(eq(USER_ID), any(SubscriptionPlan.class))).willReturn(true);
+            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, true);
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
             given(studyDomainService.createSession(testUser)).willReturn(testSession);
@@ -245,7 +303,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("오답을 제출하고 결과를 반환한다")
         void submitAnswer_withIncorrectAnswer_returnsResult() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, false);
+            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, false);
             StudyRecord incorrectRecord = StudyRecord.builder()
                     .user(testUser)
                     .card(testCard)
@@ -257,7 +315,6 @@ class StudyServiceUnitTest extends BaseUnitTest {
                     .build();
             ReflectionTestUtils.setField(incorrectRecord, "id", 2L);
 
-            given(studyLimitService.canStudy(eq(USER_ID), any(SubscriptionPlan.class))).willReturn(true);
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
             given(studyDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(false)))
@@ -275,8 +332,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("답변 제출 시 사용자 스트릭을 업데이트한다")
         void submitAnswer_updatesUserStreak() {
             // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, true);
-            given(studyLimitService.canStudy(eq(USER_ID), any(SubscriptionPlan.class))).willReturn(true);
+            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, true);
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
             given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
             given(studyDomainService.processAnswer(any(), any(), any(), any())).willReturn(testRecord);
@@ -289,19 +345,6 @@ class StudyServiceUnitTest extends BaseUnitTest {
             verify(studyDomainService).processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true));
         }
 
-        @Test
-        @DisplayName("일일 학습 한도 초과 시 예외를 던진다")
-        void submitAnswer_dailyLimitExceeded_throwsException() {
-            // given
-            StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, true);
-            given(studyLimitService.canStudy(eq(USER_ID), any(SubscriptionPlan.class))).willReturn(false);
-
-            // when & then
-            assertThatThrownBy(() -> studyService.submitAnswer(testUser, request))
-                    .isInstanceOf(StudyException.class)
-                    .extracting(e -> ((StudyException) e).getErrorCode())
-                    .isEqualTo(StudyErrorCode.DAILY_LIMIT_EXCEEDED);
-        }
     }
 
     @Nested

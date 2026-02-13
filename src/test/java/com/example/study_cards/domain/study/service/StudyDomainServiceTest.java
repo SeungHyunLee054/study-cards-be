@@ -176,6 +176,82 @@ class StudyDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
+    @DisplayName("findTodayAllStudyCards")
+    class FindTodayAllStudyCardsTest {
+
+        @Test
+        @DisplayName("UserCard 복습 카드가 공용 Card 복습 카드보다 먼저 반환된다")
+        void findTodayAllStudyCards_userCardDueFirst() {
+            // given
+            StudyRecord cardDueRecord = StudyRecord.builder()
+                    .user(testUser).card(testCard).isCorrect(true)
+                    .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
+            StudyRecord userCardDueRecord = StudyRecord.builder()
+                    .user(testUser).userCard(testUserCard).isCorrect(true)
+                    .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
+
+            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+                    .willReturn(List.of(userCardDueRecord));
+            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+                    .willReturn(List.of(cardDueRecord));
+
+            // when
+            var result = studyDomainService.findTodayAllStudyCards(testUser, testCategory, 20);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).isUserCard()).isTrue();
+            assertThat(result.get(1).isPublicCard()).isTrue();
+        }
+
+        @Test
+        @DisplayName("복습 카드가 부족하면 미학습 UserCard를 먼저 보충한다")
+        void findTodayAllStudyCards_newUserCardsBeforeNewPublicCards() {
+            // given
+            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+                    .willReturn(Collections.emptyList());
+            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+                    .willReturn(Collections.emptyList());
+            given(studyRecordRepository.findStudiedUserCardIdsByUser(testUser))
+                    .willReturn(Collections.emptyList());
+            given(userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(testUser, testCategory))
+                    .willReturn(List.of(testUserCard));
+            given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
+                    .willReturn(Collections.emptyList());
+            given(cardRepository.findByCategoryOrderByEfFactorAsc(testCategory))
+                    .willReturn(List.of(testCard));
+
+            // when
+            var result = studyDomainService.findTodayAllStudyCards(testUser, testCategory, 20);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).isUserCard()).isTrue();
+            assertThat(result.get(1).isPublicCard()).isTrue();
+        }
+
+        @Test
+        @DisplayName("limit 이상의 카드를 반환하지 않는다")
+        void findTodayAllStudyCards_respectsLimit() {
+            // given
+            StudyRecord dueRecord = StudyRecord.builder()
+                    .user(testUser).userCard(testUserCard).isCorrect(true)
+                    .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
+
+            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+                    .willReturn(List.of(dueRecord));
+            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+                    .willReturn(Collections.emptyList());
+
+            // when
+            var result = studyDomainService.findTodayAllStudyCards(testUser, testCategory, 1);
+
+            // then
+            assertThat(result).hasSize(1);
+        }
+    }
+
+    @Nested
     @DisplayName("findTodayStudyCards")
     class FindTodayStudyCardsTest {
 
@@ -206,7 +282,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .willReturn(Collections.emptyList());
             given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
                     .willReturn(Collections.emptyList());
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(eq(testCategory), anyBoolean()))
+            given(cardRepository.findByCategoryOrderByEfFactorAsc(eq(testCategory)))
                     .willReturn(List.of(testCard));
 
             // when
@@ -376,4 +452,157 @@ class StudyDomainServiceTest extends BaseUnitTest {
         }
     }
 
+    @Nested
+    @DisplayName("calculatePriorityScore")
+    class CalculatePriorityScoreTest {
+
+        @Test
+        @DisplayName("반복 오답 카드는 1000점 추가")
+        void calculatePriorityScore_repeatedMistake_adds1000() {
+            // given
+            StudyRecord record = StudyRecord.builder()
+                    .user(testUser)
+                    .card(testCard)
+                    .isCorrect(false)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(2.5)
+                    .build();
+
+            List<Long> repeatedMistakeIds = List.of(CARD_ID);
+            List<Long> overdueIds = List.of();
+            List<Long> recentWrongIds = List.of();
+
+            // when
+            int score = studyDomainService.calculatePriorityScore(record, repeatedMistakeIds, overdueIds, recentWrongIds);
+
+            // then
+            assertThat(score).isGreaterThanOrEqualTo(1000);
+        }
+
+        @Test
+        @DisplayName("미복습 카드는 500점 추가")
+        void calculatePriorityScore_overdue_adds500() {
+            // given
+            StudyRecord record = StudyRecord.builder()
+                    .user(testUser)
+                    .card(testCard)
+                    .isCorrect(true)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(2.5)
+                    .build();
+
+            List<Long> repeatedMistakeIds = List.of();
+            List<Long> overdueIds = List.of(CARD_ID);
+            List<Long> recentWrongIds = List.of();
+
+            // when
+            int score = studyDomainService.calculatePriorityScore(record, repeatedMistakeIds, overdueIds, recentWrongIds);
+
+            // then
+            assertThat(score).isGreaterThanOrEqualTo(500);
+        }
+
+        @Test
+        @DisplayName("최근 오답 카드는 300점 추가")
+        void calculatePriorityScore_recentWrong_adds300() {
+            // given
+            StudyRecord record = StudyRecord.builder()
+                    .user(testUser)
+                    .card(testCard)
+                    .isCorrect(false)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(2.5)
+                    .build();
+
+            List<Long> repeatedMistakeIds = List.of();
+            List<Long> overdueIds = List.of();
+            List<Long> recentWrongIds = List.of(CARD_ID);
+
+            // when
+            int score = studyDomainService.calculatePriorityScore(record, repeatedMistakeIds, overdueIds, recentWrongIds);
+
+            // then
+            assertThat(score).isGreaterThanOrEqualTo(300);
+        }
+
+        @Test
+        @DisplayName("낮은 efFactor는 높은 점수")
+        void calculatePriorityScore_lowEfFactor_higherScore() {
+            // given
+            StudyRecord lowEf = StudyRecord.builder()
+                    .user(testUser).card(testCard).isCorrect(true)
+                    .nextReviewDate(LocalDate.now()).efFactor(1.3).build();
+
+            StudyRecord highEf = StudyRecord.builder()
+                    .user(testUser).card(testCard).isCorrect(true)
+                    .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
+
+            List<Long> empty = List.of();
+
+            // when
+            int lowEfScore = studyDomainService.calculatePriorityScore(lowEf, empty, empty, empty);
+            int highEfScore = studyDomainService.calculatePriorityScore(highEf, empty, empty, empty);
+
+            // then
+            assertThat(lowEfScore).isGreaterThan(highEfScore);
+        }
+
+        @Test
+        @DisplayName("모든 조건을 만족하면 점수가 합산된다")
+        void calculatePriorityScore_allConditions_scoresAccumulate() {
+            // given
+            StudyRecord record = StudyRecord.builder()
+                    .user(testUser).card(testCard).isCorrect(false)
+                    .nextReviewDate(LocalDate.now()).efFactor(1.3).build();
+
+            List<Long> ids = List.of(CARD_ID);
+
+            // when
+            int score = studyDomainService.calculatePriorityScore(record, ids, ids, ids);
+
+            // then
+            assertThat(score).isGreaterThanOrEqualTo(1800 + 0); // 1000 + 500 + 300 + efFactor score
+        }
+    }
+
+    @Nested
+    @DisplayName("findPrioritizedDueRecords")
+    class FindPrioritizedDueRecordsTest {
+
+        @Test
+        @DisplayName("우선순위 점수 기반으로 정렬된 복습 카드를 반환한다")
+        void findPrioritizedDueRecords_returnsSortedByScore() {
+            // given
+            Card card2 = Card.builder()
+                    .question("질문2").answer("답변2")
+                    .efFactor(2.5).category(testCategory).build();
+            ReflectionTestUtils.setField(card2, "id", 2L);
+
+            StudyRecord record1 = StudyRecord.builder()
+                    .user(testUser).card(testCard).isCorrect(true)
+                    .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
+
+            StudyRecord record2 = StudyRecord.builder()
+                    .user(testUser).card(card2).isCorrect(false)
+                    .nextReviewDate(LocalDate.now()).efFactor(1.3).build();
+
+            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), eq(null)))
+                    .willReturn(List.of(record1, record2));
+            given(studyRecordRepository.findDueUserCardRecords(any(), any()))
+                    .willReturn(List.of());
+            given(studyRecordRepository.findRepeatedMistakeRecords(any(), eq(3)))
+                    .willReturn(List.of());
+            given(studyRecordRepository.findOverdueRecords(any(), any(), eq(7)))
+                    .willReturn(List.of());
+            given(studyRecordRepository.findRecentWrongRecords(any(), eq(20)))
+                    .willReturn(List.of(record2));
+
+            // when
+            var result = studyDomainService.findPrioritizedDueRecords(testUser, 20);
+
+            // then
+            assertThat(result).hasSize(2);
+            assertThat(result.get(0).score()).isGreaterThanOrEqualTo(result.get(1).score());
+        }
+    }
 }

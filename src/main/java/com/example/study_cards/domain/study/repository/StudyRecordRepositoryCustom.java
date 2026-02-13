@@ -50,4 +50,15 @@ public interface StudyRecordRepositoryCustom {
     record TotalAndCorrect(Long totalCount, Long correctCount) {}
 
     long countMasteredCardsInCategory(User user, Category category);
+
+    List<StudyRecord> findRecentWrongRecords(User user, int limit);
+
+    List<StudyRecord> findOverdueRecords(User user, LocalDate today, int overdueDays);
+
+    List<StudyRecord> findRepeatedMistakeRecords(User user, int mistakeThreshold);
+
+    List<CategoryAccuracy> calculateCategoryAccuracy(User user);
+
+    record CategoryAccuracy(Long categoryId, String categoryCode, String categoryName,
+                            Long totalCount, Long correctCount, Double accuracy) {}
 }

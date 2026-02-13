@@ -4,6 +4,7 @@ import com.example.study_cards.application.auth.dto.request.SignInRequest;
 import com.example.study_cards.application.auth.dto.request.SignUpRequest;
 import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.service.AuthService;
+import com.example.study_cards.application.card.dto.response.CardType;
 import com.example.study_cards.application.study.dto.request.StudyAnswerRequest;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.card.repository.CardRepository;
@@ -138,6 +139,7 @@ class StudyControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("content[].category.name").type(JsonFieldType.STRING).description("카테고리 이름"),
                                     fieldWithPath("content[].category.parentId").type(JsonFieldType.NUMBER).description("부모 카테고리 ID").optional(),
                                     fieldWithPath("content[].category.parentCode").type(JsonFieldType.STRING).description("부모 카테고리 코드").optional(),
+                                    fieldWithPath("content[].cardType").type(JsonFieldType.STRING).description("카드 타입 (PUBLIC/CUSTOM)"),
                                     fieldWithPath("pageable").type(JsonFieldType.OBJECT).description("페이지 정보"),
                                     fieldWithPath("pageable.pageNumber").type(JsonFieldType.NUMBER).description("현재 페이지 번호"),
                                     fieldWithPath("pageable.pageSize").type(JsonFieldType.NUMBER).description("페이지 크기"),
@@ -179,7 +181,7 @@ class StudyControllerTest extends BaseIntegrationTest {
         @Test
         @DisplayName("정답을 제출한다")
         void submitAnswer_success() throws Exception {
-            StudyAnswerRequest request = new StudyAnswerRequest(card.getId(), true);
+            StudyAnswerRequest request = new StudyAnswerRequest(card.getId(), CardType.PUBLIC, true);
 
             mockMvc.perform(post("/api/study/answer")
                             .header("Authorization", "Bearer " + accessToken)
@@ -187,6 +189,7 @@ class StudyControllerTest extends BaseIntegrationTest {
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isOk())
                     .andExpect(jsonPath("$.cardId").value(card.getId()))
+                    .andExpect(jsonPath("$.cardType").value("PUBLIC"))
                     .andExpect(jsonPath("$.isCorrect").value(true))
                     .andDo(document("study/submit-answer",
                             preprocessRequest(prettyPrint()),
@@ -196,10 +199,12 @@ class StudyControllerTest extends BaseIntegrationTest {
                             ),
                             requestFields(
                                     fieldWithPath("cardId").type(JsonFieldType.NUMBER).description("카드 ID"),
+                                    fieldWithPath("cardType").type(JsonFieldType.STRING).description("카드 타입 (PUBLIC/CUSTOM)"),
                                     fieldWithPath("isCorrect").type(JsonFieldType.BOOLEAN).description("정답 여부")
                             ),
                             responseFields(
                                     fieldWithPath("cardId").type(JsonFieldType.NUMBER).description("카드 ID"),
+                                    fieldWithPath("cardType").type(JsonFieldType.STRING).description("카드 타입 (PUBLIC/CUSTOM)"),
                                     fieldWithPath("isCorrect").type(JsonFieldType.BOOLEAN).description("정답 여부"),
                                     fieldWithPath("nextReviewDate").type(JsonFieldType.STRING).description("다음 복습 날짜"),
                                     fieldWithPath("newEfFactor").type(JsonFieldType.NUMBER).description("새 EF 팩터")

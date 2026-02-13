@@ -6,6 +6,7 @@ import com.example.study_cards.application.study.dto.response.SessionResponse;
 import com.example.study_cards.application.study.dto.response.SessionStatsResponse;
 import com.example.study_cards.application.study.dto.response.StudyCardResponse;
 import com.example.study_cards.application.study.dto.response.StudyResultResponse;
+import com.example.study_cards.application.card.dto.response.CardType;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
@@ -17,10 +18,10 @@ import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
 import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
-import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.domain.study.service.StudyDomainService.StudyCardItem;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.redis.service.StudyLimitService;
+import com.example.study_cards.domain.usercard.entity.UserCard;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -38,23 +39,23 @@ public class StudyService {
 
     private final StudyDomainService studyDomainService;
     private final CardDomainService cardDomainService;
+    private final UserCardDomainService userCardDomainService;
     private final CategoryDomainService categoryDomainService;
-    private final SubscriptionDomainService subscriptionDomainService;
-    private final StudyLimitService studyLimitService;
     private final NotificationService notificationService;
 
     public Page<StudyCardResponse> getTodayCards(User user, String categoryCode, Pageable pageable) {
-        SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
-        boolean includeAiCards = plan.isCanAccessAiCards();
-
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
-        List<Card> cards = studyDomainService.findTodayStudyCards(user, category, pageable.getPageSize(), includeAiCards);
+        List<StudyCardItem> cards = studyDomainService.findTodayAllStudyCards(user, category, pageable.getPageSize());
 
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), cards.size());
 
         List<StudyCardResponse> content = start < cards.size()
-                ? cards.subList(start, end).stream().map(StudyCardResponse::from).toList()
+                ? cards.subList(start, end).stream()
+                        .map(item -> item.isPublicCard()
+                                ? StudyCardResponse.from(item.card())
+                                : StudyCardResponse.fromUserCard(item.userCard()))
+                        .toList()
                 : List.of();
 
         return new PageImpl<>(content, pageable, cards.size());
@@ -62,24 +63,21 @@ public class StudyService {
 
     @Transactional
     public StudyResultResponse submitAnswer(User user, StudyAnswerRequest request) {
-        SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
-
-        if (!studyLimitService.canStudy(user.getId(), plan)) {
-            throw new StudyException(StudyErrorCode.DAILY_LIMIT_EXCEEDED);
-        }
-
-        Card card = cardDomainService.findById(request.cardId());
-
-        if (card.isAiGenerated() && !plan.isCanAccessAiCards()) {
-            throw new StudyException(StudyErrorCode.AI_CARD_ACCESS_DENIED);
-        }
-
         StudySession session = studyDomainService.findActiveSession(user)
                 .orElseGet(() -> studyDomainService.createSession(user));
 
-        StudyRecord record = studyDomainService.processAnswer(user, card, session, request.isCorrect());
+        StudyRecord record;
+        Category category;
 
-        studyLimitService.incrementStudyCount(user.getId());
+        if (request.cardType() == CardType.CUSTOM) {
+            UserCard userCard = userCardDomainService.findById(request.cardId());
+            record = studyDomainService.processUserCardAnswer(user, userCard, session, request.isCorrect());
+            category = userCard.getCategory();
+        } else {
+            Card card = cardDomainService.findById(request.cardId());
+            record = studyDomainService.processAnswer(user, card, session, request.isCorrect());
+            category = card.getCategory();
+        }
 
         int previousStreak = user.getStreak();
         user.updateStreak(LocalDate.now());
@@ -88,11 +86,12 @@ public class StudyService {
         checkAndSendStreakNotification(user, previousStreak, newStreak);
 
         if (request.isCorrect() && record.getRepetitionCount() >= SM2Constants.MASTERY_THRESHOLD) {
-            checkAndSendCategoryMasteryNotification(user, card.getCategory());
+            checkAndSendCategoryMasteryNotification(user, category);
         }
 
         return new StudyResultResponse(
-                card.getId(),
+                request.cardId(),
+                request.cardType(),
                 request.isCorrect(),
                 record.getNextReviewDate(),
                 record.getEfFactor()

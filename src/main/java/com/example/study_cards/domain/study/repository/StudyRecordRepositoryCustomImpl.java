@@ -16,6 +16,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.example.study_cards.domain.card.entity.QCard.card;
+import static com.example.study_cards.domain.category.entity.QCategory.category;
 import static com.example.study_cards.domain.study.entity.QStudyRecord.studyRecord;
 import static com.example.study_cards.domain.usercard.entity.QUserCard.userCard;
 
@@ -328,14 +329,140 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
     }
 
     @Override
-    public long countMasteredCardsInCategory(User user, Category category) {
+    public List<StudyRecord> findRecentWrongRecords(User user, int limit) {
+        return queryFactory
+                .selectFrom(studyRecord)
+                .leftJoin(studyRecord.card, card).fetchJoin()
+                .leftJoin(studyRecord.userCard, userCard).fetchJoin()
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.isCorrect.isFalse()
+                )
+                .orderBy(studyRecord.studiedAt.desc())
+                .limit(limit)
+                .fetch();
+    }
+
+    @Override
+    public List<StudyRecord> findOverdueRecords(User user, LocalDate today, int overdueDays) {
+        LocalDate overdueDate = today.minusDays(overdueDays);
+        return queryFactory
+                .selectFrom(studyRecord)
+                .leftJoin(studyRecord.card, card).fetchJoin()
+                .leftJoin(studyRecord.userCard, userCard).fetchJoin()
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.nextReviewDate.loe(overdueDate)
+                )
+                .orderBy(studyRecord.nextReviewDate.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<StudyRecord> findRepeatedMistakeRecords(User user, int mistakeThreshold) {
+        var wrongCountExpr = Expressions.numberTemplate(
+                Long.class,
+                "SUM(CASE WHEN {0} = false THEN 1 ELSE 0 END)",
+                studyRecord.isCorrect
+        );
+
+        // 서브쿼리로 카드별 오답 횟수가 threshold 이상인 카드 ID 조회
+        List<Long> cardIds = queryFactory
+                .select(studyRecord.card.id)
+                .from(studyRecord)
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.card.isNotNull()
+                )
+                .groupBy(studyRecord.card.id)
+                .having(wrongCountExpr.goe(mistakeThreshold))
+                .fetch();
+
+        List<Long> userCardIds = queryFactory
+                .select(studyRecord.userCard.id)
+                .from(studyRecord)
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.userCard.isNotNull()
+                )
+                .groupBy(studyRecord.userCard.id)
+                .having(wrongCountExpr.goe(mistakeThreshold))
+                .fetch();
+
+        if (cardIds.isEmpty() && userCardIds.isEmpty()) {
+            return List.of();
+        }
+
+        var conditions = studyRecord.user.eq(user);
+        var cardCondition = cardIds.isEmpty() ? null : studyRecord.card.id.in(cardIds);
+        var userCardCondition = userCardIds.isEmpty() ? null : studyRecord.userCard.id.in(userCardIds);
+
+        var combinedCondition = conditions;
+        if (cardCondition != null && userCardCondition != null) {
+            combinedCondition = conditions.and(cardCondition.or(userCardCondition));
+        } else if (cardCondition != null) {
+            combinedCondition = conditions.and(cardCondition);
+        } else {
+            combinedCondition = conditions.and(userCardCondition);
+        }
+
+        return queryFactory
+                .selectFrom(studyRecord)
+                .leftJoin(studyRecord.card, card).fetchJoin()
+                .leftJoin(studyRecord.userCard, userCard).fetchJoin()
+                .where(combinedCondition)
+                .orderBy(studyRecord.efFactor.asc())
+                .fetch();
+    }
+
+    @Override
+    public List<CategoryAccuracy> calculateCategoryAccuracy(User user) {
+        var correctCountExpr = Expressions.numberTemplate(
+                Long.class,
+                "SUM(CASE WHEN {0} = true THEN 1 ELSE 0 END)",
+                studyRecord.isCorrect
+        );
+
+        return queryFactory
+                .select(
+                        card.category.id,
+                        card.category.code,
+                        card.category.name,
+                        studyRecord.count(),
+                        correctCountExpr
+                )
+                .from(studyRecord)
+                .join(studyRecord.card, card)
+                .join(card.category, category)
+                .where(studyRecord.user.eq(user))
+                .groupBy(card.category.id, card.category.code, card.category.name)
+                .fetch()
+                .stream()
+                .map(tuple -> {
+                    Long total = toNullableLong(tuple.get(3, Object.class));
+                    Long correct = toNullableLong(tuple.get(4, Object.class));
+                    double accuracy = total > 0 ? (correct * 100.0) / total : 0.0;
+                    return new CategoryAccuracy(
+                            tuple.get(card.category.id),
+                            tuple.get(card.category.code),
+                            tuple.get(card.category.name),
+                            total,
+                            correct,
+                            Math.round(accuracy * 10.0) / 10.0
+                    );
+                })
+                .toList();
+    }
+
+    @Override
+    public long countMasteredCardsInCategory(User user, Category cat) {
         Long count = queryFactory
                 .select(studyRecord.card.countDistinct())
                 .from(studyRecord)
                 .join(studyRecord.card, card)
                 .where(
                         studyRecord.user.eq(user),
-                        card.category.eq(category),
+                        card.category.eq(cat),
                         studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD)
                 )
                 .fetchOne();

@@ -20,11 +20,15 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.*;
+import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
+import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryCount;
+import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.DailyActivity;
+import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.TotalAndCorrect;
 
 @RequiredArgsConstructor
 @Service
@@ -54,17 +58,71 @@ public class StudyDomainService {
         session.endSession();
     }
 
-    public List<Card> findTodayStudyCards(User user, Category category, int limit) {
-        return findTodayStudyCards(user, category, limit, true);
+    public record StudyCardItem(Long id, Card card, UserCard userCard) {
+        public boolean isPublicCard() { return card != null; }
+        public boolean isUserCard() { return userCard != null; }
+
+        public static StudyCardItem ofCard(Card card) { return new StudyCardItem(card.getId(), card, null); }
+        public static StudyCardItem ofUserCard(UserCard uc) { return new StudyCardItem(uc.getId(), null, uc); }
     }
 
-    public List<Card> findTodayStudyCards(User user, Category category, int limit, boolean includeAiCards) {
+    public List<StudyCardItem> findTodayAllStudyCards(User user, Category category, int limit) {
+        LocalDate today = LocalDate.now();
+
+        List<StudyRecord> dueUserCardRecords = category != null
+                ? studyRecordRepository.findDueUserCardRecordsByCategory(user, today, category)
+                : studyRecordRepository.findDueUserCardRecords(user, today);
+        List<StudyRecord> dueCardRecords = studyRecordRepository.findDueRecordsByCategory(user, today, category);
+
+        List<StudyCardItem> result = new java.util.ArrayList<>();
+
+        dueUserCardRecords.stream()
+                .map(StudyRecord::getUserCard)
+                .map(StudyCardItem::ofUserCard)
+                .forEach(result::add);
+
+        dueCardRecords.stream()
+                .map(StudyRecord::getCard)
+                .map(StudyCardItem::ofCard)
+                .forEach(result::add);
+
+        if (result.size() >= limit) {
+            return result.subList(0, limit);
+        }
+
+        List<Long> studiedUserCardIds = studyRecordRepository.findStudiedUserCardIdsByUser(user);
+        List<UserCard> newUserCards = (category != null
+                ? userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category)
+                : userCardRepository.findByUserOrderByEfFactorAsc(user))
+                .stream()
+                .filter(uc -> !studiedUserCardIds.contains(uc.getId()))
+                .limit(limit - result.size())
+                .toList();
+        newUserCards.stream().map(StudyCardItem::ofUserCard).forEach(result::add);
+
+        if (result.size() >= limit) {
+            return result.subList(0, limit);
+        }
+
+        List<Long> studiedCardIds = studyRecordRepository.findStudiedCardIdsByUser(user);
+        List<Card> newCards = (category != null
+                ? cardRepository.findByCategoryOrderByEfFactorAsc(category)
+                : cardRepository.findAllByOrderByEfFactorAsc())
+                .stream()
+                .filter(card -> !studiedCardIds.contains(card.getId()))
+                .limit(limit - result.size())
+                .toList();
+        newCards.stream().map(StudyCardItem::ofCard).forEach(result::add);
+
+        return result.size() > limit ? result.subList(0, limit) : result;
+    }
+
+    public List<Card> findTodayStudyCards(User user, Category category, int limit) {
         LocalDate today = LocalDate.now();
 
         List<StudyRecord> dueRecords = studyRecordRepository.findDueRecordsByCategory(user, today, category);
         List<Card> dueCards = dueRecords.stream()
                 .map(StudyRecord::getCard)
-                .filter(card -> includeAiCards || !card.isAiGenerated())
                 .limit(limit)
                 .collect(Collectors.toList());
 
@@ -74,8 +132,8 @@ public class StudyDomainService {
 
         List<Long> studiedCardIds = studyRecordRepository.findStudiedCardIdsByUser(user);
         List<Card> newCards = (category != null
-                ? cardRepository.findByCategoryOrderByEfFactorAsc(category, includeAiCards)
-                : cardRepository.findAllByOrderByEfFactorAsc(includeAiCards))
+                ? cardRepository.findByCategoryOrderByEfFactorAsc(category)
+                : cardRepository.findAllByOrderByEfFactorAsc())
                 .stream()
                 .filter(card -> !studiedCardIds.contains(card.getId()))
                 .limit(limit - dueCards.size())
@@ -86,7 +144,7 @@ public class StudyDomainService {
     }
 
     public List<Card> findTodayStudyCards(User user, Category category) {
-        return findTodayStudyCards(user, category, DEFAULT_STUDY_LIMIT, true);
+        return findTodayStudyCards(user, category, DEFAULT_STUDY_LIMIT);
     }
 
     public StudyRecord processAnswer(User user, Card card, StudySession session, Boolean isCorrect) {
@@ -297,5 +355,79 @@ public class StudyDomainService {
         }
         long masteredCardsInCategory = studyRecordRepository.countMasteredCardsInCategory(user, category);
         return masteredCardsInCategory >= totalCardsInCategory;
+    }
+
+    // === 복습 추천 관련 ===
+
+    private static final int REPEATED_MISTAKE_THRESHOLD = 3;
+    private static final int OVERDUE_DAYS = 7;
+    private static final int SCORE_REPEATED_MISTAKE = 1000;
+    private static final int SCORE_OVERDUE = 500;
+    private static final int SCORE_RECENT_WRONG = 300;
+    private static final int SCORE_EF_FACTOR_MAX = 120;
+
+    public int calculatePriorityScore(StudyRecord record, List<Long> repeatedMistakeCardIds,
+                                       List<Long> overdueCardIds, List<Long> recentWrongCardIds) {
+        int score = 0;
+        Long cardId = record.isForPublicCard()
+                ? record.getCard().getId()
+                : (record.isForUserCard() ? record.getUserCard().getId() : null);
+
+        if (cardId == null) return 0;
+
+        if (repeatedMistakeCardIds.contains(cardId)) {
+            score += SCORE_REPEATED_MISTAKE;
+        }
+
+        if (overdueCardIds.contains(cardId)) {
+            score += SCORE_OVERDUE;
+        }
+
+        if (recentWrongCardIds.contains(cardId)) {
+            score += SCORE_RECENT_WRONG;
+        }
+
+        double efFactor = record.getEfFactor();
+        int efScore = (int) Math.round(SCORE_EF_FACTOR_MAX * (1.0 - (efFactor - SM2Constants.MIN_EF_FACTOR) / (2.5 - SM2Constants.MIN_EF_FACTOR)));
+        score += Math.max(0, Math.min(SCORE_EF_FACTOR_MAX, efScore));
+
+        return score;
+    }
+
+    public record ScoredRecord(StudyRecord record, int score) {}
+
+    public List<ScoredRecord> findPrioritizedDueRecords(User user, int limit) {
+        LocalDate today = LocalDate.now();
+
+        List<StudyRecord> dueRecords = studyRecordRepository.findDueRecordsByCategory(user, today, null);
+        List<StudyRecord> dueUserCardRecords = studyRecordRepository.findDueUserCardRecords(user, today);
+
+        List<Long> repeatedMistakeIds = extractCardIds(
+                studyRecordRepository.findRepeatedMistakeRecords(user, REPEATED_MISTAKE_THRESHOLD));
+        List<Long> overdueIds = extractCardIds(
+                studyRecordRepository.findOverdueRecords(user, today, OVERDUE_DAYS));
+        List<Long> recentWrongIds = extractCardIds(
+                studyRecordRepository.findRecentWrongRecords(user, 20));
+
+        List<StudyRecord> allDue = new java.util.ArrayList<>(dueRecords);
+        allDue.addAll(dueUserCardRecords);
+
+        return allDue.stream()
+                .map(r -> new ScoredRecord(r,
+                        calculatePriorityScore(r, repeatedMistakeIds, overdueIds, recentWrongIds)))
+                .sorted(Comparator.comparingInt(ScoredRecord::score).reversed())
+                .limit(limit)
+                .toList();
+    }
+
+    public List<CategoryAccuracy> calculateCategoryAccuracy(User user) {
+        return studyRecordRepository.calculateCategoryAccuracy(user);
+    }
+
+    private List<Long> extractCardIds(List<StudyRecord> records) {
+        return records.stream()
+                .map(r -> r.isForPublicCard() ? r.getCard().getId() : r.getUserCard().getId())
+                .distinct()
+                .toList();
     }
 }
