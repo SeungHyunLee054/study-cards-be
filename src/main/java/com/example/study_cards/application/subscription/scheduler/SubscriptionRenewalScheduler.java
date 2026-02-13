@@ -79,15 +79,21 @@ public class SubscriptionRenewalScheduler {
                 PaymentType.RENEWAL
         );
 
+        TossConfirmResponse response;
         try {
-            TossConfirmResponse response = tossPaymentService.billingPayment(
+            response = tossPaymentService.billingPayment(
                     subscription.getBillingKey(),
                     subscription.getCustomerKey(),
                     payment.getOrderId(),
                     amount,
                     orderName
             );
+        } catch (Exception e) {
+            paymentDomainService.failPayment(payment, e.getMessage());
+            throw e;
+        }
 
+        try {
             paymentDomainService.completePayment(
                     payment,
                     response.paymentKey(),
@@ -100,9 +106,9 @@ public class SubscriptionRenewalScheduler {
                     subscription.getUser().getId(),
                     subscription.getPlan(),
                     subscription.getEndDate());
-
         } catch (Exception e) {
-            paymentDomainService.failPayment(payment, e.getMessage());
+            log.error("결제는 성공했으나 DB 처리 실패. 수동 확인 필요: userId={}, paymentKey={}, orderId={}",
+                    subscription.getUser().getId(), response.paymentKey(), payment.getOrderId(), e);
             throw e;
         }
     }
@@ -133,7 +139,7 @@ public class SubscriptionRenewalScheduler {
     }
 
     @Scheduled(cron = "${app.notification.expiry-check-cron:0 0 9 * * *}")
-    @Transactional(readOnly = true)
+    @Transactional
     @DistributedLock(key = "scheduler:expiry-notification", ttlMinutes = 30)
     public void checkExpiringSubscriptions() {
         log.info("Starting subscription expiry notification check");

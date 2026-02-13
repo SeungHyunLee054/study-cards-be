@@ -16,7 +16,7 @@ class SubscriptionTest {
     @BeforeEach
     void setUp() {
         subscription = Subscription.builder()
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .startDate(LocalDateTime.now().minusDays(10))
@@ -35,7 +35,7 @@ class SubscriptionTest {
         void builder_withoutStatus_defaultsToPending() {
             // when
             Subscription newSub = Subscription.builder()
-                    .plan(SubscriptionPlan.BASIC)
+                    .plan(SubscriptionPlan.FREE)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusMonths(1))
@@ -49,7 +49,7 @@ class SubscriptionTest {
         @DisplayName("모든 필드가 정상적으로 설정된다")
         void builder_allFields_setCorrectly() {
             // then
-            assertThat(subscription.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(subscription.getPlan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(subscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
             assertThat(subscription.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
             assertThat(subscription.getCustomerKey()).isEqualTo("customer_123");
@@ -73,7 +73,7 @@ class SubscriptionTest {
         void isActive_activeButExpired_returnsFalse() {
             // given
             Subscription expired = Subscription.builder()
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .status(SubscriptionStatus.ACTIVE)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now().minusDays(40))
@@ -104,7 +104,7 @@ class SubscriptionTest {
         void isExpired_pastEndDate_returnsTrue() {
             // given
             Subscription expired = Subscription.builder()
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now().minusDays(40))
                     .endDate(LocalDateTime.now().minusDays(1))
@@ -131,7 +131,7 @@ class SubscriptionTest {
         void isExpiringSoon_withinThreshold_returnsTrue() {
             // given
             Subscription soonExpiring = Subscription.builder()
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now().minusDays(25))
                     .endDate(LocalDateTime.now().plusDays(2))
@@ -153,7 +153,7 @@ class SubscriptionTest {
         void isExpiringSoon_alreadyExpired_returnsFalse() {
             // given
             Subscription expired = Subscription.builder()
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now().minusDays(40))
                     .endDate(LocalDateTime.now().minusDays(1))
@@ -173,7 +173,7 @@ class SubscriptionTest {
         void activate_changesStatusToActive() {
             // given
             Subscription pending = Subscription.builder()
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now())
                     .endDate(LocalDateTime.now().plusMonths(1))
@@ -260,10 +260,10 @@ class SubscriptionTest {
         @DisplayName("플랜과 결제 주기를 변경한다")
         void changePlan_changesPlanAndCycle() {
             // when
-            subscription.changePlan(SubscriptionPlan.BASIC, BillingCycle.YEARLY);
+            subscription.changePlan(SubscriptionPlan.FREE, BillingCycle.YEARLY);
 
             // then
-            assertThat(subscription.getPlan()).isEqualTo(SubscriptionPlan.BASIC);
+            assertThat(subscription.getPlan()).isEqualTo(SubscriptionPlan.FREE);
             assertThat(subscription.getBillingCycle()).isEqualTo(BillingCycle.YEARLY);
         }
     }

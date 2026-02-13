@@ -45,11 +45,11 @@ public class SubscriptionDomainService {
 
     public SubscriptionPlan getEffectivePlan(User user) {
         if (user.hasRole(Role.ROLE_ADMIN)) {
-            return SubscriptionPlan.PREMIUM;
+            return SubscriptionPlan.PRO;
         }
         return subscriptionRepository.findActiveByUserId(user.getId())
                 .map(Subscription::getPlan)
-                .orElse(SubscriptionPlan.BASIC);
+                .orElse(SubscriptionPlan.FREE);
     }
 
     public Subscription getSubscription(Long userId) {
@@ -69,14 +69,6 @@ public class SubscriptionDomainService {
     public void activateSubscription(Subscription subscription, String billingKey) {
         subscription.activate();
         subscription.updateBillingKey(billingKey);
-        subscriptionRepository.save(subscription);
-    }
-
-    public void cancelSubscription(Subscription subscription) {
-        if (subscription.getStatus() == SubscriptionStatus.CANCELED) {
-            throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_CANCELED);
-        }
-        subscription.cancel();
         subscriptionRepository.save(subscription);
     }
 
@@ -150,9 +142,6 @@ public class SubscriptionDomainService {
     private void validatePurchasablePlan(SubscriptionPlan plan) {
         if (plan == SubscriptionPlan.FREE) {
             throw new SubscriptionException(SubscriptionErrorCode.FREE_PLAN_NOT_PURCHASABLE);
-        }
-        if (plan == SubscriptionPlan.BASIC) {
-            throw new SubscriptionException(SubscriptionErrorCode.BASIC_PLAN_NOT_PURCHASABLE);
         }
     }
 

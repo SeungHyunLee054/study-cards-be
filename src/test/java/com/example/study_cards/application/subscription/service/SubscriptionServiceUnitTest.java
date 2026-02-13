@@ -61,7 +61,7 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
     private Subscription createTestSubscription() {
         Subscription subscription = Subscription.builder()
                 .user(testUser)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .startDate(LocalDateTime.now())
@@ -83,21 +83,21 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
             List<PlanResponse> result = subscriptionService.getPlans();
 
             // then
-            assertThat(result).hasSize(3);
+            assertThat(result).hasSize(2);
             assertThat(result).extracting(PlanResponse::plan)
-                    .containsExactly(SubscriptionPlan.FREE, SubscriptionPlan.BASIC, SubscriptionPlan.PREMIUM);
+                    .containsExactly(SubscriptionPlan.FREE, SubscriptionPlan.PRO);
         }
 
         @Test
-        @DisplayName("Premium 플랜만 구매 가능하다")
-        void getPlans_onlyPremiumPurchasable() {
+        @DisplayName("Pro 플랜만 구매 가능하다")
+        void getPlans_onlyProPurchasable() {
             // when
             List<PlanResponse> result = subscriptionService.getPlans();
 
             // then
             assertThat(result.stream().filter(PlanResponse::isPurchasable).count()).isEqualTo(1);
             assertThat(result.stream().filter(PlanResponse::isPurchasable).findFirst().get().plan())
-                    .isEqualTo(SubscriptionPlan.PREMIUM);
+                    .isEqualTo(SubscriptionPlan.PRO);
         }
     }
 
@@ -115,7 +115,7 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
             SubscriptionResponse result = subscriptionService.getMySubscription(testUser);
 
             // then
-            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.isActive()).isTrue();
         }
 
@@ -143,7 +143,7 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
             // given
             Subscription canceledSubscription = Subscription.builder()
                     .user(testUser)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .status(SubscriptionStatus.CANCELED)
                     .billingCycle(BillingCycle.MONTHLY)
                     .startDate(LocalDateTime.now())

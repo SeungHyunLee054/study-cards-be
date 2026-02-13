@@ -123,8 +123,8 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
                     eq("billing_key_123"),
                     eq("customer_key_123"),
                     any(),
-                    eq(3900),
-                    contains("프리미엄")
+                    eq(9900),
+                    contains("프로")
             );
             verify(paymentDomainService).completePayment(eq(payment), any(), any());
             verify(subscriptionDomainService).renewSubscription(subscription);
@@ -258,7 +258,7 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
         given(subscription.getUser()).willReturn(user);
         given(subscription.getBillingKey()).willReturn(billingKey);
         given(subscription.getCustomerKey()).willReturn("customer_key_123");
-        given(subscription.getPlan()).willReturn(SubscriptionPlan.PREMIUM);
+        given(subscription.getPlan()).willReturn(SubscriptionPlan.PRO);
         given(subscription.getBillingCycle()).willReturn(BillingCycle.MONTHLY);
         given(subscription.getEndDate()).willReturn(LocalDateTime.now().plusDays(3));
         return subscription;
@@ -275,9 +275,9 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
         return new TossConfirmResponse(
                 "payment_key_123",
                 "ORDER_123",
-                "프리미엄 월간 구독 갱신",
+                "프로 월간 구독 갱신",
                 "DONE",
-                3900,
+                9900,
                 "카드",
                 "2024-01-01T10:00:00",
                 "2024-01-01T10:00:00",

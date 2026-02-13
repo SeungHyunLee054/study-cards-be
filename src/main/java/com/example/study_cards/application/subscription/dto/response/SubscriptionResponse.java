@@ -16,8 +16,9 @@ public record SubscriptionResponse(
         LocalDateTime startDate,
         LocalDateTime endDate,
         boolean isActive,
-        int dailyLimit,
-        boolean canAccessAiCards
+        boolean canGenerateAiCards,
+        boolean canUseAiRecommendations,
+        int aiGenerationDailyLimit
 ) {
     public static SubscriptionResponse from(Subscription subscription) {
         return new SubscriptionResponse(
@@ -29,8 +30,9 @@ public record SubscriptionResponse(
                 subscription.getStartDate(),
                 subscription.getEndDate(),
                 subscription.isActive(),
-                subscription.getPlan().getDailyLimit(),
-                subscription.getPlan().isCanAccessAiCards()
+                subscription.getPlan().isCanGenerateAiCards(),
+                subscription.getPlan().isCanUseAiRecommendations(),
+                subscription.getPlan().getAiGenerationDailyLimit()
         );
     }
 }

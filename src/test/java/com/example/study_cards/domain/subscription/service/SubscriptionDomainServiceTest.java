@@ -60,7 +60,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
     private Subscription createTestSubscription() {
         Subscription subscription = Subscription.builder()
                 .user(testUser)
-                .plan(SubscriptionPlan.PREMIUM)
+                .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
                 .billingCycle(BillingCycle.MONTHLY)
                 .startDate(LocalDateTime.now())
@@ -89,13 +89,13 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             // when
             Subscription result = subscriptionDomainService.createSubscription(
                     testUser,
-                    SubscriptionPlan.PREMIUM,
+                    SubscriptionPlan.PRO,
                     BillingCycle.MONTHLY,
                     CUSTOMER_KEY
             );
 
             // then
-            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
             assertThat(result.getStatus()).isEqualTo(SubscriptionStatus.PENDING);
             verify(subscriptionRepository).save(any(Subscription.class));
@@ -110,7 +110,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscription(
                     testUser,
-                    SubscriptionPlan.PREMIUM,
+                    SubscriptionPlan.PRO,
                     BillingCycle.MONTHLY,
                     CUSTOMER_KEY
             ))
@@ -146,13 +146,13 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscription(
                     testUser,
-                    SubscriptionPlan.BASIC,
+                    SubscriptionPlan.FREE,
                     BillingCycle.MONTHLY,
                     CUSTOMER_KEY
             ))
                     .isInstanceOf(SubscriptionException.class)
                     .extracting(e -> ((SubscriptionException) e).getErrorCode())
-                    .isEqualTo(SubscriptionErrorCode.BASIC_PLAN_NOT_PURCHASABLE);
+                    .isEqualTo(SubscriptionErrorCode.FREE_PLAN_NOT_PURCHASABLE);
         }
     }
 
@@ -171,7 +171,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
 
             // then
             assertThat(result.getId()).isEqualTo(SUBSCRIPTION_ID);
-            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PRO);
         }
 
         @Test
@@ -199,7 +199,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             given(subscriptionRepository.save(any(Subscription.class))).willReturn(testSubscription);
 
             // when
-            subscriptionDomainService.cancelSubscription(testSubscription);
+            subscriptionDomainService.cancelSubscription(testSubscription, "테스트 취소");
 
             // then
             assertThat(testSubscription.getStatus()).isEqualTo(SubscriptionStatus.CANCELED);
@@ -213,7 +213,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             testSubscription.cancel();
 
             // when & then
-            assertThatThrownBy(() -> subscriptionDomainService.cancelSubscription(testSubscription))
+            assertThatThrownBy(() -> subscriptionDomainService.cancelSubscription(testSubscription, "취소 사유"))
                     .isInstanceOf(SubscriptionException.class)
                     .extracting(e -> ((SubscriptionException) e).getErrorCode())
                     .isEqualTo(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_CANCELED);
@@ -265,7 +265,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
                     .amount(3900)
                     .status(PaymentStatus.COMPLETED)
                     .type(PaymentType.INITIAL)
-                    .plan(SubscriptionPlan.PREMIUM)
+                    .plan(SubscriptionPlan.PRO)
                     .billingCycle(BillingCycle.MONTHLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();
@@ -290,7 +290,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             );
 
             // then
-            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PREMIUM);
+            assertThat(result.getPlan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
             assertThat(result.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
             assertThat(result.getCustomerKey()).isEqualTo(CUSTOMER_KEY);

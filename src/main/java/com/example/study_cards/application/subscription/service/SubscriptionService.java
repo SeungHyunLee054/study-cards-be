@@ -50,6 +50,6 @@ public class SubscriptionService {
             throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_NOT_ACTIVE);
         }
 
-        subscriptionDomainService.cancelSubscription(subscription);
+        subscriptionDomainService.cancelSubscription(subscription, request.reason());
     }
 }

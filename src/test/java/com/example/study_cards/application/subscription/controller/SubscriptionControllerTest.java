@@ -79,19 +79,19 @@ class SubscriptionControllerTest extends BaseIntegrationTest {
                     .andExpect(jsonPath("$").isArray())
                     .andExpect(jsonPath("$[0].plan").exists())
                     .andExpect(jsonPath("$[0].displayName").exists())
-                    .andExpect(jsonPath("$[0].dailyLimit").isNumber())
                     .andExpect(jsonPath("$[0].monthlyPrice").isNumber())
                     .andExpect(jsonPath("$[0].yearlyPrice").isNumber())
                     .andDo(document("subscription/get-plans",
                             preprocessRequest(prettyPrint()),
                             preprocessResponse(prettyPrint()),
                             responseFields(
-                                    fieldWithPath("[].plan").type(JsonFieldType.STRING).description("플랜 코드 (FREE, BASIC, PREMIUM)"),
+                                    fieldWithPath("[].plan").type(JsonFieldType.STRING).description("플랜 코드 (FREE, PRO)"),
                                     fieldWithPath("[].displayName").type(JsonFieldType.STRING).description("플랜 표시명"),
-                                    fieldWithPath("[].dailyLimit").type(JsonFieldType.NUMBER).description("일일 학습 제한"),
                                     fieldWithPath("[].monthlyPrice").type(JsonFieldType.NUMBER).description("월간 요금"),
                                     fieldWithPath("[].yearlyPrice").type(JsonFieldType.NUMBER).description("연간 요금"),
-                                    fieldWithPath("[].canAccessAiCards").type(JsonFieldType.BOOLEAN).description("AI 카드 접근 가능 여부"),
+                                    fieldWithPath("[].canGenerateAiCards").type(JsonFieldType.BOOLEAN).description("AI 카드 생성 가능 여부"),
+                                    fieldWithPath("[].canUseAiRecommendations").type(JsonFieldType.BOOLEAN).description("AI 복습 추천 사용 가능 여부"),
+                                    fieldWithPath("[].aiGenerationDailyLimit").type(JsonFieldType.NUMBER).description("AI 생성 일일 제한"),
                                     fieldWithPath("[].isPurchasable").type(JsonFieldType.BOOLEAN).description("구매 가능 여부")
                             )
                     ));
