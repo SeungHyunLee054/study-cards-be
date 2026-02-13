@@ -7,6 +7,7 @@ import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
+import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -18,6 +19,7 @@ import org.mockito.Mock;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -365,6 +367,194 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             // then
             assertThat(testSubscription.getBillingKey()).isNull();
             verify(subscriptionRepository).save(testSubscription);
+        }
+    }
+
+    @Nested
+    @DisplayName("getEffectivePlan")
+    class GetEffectivePlanTest {
+
+        @Test
+        @DisplayName("관리자는 PRO 플랜을 반환한다")
+        void getEffectivePlan_admin_returnsPro() {
+            // given
+            testUser.addRole(Role.ROLE_ADMIN);
+
+            // when
+            SubscriptionPlan result = subscriptionDomainService.getEffectivePlan(testUser);
+
+            // then
+            assertThat(result).isEqualTo(SubscriptionPlan.PRO);
+        }
+
+        @Test
+        @DisplayName("활성 구독이 있으면 해당 플랜을 반환한다")
+        void getEffectivePlan_activeSubscription_returnsPlan() {
+            // given
+            given(subscriptionRepository.findActiveByUserId(USER_ID))
+                    .willReturn(Optional.of(testSubscription));
+
+            // when
+            SubscriptionPlan result = subscriptionDomainService.getEffectivePlan(testUser);
+
+            // then
+            assertThat(result).isEqualTo(SubscriptionPlan.PRO);
+        }
+
+        @Test
+        @DisplayName("구독이 없으면 FREE 플랜을 반환한다")
+        void getEffectivePlan_noSubscription_returnsFree() {
+            // given
+            given(subscriptionRepository.findActiveByUserId(USER_ID))
+                    .willReturn(Optional.empty());
+
+            // when
+            SubscriptionPlan result = subscriptionDomainService.getEffectivePlan(testUser);
+
+            // then
+            assertThat(result).isEqualTo(SubscriptionPlan.FREE);
+        }
+    }
+
+    @Nested
+    @DisplayName("getSubscriptionByCustomerKey")
+    class GetSubscriptionByCustomerKeyTest {
+
+        @Test
+        @DisplayName("customerKey로 구독을 조회한다")
+        void getSubscriptionByCustomerKey_success() {
+            // given
+            given(subscriptionRepository.findByCustomerKey(CUSTOMER_KEY))
+                    .willReturn(Optional.of(testSubscription));
+
+            // when
+            Subscription result = subscriptionDomainService.getSubscriptionByCustomerKey(CUSTOMER_KEY);
+
+            // then
+            assertThat(result.getId()).isEqualTo(SUBSCRIPTION_ID);
+            assertThat(result.getCustomerKey()).isEqualTo(CUSTOMER_KEY);
+        }
+
+        @Test
+        @DisplayName("존재하지 않는 customerKey로 조회 시 예외를 던진다")
+        void getSubscriptionByCustomerKey_notFound_throwsException() {
+            // given
+            given(subscriptionRepository.findByCustomerKey("INVALID_KEY"))
+                    .willReturn(Optional.empty());
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionDomainService.getSubscriptionByCustomerKey("INVALID_KEY"))
+                    .isInstanceOf(SubscriptionException.class)
+                    .extracting(e -> ((SubscriptionException) e).getErrorCode())
+                    .isEqualTo(SubscriptionErrorCode.SUBSCRIPTION_NOT_FOUND);
+        }
+    }
+
+    @Nested
+    @DisplayName("activateSubscription")
+    class ActivateSubscriptionTest {
+
+        @Test
+        @DisplayName("구독을 활성화한다")
+        void activateSubscription_success() {
+            // given
+            Subscription pendingSub = Subscription.builder()
+                    .user(testUser)
+                    .plan(SubscriptionPlan.PRO)
+                    .status(SubscriptionStatus.PENDING)
+                    .billingCycle(BillingCycle.MONTHLY)
+                    .startDate(LocalDateTime.now())
+                    .endDate(LocalDateTime.now().plusMonths(1))
+                    .customerKey(CUSTOMER_KEY)
+                    .build();
+            ReflectionTestUtils.setField(pendingSub, "id", SUBSCRIPTION_ID);
+            given(subscriptionRepository.save(any(Subscription.class))).willReturn(pendingSub);
+
+            // when
+            subscriptionDomainService.activateSubscription(pendingSub, "billing_key_123");
+
+            // then
+            assertThat(pendingSub.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+            assertThat(pendingSub.getBillingKey()).isEqualTo("billing_key_123");
+            verify(subscriptionRepository).save(pendingSub);
+        }
+    }
+
+    @Nested
+    @DisplayName("renewSubscription")
+    class RenewSubscriptionTest {
+
+        @Test
+        @DisplayName("구독을 갱신한다")
+        void renewSubscription_success() {
+            // given
+            given(subscriptionRepository.save(any(Subscription.class))).willReturn(testSubscription);
+
+            // when
+            subscriptionDomainService.renewSubscription(testSubscription);
+
+            // then
+            assertThat(testSubscription.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+            assertThat(testSubscription.getEndDate()).isAfter(LocalDateTime.now());
+            verify(subscriptionRepository).save(testSubscription);
+        }
+    }
+
+    @Nested
+    @DisplayName("expireSubscription")
+    class ExpireSubscriptionTest {
+
+        @Test
+        @DisplayName("구독을 만료시킨다")
+        void expireSubscription_success() {
+            // given
+            given(subscriptionRepository.save(any(Subscription.class))).willReturn(testSubscription);
+
+            // when
+            subscriptionDomainService.expireSubscription(testSubscription);
+
+            // then
+            assertThat(testSubscription.getStatus()).isEqualTo(SubscriptionStatus.EXPIRED);
+            verify(subscriptionRepository).save(testSubscription);
+        }
+    }
+
+    @Nested
+    @DisplayName("findRenewableSubscriptions")
+    class FindRenewableSubscriptionsTest {
+
+        @Test
+        @DisplayName("갱신 가능한 구독 목록을 반환한다")
+        void findRenewableSubscriptions_returnsList() {
+            // given
+            given(subscriptionRepository.findRenewableSubscriptions(any(LocalDateTime.class), any(LocalDateTime.class)))
+                    .willReturn(List.of(testSubscription));
+
+            // when
+            List<Subscription> result = subscriptionDomainService.findRenewableSubscriptions(3);
+
+            // then
+            assertThat(result).hasSize(1);
+            assertThat(result.get(0).getId()).isEqualTo(SUBSCRIPTION_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("findExpiredSubscriptions")
+    class FindExpiredSubscriptionsTest {
+
+        @Test
+        @DisplayName("만료된 구독 목록을 반환한다")
+        void findExpiredSubscriptions_returnsList() {
+            // given
+            given(subscriptionRepository.findExpired(any(SubscriptionStatus.class), any(LocalDateTime.class)))
+                    .willReturn(List.of(testSubscription));
+
+            // when
+            List<Subscription> result = subscriptionDomainService.findExpiredSubscriptions();
+
+            // then
+            assertThat(result).hasSize(1);
         }
     }
 }
