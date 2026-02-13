@@ -2,6 +2,7 @@ package com.example.study_cards.domain.card.repository;
 
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.category.entity.Category;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -139,32 +140,30 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
-    public List<Card> findAllByOrderByEfFactorAsc(boolean includeAiCards) {
-        var query = queryFactory
-                .selectFrom(card);
+    public Page<Card> searchByKeyword(String keyword, Category category, Pageable pageable) {
+        BooleanExpression keywordCondition = card.question.containsIgnoreCase(keyword)
+                .or(card.answer.containsIgnoreCase(keyword));
 
-        if (!includeAiCards) {
-            query.where(card.aiGenerated.eq(false));
-        }
+        BooleanExpression whereCondition = category != null
+                ? keywordCondition.and(card.category.eq(category))
+                : keywordCondition;
 
-        return query
-                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .fetch();
-    }
-
-    @Override
-    public List<Card> findByCategoryOrderByEfFactorAsc(Category category, boolean includeAiCards) {
-        var query = queryFactory
+        List<Card> content = queryFactory
                 .selectFrom(card)
-                .where(card.category.eq(category));
-
-        if (!includeAiCards) {
-            query.where(card.aiGenerated.eq(false));
-        }
-
-        return query
-                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
+                .join(card.category).fetchJoin()
+                .where(whereCondition)
+                .orderBy(card.createdAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
                 .fetch();
+
+        Long total = queryFactory
+                .select(card.count())
+                .from(card)
+                .where(whereCondition)
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
     private Long toNullableLong(Object value) {

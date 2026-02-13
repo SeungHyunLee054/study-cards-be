@@ -56,6 +56,20 @@ public class CardController {
         return ResponseEntity.ok(cardService.getCardsForStudyWithUserCards(userDetails.userId(), category, pageable));
     }
 
+    @GetMapping("/search")
+    public ResponseEntity<Page<CardResponse>> searchCards(
+            @RequestParam String keyword,
+            @RequestParam(required = false) String category,
+            Authentication authentication,
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        boolean isAuthenticated = authentication != null
+                && authentication.isAuthenticated()
+                && !(authentication instanceof AnonymousAuthenticationToken);
+        Long userId = isAuthenticated ? userDetails.userId() : null;
+        return ResponseEntity.ok(cardService.searchCards(userId, keyword, category, pageable));
+    }
+
     @GetMapping("/count")
     public ResponseEntity<Long> getCardCount(@RequestParam(required = false) String category) {
         return ResponseEntity.ok(cardService.getCardCount(category));

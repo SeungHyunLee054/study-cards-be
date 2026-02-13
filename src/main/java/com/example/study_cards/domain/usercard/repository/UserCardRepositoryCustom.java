@@ -25,4 +25,6 @@ public interface UserCardRepositoryCustom {
     long countByUser(User user);
 
     long countByUserAndCategory(User user, Category category);
+
+    Page<UserCard> searchByKeyword(User user, String keyword, Category category, Pageable pageable);
 }

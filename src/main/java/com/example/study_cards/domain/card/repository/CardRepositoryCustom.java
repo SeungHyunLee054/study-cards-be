@@ -25,9 +25,7 @@ public interface CardRepositoryCustom {
 
     Page<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category, Pageable pageable);
 
-    List<Card> findAllByOrderByEfFactorAsc(boolean includeAiCards);
-
-    List<Card> findByCategoryOrderByEfFactorAsc(Category category, boolean includeAiCards);
+    Page<Card> searchByKeyword(String keyword, Category category, Pageable pageable);
 
     record CategoryCount(Long categoryId, String categoryCode, Long count) {}
 }

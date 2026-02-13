@@ -90,7 +90,8 @@ class CardDomainServiceTest extends BaseUnitTest {
                     "What is Java?",
                     "프로그래밍 언어",
                     "A programming language",
-                    testCategory
+                    testCategory,
+                    false
             );
 
             // then

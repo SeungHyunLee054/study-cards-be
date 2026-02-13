@@ -99,6 +99,10 @@ public class UserCardDomainService {
         return userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category, pageable);
     }
 
+    public Page<UserCard> searchByKeyword(User user, String keyword, Category category, Pageable pageable) {
+        return userCardRepository.searchByKeyword(user, keyword, category, pageable);
+    }
+
     public long countByUser(User user) {
         return userCardRepository.countByUser(user);
     }

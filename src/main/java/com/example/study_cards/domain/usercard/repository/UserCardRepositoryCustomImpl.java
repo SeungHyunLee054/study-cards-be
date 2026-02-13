@@ -3,6 +3,7 @@ package com.example.study_cards.domain.usercard.repository;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -112,6 +113,34 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .select(userCard.count())
                 .from(userCard)
                 .where(userCard.user.eq(user), userCard.category.eq(category))
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public Page<UserCard> searchByKeyword(User user, String keyword, Category category, Pageable pageable) {
+        BooleanExpression keywordCondition = userCard.question.containsIgnoreCase(keyword)
+                .or(userCard.answer.containsIgnoreCase(keyword));
+
+        BooleanExpression whereCondition = userCard.user.eq(user).and(keywordCondition);
+        if (category != null) {
+            whereCondition = whereCondition.and(userCard.category.eq(category));
+        }
+
+        List<UserCard> content = queryFactory
+                .selectFrom(userCard)
+                .join(userCard.category).fetchJoin()
+                .where(whereCondition)
+                .orderBy(userCard.createdAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(userCard.count())
+                .from(userCard)
+                .where(whereCondition)
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);

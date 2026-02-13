@@ -45,12 +45,15 @@ public class UserCard extends BaseEntity {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @Column(nullable = false)
+    private Boolean aiGenerated = false;
+
     @Version
     private Long version;
 
     @Builder
     public UserCard(User user, String question, String questionSub, String answer, String answerSub,
-                    Double efFactor, Category category) {
+                    Double efFactor, Category category, Boolean aiGenerated) {
         this.user = user;
         this.question = question;
         this.questionSub = questionSub;
@@ -58,6 +61,7 @@ public class UserCard extends BaseEntity {
         this.answerSub = answerSub;
         this.efFactor = efFactor != null ? efFactor : 2.5;
         this.category = category;
+        this.aiGenerated = aiGenerated != null ? aiGenerated : false;
     }
 
     public void update(String question, String questionSub, String answer, String answerSub, Category category) {

@@ -21,13 +21,14 @@ public class CardDomainService {
     private final CardRepository cardRepository;
     private final StudyRecordRepository studyRecordRepository;
 
-    public Card createCard(String question, String questionSub, String answer, String answerSub, Category category) {
+    public Card createCard(String question, String questionSub, String answer, String answerSub, Category category, boolean aiGenerated) {
         Card card = Card.builder()
                 .question(question)
                 .questionSub(questionSub)
                 .answer(answer)
                 .answerSub(answerSub)
                 .category(category)
+                .aiGenerated(aiGenerated)
                 .build();
         return cardRepository.save(card);
     }
@@ -89,6 +90,10 @@ public class CardDomainService {
 
     public Page<Card> findCardsForStudyByCategory(Category category, Pageable pageable) {
         return cardRepository.findByCategoryOrderByEfFactorAscWithCategory(category, pageable);
+    }
+
+    public Page<Card> searchByKeyword(String keyword, Category category, Pageable pageable) {
+        return cardRepository.searchByKeyword(keyword, category, pageable);
     }
 
     public List<CategoryCount> countAllByCategory() {

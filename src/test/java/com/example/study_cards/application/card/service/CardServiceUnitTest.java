@@ -11,7 +11,9 @@ import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.notification.entity.NotificationType;
+import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
+import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import com.example.study_cards.infra.redis.service.RateLimitService;
 import com.example.study_cards.support.BaseUnitTest;
@@ -32,7 +34,9 @@ import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -63,14 +67,43 @@ class CardServiceUnitTest extends BaseUnitTest {
     private Card testCard;
     private Category csCategory;
     private Category englishCategory;
+    private User testUser;
+    private UserCard testUserCard;
 
     private static final Long CARD_ID = 1L;
+    private static final Long USER_ID = 1L;
+    private static final Long USER_CARD_ID = 10L;
 
     @BeforeEach
     void setUp() {
         csCategory = createCategory("CS", "CS", 1L);
         englishCategory = createCategory("ENGLISH", "영어", 2L);
         testCard = createTestCard();
+        testUser = createTestUser();
+        testUserCard = createTestUserCard();
+    }
+
+    private User createTestUser() {
+        User user = User.builder()
+                .email("test@example.com")
+                .password("password123")
+                .nickname("테스트유저")
+                .build();
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        return user;
+    }
+
+    private UserCard createTestUserCard() {
+        UserCard userCard = UserCard.builder()
+                .user(testUser)
+                .question("나만의 자바 질문")
+                .answer("나만의 자바 답변")
+                .efFactor(2.5)
+                .aiGenerated(false)
+                .category(csCategory)
+                .build();
+        ReflectionTestUtils.setField(userCard, "id", USER_CARD_ID);
+        return userCard;
     }
 
     private Category createCategory(String code, String name, Long id) {
@@ -286,7 +319,8 @@ class CardServiceUnitTest extends BaseUnitTest {
                     request.questionSub(),
                     request.answer(),
                     request.answerSub(),
-                    csCategory
+                    csCategory,
+                    false
             )).willReturn(testCard);
 
             // when
@@ -355,6 +389,98 @@ class CardServiceUnitTest extends BaseUnitTest {
 
             // then
             verify(cardDomainService).deleteCard(CARD_ID);
+        }
+    }
+
+    @Nested
+    @DisplayName("searchCards")
+    class SearchCardsTest {
+
+        private Pageable pageable;
+
+        @BeforeEach
+        void setUpPageable() {
+            pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
+        }
+
+        @Test
+        @DisplayName("비인증 사용자는 공용 카드만 검색한다")
+        void searchCards_비인증_공용카드만검색() {
+            // given
+            Page<Card> cardPage = new PageImpl<>(List.of(testCard), pageable, 1);
+            given(cardDomainService.searchByKeyword("자바", null, pageable)).willReturn(cardPage);
+
+            // when
+            Page<CardResponse> result = cardService.searchCards(null, "자바", null, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).question()).isEqualTo("자바란 무엇인가?");
+        }
+
+        @Test
+        @DisplayName("인증 사용자는 개인카드 우선으로 검색한다")
+        void searchCards_인증_개인카드우선() {
+            // given
+            Page<UserCard> userCardPage = new PageImpl<>(List.of(testUserCard), PageRequest.of(0, 1), 1);
+            Page<Card> publicCountPage = new PageImpl<>(List.of(testCard), PageRequest.of(0, 1), 1);
+            Page<UserCard> userCardSearchPage = new PageImpl<>(List.of(testUserCard), PageRequest.of(0, 20), 1);
+            Page<Card> publicSearchPage = new PageImpl<>(List.of(testCard), PageRequest.of(0, 19), 1);
+
+            given(userDomainService.findById(USER_ID)).willReturn(testUser);
+            given(userCardDomainService.searchByKeyword(eq(testUser), eq("자바"), eq(null), any(Pageable.class)))
+                    .willReturn(userCardPage)
+                    .willReturn(userCardSearchPage);
+            given(cardDomainService.searchByKeyword(eq("자바"), eq(null), any(Pageable.class)))
+                    .willReturn(publicCountPage)
+                    .willReturn(publicSearchPage);
+
+            // when
+            Page<CardResponse> result = cardService.searchCards(USER_ID, "자바", null, pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(2);
+            assertThat(result.getTotalElements()).isEqualTo(2);
+        }
+
+        @Test
+        @DisplayName("카테고리 필터와 함께 검색한다")
+        void searchCards_카테고리필터_성공() {
+            // given
+            Page<Card> cardPage = new PageImpl<>(List.of(testCard), pageable, 1);
+            given(categoryDomainService.findByCodeOrNull("CS")).willReturn(csCategory);
+            given(cardDomainService.searchByKeyword("자바", csCategory, pageable)).willReturn(cardPage);
+
+            // when
+            Page<CardResponse> result = cardService.searchCards(null, "자바", "CS", pageable);
+
+            // then
+            assertThat(result.getContent()).hasSize(1);
+            assertThat(result.getContent().get(0).category().code()).isEqualTo("CS");
+        }
+
+        @Test
+        @DisplayName("검색어가 null이면 예외를 발생시킨다")
+        void searchCards_null키워드_예외() {
+            // when & then
+            assertThatThrownBy(() -> cardService.searchCards(null, null, null, pageable))
+                    .isInstanceOf(CardException.class)
+                    .satisfies(exception -> {
+                        CardException ex = (CardException) exception;
+                        assertThat(ex.getErrorCode()).isEqualTo(CardErrorCode.INVALID_SEARCH_KEYWORD);
+                    });
+        }
+
+        @Test
+        @DisplayName("검색어가 2자 미만이면 예외를 발생시킨다")
+        void searchCards_짧은키워드_예외() {
+            // when & then
+            assertThatThrownBy(() -> cardService.searchCards(null, "자", null, pageable))
+                    .isInstanceOf(CardException.class)
+                    .satisfies(exception -> {
+                        CardException ex = (CardException) exception;
+                        assertThat(ex.getErrorCode()).isEqualTo(CardErrorCode.INVALID_SEARCH_KEYWORD);
+                    });
         }
     }
 }

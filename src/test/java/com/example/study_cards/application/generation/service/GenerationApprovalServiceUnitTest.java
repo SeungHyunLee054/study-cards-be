@@ -265,7 +265,8 @@ class GenerationApprovalServiceUnitTest extends BaseUnitTest {
                     eq("(A) abundant (B) abundance (C) abundantly (D) abound"),
                     eq("A"),
                     eq("형용사 자리이므로 abundant가 정답입니다."),
-                    eq(testCategory)
+                    eq(testCategory),
+                    eq(true)
             );
             verify(generatedCardDomainService).markAsMigrated(approvedCard);
         }

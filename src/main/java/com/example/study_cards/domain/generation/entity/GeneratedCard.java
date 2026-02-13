@@ -98,6 +98,7 @@ public class GeneratedCard extends BaseEntity {
                 .answer(this.answer)
                 .answerSub(this.answerSub)
                 .category(this.category)
+                .aiGenerated(true)
                 .build();
     }
 }

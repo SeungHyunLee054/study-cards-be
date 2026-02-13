@@ -93,9 +93,11 @@ public class CardService {
                 request.questionSub(),
                 request.answer(),
                 request.answerSub(),
-                category
+                category,
+                false
         );
 
+        // 관리자가 공개 카드를 추가하면 해당 카테고리의 마스터리 상태가 변경되므로 알림 초기화
         notificationService.deleteNotificationsByTypeAndReference(
                 NotificationType.CATEGORY_MASTERED,
                 category.getId()
@@ -133,39 +135,34 @@ public class CardService {
         long userCardCount = category != null
                 ? userCardDomainService.countByUserAndCategory(user, category)
                 : userCardDomainService.countByUser(user);
-        long totalCount = publicCardCount + userCardCount;
+        long totalCount = userCardCount + publicCardCount;
 
         long offset = pageable.getOffset();
         int size = pageable.getPageSize();
         List<CardResponse> content = new ArrayList<>();
 
-        if (offset < publicCardCount) {
-            int publicOffset = (int) offset;
-            int publicSize = (int) Math.min(size, publicCardCount - offset);
-            Page<Card> publicCards = category != null
-                    ? cardDomainService.findByCategory(category, PageRequest.of(0, publicSize).withSort(pageable.getSort()))
-                    : cardDomainService.findAll(PageRequest.of(0, publicSize).withSort(pageable.getSort()));
-
-            List<Card> publicContent = publicCards.getContent();
-            if (publicOffset > 0 && publicContent.size() > publicOffset) {
-                publicContent = publicContent.subList(publicOffset, publicContent.size());
-            }
-            content.addAll(publicContent.stream().map(CardResponse::from).toList());
+        if (offset < userCardCount) {
+            int userCardSize = (int) Math.min(size, userCardCount - offset);
+            int userPageNum = (int) (offset / size);
+            Page<UserCard> userCards = category != null
+                    ? userCardDomainService.findByUserAndCategory(user, category, PageRequest.of(userPageNum, userCardSize).withSort(pageable.getSort()))
+                    : userCardDomainService.findByUser(user, PageRequest.of(userPageNum, userCardSize).withSort(pageable.getSort()));
+            content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
 
             int remaining = size - content.size();
             if (remaining > 0) {
-                Page<UserCard> userCards = category != null
-                        ? userCardDomainService.findByUserAndCategory(user, category, PageRequest.of(0, remaining))
-                        : userCardDomainService.findByUser(user, PageRequest.of(0, remaining));
-                content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
+                Page<Card> publicCards = category != null
+                        ? cardDomainService.findByCategory(category, PageRequest.of(0, remaining))
+                        : cardDomainService.findAll(PageRequest.of(0, remaining));
+                content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
             }
         } else {
-            long userCardOffset = offset - publicCardCount;
-            int userPageNum = (int) (userCardOffset / size);
-            Page<UserCard> userCards = category != null
-                    ? userCardDomainService.findByUserAndCategory(user, category, PageRequest.of(userPageNum, size))
-                    : userCardDomainService.findByUser(user, PageRequest.of(userPageNum, size));
-            content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
+            long publicCardOffset = offset - userCardCount;
+            int publicPageNum = (int) (publicCardOffset / size);
+            Page<Card> publicCards = category != null
+                    ? cardDomainService.findByCategory(category, PageRequest.of(publicPageNum, size))
+                    : cardDomainService.findAll(PageRequest.of(publicPageNum, size));
+            content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
         }
 
         return new PageImpl<>(content, pageable, totalCount);
@@ -181,36 +178,80 @@ public class CardService {
         long userCardCount = category != null
                 ? userCardDomainService.countByUserAndCategory(user, category)
                 : userCardDomainService.countByUser(user);
-        long totalCount = publicCardCount + userCardCount;
+        long totalCount = userCardCount + publicCardCount;
 
         long offset = pageable.getOffset();
         int size = pageable.getPageSize();
         List<CardResponse> content = new ArrayList<>();
 
-        if (offset < publicCardCount) {
-            int publicSize = (int) Math.min(size, publicCardCount - offset);
-            Page<Card> publicCards = category != null
-                    ? cardDomainService.findCardsForStudyByCategory(category, PageRequest.of((int)(offset / size), publicSize))
-                    : cardDomainService.findCardsForStudy(PageRequest.of((int)(offset / size), publicSize));
-            content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
+        if (offset < userCardCount) {
+            int userCardSize = (int) Math.min(size, userCardCount - offset);
+            int userPageNum = (int) (offset / size);
+            Page<UserCard> userCards = category != null
+                    ? userCardDomainService.findUserCardsForStudyByCategory(user, category, PageRequest.of(userPageNum, userCardSize))
+                    : userCardDomainService.findUserCardsForStudy(user, PageRequest.of(userPageNum, userCardSize));
+            content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
 
             int remaining = size - content.size();
             if (remaining > 0) {
-                Page<UserCard> userCards = category != null
-                        ? userCardDomainService.findUserCardsForStudyByCategory(user, category, PageRequest.of(0, remaining))
-                        : userCardDomainService.findUserCardsForStudy(user, PageRequest.of(0, remaining));
-                content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
+                Page<Card> publicCards = category != null
+                        ? cardDomainService.findCardsForStudyByCategory(category, PageRequest.of(0, remaining))
+                        : cardDomainService.findCardsForStudy(PageRequest.of(0, remaining));
+                content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
             }
         } else {
-            long userCardOffset = offset - publicCardCount;
-            int userPageNum = (int) (userCardOffset / size);
-            Page<UserCard> userCards = category != null
-                    ? userCardDomainService.findUserCardsForStudyByCategory(user, category, PageRequest.of(userPageNum, size))
-                    : userCardDomainService.findUserCardsForStudy(user, PageRequest.of(userPageNum, size));
-            content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
+            long publicCardOffset = offset - userCardCount;
+            int publicPageNum = (int) (publicCardOffset / size);
+            Page<Card> publicCards = category != null
+                    ? cardDomainService.findCardsForStudyByCategory(category, PageRequest.of(publicPageNum, size))
+                    : cardDomainService.findCardsForStudy(PageRequest.of(publicPageNum, size));
+            content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
         }
 
         return new PageImpl<>(content, pageable, totalCount);
+    }
+
+    public Page<CardResponse> searchCards(Long userId, String keyword, String categoryCode, Pageable pageable) {
+        if (keyword == null || keyword.trim().length() < 2) {
+            throw new CardException(CardErrorCode.INVALID_SEARCH_KEYWORD);
+        }
+        String trimmedKeyword = keyword.trim();
+        Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
+
+        if (userId != null) {
+            User user = userDomainService.findById(userId);
+
+            long userCardTotal = userCardDomainService.searchByKeyword(user, trimmedKeyword, category, PageRequest.of(0, 1)).getTotalElements();
+            long publicCardTotal = cardDomainService.searchByKeyword(trimmedKeyword, category, PageRequest.of(0, 1)).getTotalElements();
+            long totalCount = userCardTotal + publicCardTotal;
+
+            long offset = pageable.getOffset();
+            int size = pageable.getPageSize();
+            List<CardResponse> content = new ArrayList<>();
+
+            if (offset < userCardTotal) {
+                int userCardSize = (int) Math.min(size, userCardTotal - offset);
+                int userPageNum = (int) (offset / size);
+                Page<UserCard> userCards = userCardDomainService.searchByKeyword(user, trimmedKeyword, category, PageRequest.of(userPageNum, userCardSize));
+                content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
+
+                int remaining = size - content.size();
+                if (remaining > 0) {
+                    Page<Card> publicCards = cardDomainService.searchByKeyword(trimmedKeyword, category, PageRequest.of(0, remaining));
+                    content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
+                }
+            } else {
+                long publicCardOffset = offset - userCardTotal;
+                int publicPageNum = (int) (publicCardOffset / size);
+                Page<Card> publicCards = cardDomainService.searchByKeyword(trimmedKeyword, category, PageRequest.of(publicPageNum, size));
+                content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
+            }
+
+            return new PageImpl<>(content, pageable, totalCount);
+        }
+
+        Page<Card> cards = cardDomainService.searchByKeyword(trimmedKeyword, category, pageable);
+        return cards.map(CardResponse::from);
     }
 
     public long getCardCount(String categoryCode) {

@@ -97,7 +97,8 @@ public class GenerationApprovalService {
                         card.getQuestionSub(),
                         card.getAnswer(),
                         card.getAnswerSub(),
-                        card.getCategory()
+                        card.getCategory(),
+                        true
                 );
                 generatedCardDomainService.markAsMigrated(generatedCard);
                 migratedCount++;
