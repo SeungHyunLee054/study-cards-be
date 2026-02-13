@@ -13,6 +13,7 @@ import com.example.study_cards.infra.redis.service.PasswordResetCodeService;
 import com.example.study_cards.infra.redis.service.RefreshTokenService;
 import com.example.study_cards.infra.redis.service.TokenBlacklistService;
 import com.example.study_cards.infra.redis.service.UserCacheService;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.example.study_cards.infra.redis.vo.UserVo;
 import com.example.study_cards.infra.security.exception.JwtErrorCode;
 import com.example.study_cards.infra.security.exception.JwtException;
@@ -105,17 +106,8 @@ class AuthServiceUnitTest extends BaseUnitTest {
                 .roles(Set.of(Role.ROLE_USER))
                 .build();
 
-        try {
-            var idField = User.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, USER_ID);
-
-            var emailVerifiedField = User.class.getDeclaredField("emailVerified");
-            emailVerifiedField.setAccessible(true);
-            emailVerifiedField.set(user, true);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ReflectionTestUtils.setField(user, "id", USER_ID);
+        ReflectionTestUtils.setField(user, "emailVerified", true);
 
         return user;
     }

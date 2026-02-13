@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
@@ -199,13 +200,7 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
     }
 
     private void setId(User user, Long id) {
-        try {
-            java.lang.reflect.Field field = User.class.getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(user, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ReflectionTestUtils.setField(user, "id", id);
     }
 
     private OAuth2User createCustomOAuth2User(User user, Map<String, Object> attributes) {

@@ -9,6 +9,7 @@ import com.example.study_cards.domain.user.exception.UserErrorCode;
 import com.example.study_cards.domain.user.exception.UserException;
 import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.redis.service.UserCacheService;
+import org.springframework.test.util.ReflectionTestUtils;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -57,13 +58,7 @@ class UserServiceUnitTest extends BaseUnitTest {
                 .roles(Set.of(Role.ROLE_USER))
                 .build();
 
-        try {
-            var idField = User.class.getDeclaredField("id");
-            idField.setAccessible(true);
-            idField.set(user, USER_ID);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ReflectionTestUtils.setField(user, "id", USER_ID);
 
         return user;
     }

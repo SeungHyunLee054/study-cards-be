@@ -17,6 +17,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.RedirectStrategy;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -186,12 +187,6 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
     }
 
     private void setId(User user, Long id) {
-        try {
-            java.lang.reflect.Field field = User.class.getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(user, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ReflectionTestUtils.setField(user, "id", id);
     }
 }

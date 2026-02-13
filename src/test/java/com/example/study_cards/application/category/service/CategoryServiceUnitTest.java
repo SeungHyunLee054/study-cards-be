@@ -13,6 +13,7 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -232,12 +233,6 @@ class CategoryServiceUnitTest extends BaseUnitTest {
     }
 
     private void setId(Category category, Long id) {
-        try {
-            java.lang.reflect.Field field = Category.class.getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(category, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+        ReflectionTestUtils.setField(category, "id", id);
     }
 }
