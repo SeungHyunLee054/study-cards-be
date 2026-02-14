@@ -444,6 +444,36 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .extracting(e -> ((PaymentException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PAYMENT_ALREADY_PROCESSED);
         }
+
+        @Test
+        @DisplayName("연간 결제는 빌링 결제를 지원하지 않는다")
+        void confirmBilling_yearlyPayment_throwsException() {
+            // given
+            Payment yearlyPayment = Payment.builder()
+                    .user(testUser)
+                    .orderId(ORDER_ID)
+                    .amount(99000)
+                    .status(PaymentStatus.PENDING)
+                    .type(PaymentType.INITIAL)
+                    .plan(SubscriptionPlan.PRO)
+                    .billingCycle(BillingCycle.YEARLY)
+                    .customerKey(CUSTOMER_KEY)
+                    .build();
+            ReflectionTestUtils.setField(yearlyPayment, "id", 1L);
+
+            ConfirmBillingRequest request = fixtureMonkey.giveMeBuilder(ConfirmBillingRequest.class)
+                    .set("authKey", AUTH_KEY)
+                    .set("customerKey", CUSTOMER_KEY)
+                    .set("orderId", ORDER_ID)
+                    .sample();
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(yearlyPayment);
+
+            // when & then
+            assertThatThrownBy(() -> paymentService.confirmBilling(testUser, request))
+                    .isInstanceOf(PaymentException.class)
+                    .extracting(e -> ((PaymentException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.BILLING_NOT_SUPPORTED_FOR_CYCLE);
+        }
     }
 
     @Nested

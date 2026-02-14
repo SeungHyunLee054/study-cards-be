@@ -12,6 +12,7 @@ import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
 import com.example.study_cards.domain.payment.exception.PaymentException;
 import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
+import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
@@ -81,6 +82,10 @@ public class PaymentService {
 
         if (!payment.getUser().getId().equals(user.getId())) {
             throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND);
+        }
+
+        if (payment.getBillingCycle() != BillingCycle.MONTHLY) {
+            throw new PaymentException(PaymentErrorCode.BILLING_NOT_SUPPORTED_FOR_CYCLE);
         }
 
         if (payment.isCompleted()) {

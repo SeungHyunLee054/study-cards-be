@@ -274,6 +274,45 @@ class PaymentControllerTest extends BaseIntegrationTest {
     }
 
     @Nested
+    @DisplayName("POST /api/payments/confirm-billing")
+    class ConfirmBillingTest {
+
+        @Test
+        @DisplayName("연간 결제로 빌링 확인 요청 시 400을 반환한다")
+        void confirmBilling_withYearlyPayment_returns400() throws Exception {
+            CheckoutRequest checkoutRequest = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.YEARLY)
+                    .sample();
+            String checkoutResponseBody = mockMvc.perform(post("/api/payments/checkout")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(checkoutRequest)))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            String orderId = objectMapper.readTree(checkoutResponseBody).get("orderId").asText();
+            String customerKey = objectMapper.readTree(checkoutResponseBody).get("customerKey").asText();
+
+            String confirmBillingRequest = """
+                    {
+                        "authKey": "test_auth_key",
+                        "customerKey": "%s",
+                        "orderId": "%s"
+                    }
+                    """.formatted(customerKey, orderId);
+
+            mockMvc.perform(post("/api/payments/confirm-billing")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(confirmBillingRequest))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400));
+        }
+    }
+
+    @Nested
     @DisplayName("GET /api/payments/invoices")
     class GetPaymentHistoryTest {
 

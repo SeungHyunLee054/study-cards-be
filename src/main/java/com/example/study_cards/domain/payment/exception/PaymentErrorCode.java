@@ -18,6 +18,7 @@ public enum PaymentErrorCode implements ErrorCode {
 
     BILLING_KEY_ISSUE_FAILED(HttpStatus.BAD_REQUEST, "빌링키 발급에 실패했습니다."),
     BILLING_PAYMENT_FAILED(HttpStatus.BAD_REQUEST, "자동 결제에 실패했습니다."),
+    BILLING_NOT_SUPPORTED_FOR_CYCLE(HttpStatus.BAD_REQUEST, "월간 구독만 빌링 결제를 지원합니다."),
 
     INVALID_WEBHOOK_SIGNATURE(HttpStatus.UNAUTHORIZED, "유효하지 않은 웹훅 서명입니다.");
 
