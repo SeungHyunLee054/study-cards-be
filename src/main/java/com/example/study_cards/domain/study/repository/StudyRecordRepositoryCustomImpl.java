@@ -1,10 +1,13 @@
 package com.example.study_cards.domain.study.repository;
 
+import com.example.study_cards.domain.card.entity.CardStatus;
+import com.example.study_cards.domain.category.entity.CategoryStatus;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.study.constant.SM2Constants;
 import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.user.entity.User;
+import com.querydsl.core.types.dsl.BooleanExpression;
 import com.querydsl.core.types.dsl.DateTemplate;
 import com.querydsl.core.types.dsl.Expressions;
 import com.querydsl.jpa.impl.JPAQueryFactory;
@@ -32,7 +35,8 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .from(studyRecord)
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.nextReviewDate.loe(date)
+                        studyRecord.nextReviewDate.loe(date),
+                        activePublicCardCondition()
                 )
                 .fetchOne();
         return Optional.ofNullable(count).orElse(0L).intValue();
@@ -43,7 +47,12 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
         Long count = queryFactory
                 .select(studyRecord.card.countDistinct())
                 .from(studyRecord)
-                .where(studyRecord.user.eq(user))
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.card.isNotNull(),
+                        studyRecord.card.status.eq(CardStatus.ACTIVE),
+                        studyRecord.card.category.status.eq(CategoryStatus.ACTIVE)
+                )
                 .fetchOne();
         return Optional.ofNullable(count).orElse(0L).intValue();
     }
@@ -55,7 +64,10 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .from(studyRecord)
                 .join(studyRecord.card, card)
                 .join(card.category)
-                .where(studyRecord.user.eq(user))
+                .where(
+                        studyRecord.user.eq(user),
+                        activeJoinedCardCondition()
+                )
                 .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
                 .stream()
@@ -76,7 +88,8 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .join(card.category)
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.repetitionCount.between(1, 2)
+                        studyRecord.repetitionCount.between(1, 2),
+                        activeJoinedCardCondition()
                 )
                 .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
@@ -99,7 +112,8 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
-                        studyRecord.repetitionCount.gt(2)
+                        studyRecord.repetitionCount.gt(2),
+                        activeJoinedCardCondition()
                 )
                 .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
@@ -158,6 +172,7 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .where(
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
+                        activeJoinedCardCondition(),
                         category != null ? card.category.eq(category) : null
                 )
                 .fetch();
@@ -168,7 +183,12 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
         return queryFactory
                 .select(studyRecord.card.id)
                 .from(studyRecord)
-                .where(studyRecord.user.eq(user))
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.card.isNotNull(),
+                        studyRecord.card.status.eq(CardStatus.ACTIVE),
+                        studyRecord.card.category.status.eq(CategoryStatus.ACTIVE)
+                )
                 .fetch();
     }
 
@@ -207,7 +227,8 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .join(card.category)
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD)
+                        studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD),
+                        activeJoinedCardCondition()
                 )
                 .groupBy(studyRecord.card.category.id, studyRecord.card.category.code)
                 .fetch()
@@ -336,7 +357,8 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .leftJoin(studyRecord.userCard, userCard).fetchJoin()
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.isCorrect.isFalse()
+                        studyRecord.isCorrect.isFalse(),
+                        activePublicCardCondition()
                 )
                 .orderBy(studyRecord.studiedAt.desc())
                 .limit(limit)
@@ -352,7 +374,8 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .leftJoin(studyRecord.userCard, userCard).fetchJoin()
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.nextReviewDate.loe(overdueDate)
+                        studyRecord.nextReviewDate.loe(overdueDate),
+                        activePublicCardCondition()
                 )
                 .orderBy(studyRecord.nextReviewDate.asc())
                 .fetch();
@@ -372,7 +395,9 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .from(studyRecord)
                 .where(
                         studyRecord.user.eq(user),
-                        studyRecord.card.isNotNull()
+                        studyRecord.card.isNotNull(),
+                        studyRecord.card.status.eq(CardStatus.ACTIVE),
+                        studyRecord.card.category.status.eq(CategoryStatus.ACTIVE)
                 )
                 .groupBy(studyRecord.card.id)
                 .having(wrongCountExpr.goe(mistakeThreshold))
@@ -410,7 +435,10 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .selectFrom(studyRecord)
                 .leftJoin(studyRecord.card, card).fetchJoin()
                 .leftJoin(studyRecord.userCard, userCard).fetchJoin()
-                .where(combinedCondition)
+                .where(
+                        combinedCondition,
+                        activePublicCardCondition()
+                )
                 .orderBy(studyRecord.efFactor.asc())
                 .fetch();
     }
@@ -434,7 +462,10 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .from(studyRecord)
                 .join(studyRecord.card, card)
                 .join(card.category, category)
-                .where(studyRecord.user.eq(user))
+                .where(
+                        studyRecord.user.eq(user),
+                        activeJoinedCardCondition()
+                )
                 .groupBy(card.category.id, card.category.code, card.category.name)
                 .fetch()
                 .stream()
@@ -463,9 +494,23 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .where(
                         studyRecord.user.eq(user),
                         card.category.eq(cat),
+                        activeJoinedCardCondition(),
                         studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD)
                 )
                 .fetchOne();
         return count != null ? count : 0L;
+    }
+
+    private BooleanExpression activeJoinedCardCondition() {
+        return card.status.eq(CardStatus.ACTIVE)
+                .and(card.category.status.eq(CategoryStatus.ACTIVE));
+    }
+
+    private BooleanExpression activePublicCardCondition() {
+        return studyRecord.card.isNull()
+                .or(
+                        studyRecord.card.status.eq(CardStatus.ACTIVE)
+                                .and(studyRecord.card.category.status.eq(CategoryStatus.ACTIVE))
+                );
     }
 }

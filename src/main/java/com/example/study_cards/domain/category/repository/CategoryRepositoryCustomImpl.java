@@ -1,6 +1,8 @@
 package com.example.study_cards.domain.category.repository;
 
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.entity.CategoryStatus;
+import com.example.study_cards.domain.category.entity.QCategory;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 
@@ -15,11 +17,18 @@ public class CategoryRepositoryCustomImpl implements CategoryRepositoryCustom {
 
     @Override
     public List<Category> findRootCategoriesWithChildren() {
+        QCategory childCategory = new QCategory("childCategory");
+
         return queryFactory
-                .selectFrom(category)
-                .leftJoin(category.children).fetchJoin()
-                .where(category.parent.isNull())
-                .orderBy(category.displayOrder.asc())
+                .selectDistinct(category)
+                .from(category)
+                .leftJoin(category.children, childCategory).fetchJoin()
+                .where(
+                        category.parent.isNull(),
+                        category.status.eq(CategoryStatus.ACTIVE),
+                        childCategory.status.eq(CategoryStatus.ACTIVE).or(childCategory.id.isNull())
+                )
+                .orderBy(category.displayOrder.asc(), childCategory.displayOrder.asc())
                 .fetch();
     }
 
@@ -28,6 +37,10 @@ public class CategoryRepositoryCustomImpl implements CategoryRepositoryCustom {
         return queryFactory
                 .selectFrom(category)
                 .leftJoin(category.parent).fetchJoin()
+                .where(
+                        category.status.eq(CategoryStatus.ACTIVE),
+                        category.parent.isNull().or(category.parent.status.eq(CategoryStatus.ACTIVE))
+                )
                 .orderBy(category.depth.asc(), category.displayOrder.asc())
                 .fetch();
     }

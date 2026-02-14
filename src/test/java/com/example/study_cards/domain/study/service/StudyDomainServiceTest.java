@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.study.service;
 
 import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
 import com.example.study_cards.domain.card.repository.CardRepository;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.study.entity.StudyRecord;
@@ -971,7 +972,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
         @DisplayName("카테고리에 카드가 없으면 false를 반환한다")
         void isCategoryFullyMastered_noCards_returnsFalse() {
             // given
-            given(cardRepository.countByCategory(testCategory)).willReturn(0L);
+            given(cardRepository.countByCategoryAndStatus(testCategory, CardStatus.ACTIVE)).willReturn(0L);
 
             // when
             boolean result = studyDomainService.isCategoryFullyMastered(testUser, testCategory);
@@ -984,7 +985,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
         @DisplayName("모든 카드를 마스터하면 true를 반환한다")
         void isCategoryFullyMastered_allMastered_returnsTrue() {
             // given
-            given(cardRepository.countByCategory(testCategory)).willReturn(10L);
+            given(cardRepository.countByCategoryAndStatus(testCategory, CardStatus.ACTIVE)).willReturn(10L);
             given(studyRecordRepository.countMasteredCardsInCategory(testUser, testCategory)).willReturn(10L);
 
             // when
@@ -998,7 +999,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
         @DisplayName("일부만 마스터하면 false를 반환한다")
         void isCategoryFullyMastered_partial_returnsFalse() {
             // given
-            given(cardRepository.countByCategory(testCategory)).willReturn(10L);
+            given(cardRepository.countByCategoryAndStatus(testCategory, CardStatus.ACTIVE)).willReturn(10L);
             given(studyRecordRepository.countMasteredCardsInCategory(testUser, testCategory)).willReturn(5L);
 
             // when

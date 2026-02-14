@@ -7,6 +7,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -42,6 +43,12 @@ public class Category extends BaseEntity {
     @Column(nullable = false)
     private Integer displayOrder;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CategoryStatus status;
+
+    private LocalDateTime deletedAt;
+
     @Builder
     public Category(String code, String name, Category parent, Integer displayOrder) {
         this.code = code;
@@ -49,6 +56,7 @@ public class Category extends BaseEntity {
         this.parent = parent;
         this.depth = parent != null ? parent.getDepth() + 1 : 0;
         this.displayOrder = displayOrder != null ? displayOrder : 0;
+        this.status = CategoryStatus.ACTIVE;
     }
 
     public void update(String code, String name, Integer displayOrder) {
@@ -66,12 +74,24 @@ public class Category extends BaseEntity {
         return this.parent == null;
     }
 
+    public boolean isActive() {
+        return this.status == CategoryStatus.ACTIVE;
+    }
+
     public boolean hasChildren() {
-        return !this.children.isEmpty();
+        return this.children.stream().anyMatch(Category::isActive);
     }
 
     public void addChild(Category child) {
         this.children.add(child);
         child.updateParent(this);
+    }
+
+    public void delete() {
+        if (this.status == CategoryStatus.DELETED) {
+            return;
+        }
+        this.status = CategoryStatus.DELETED;
+        this.deletedAt = LocalDateTime.now();
     }
 }

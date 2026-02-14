@@ -1,6 +1,10 @@
 package com.example.study_cards.domain.category.service;
 
+import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
+import com.example.study_cards.domain.card.repository.CardRepository;
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.entity.CategoryStatus;
 import com.example.study_cards.domain.category.exception.CategoryErrorCode;
 import com.example.study_cards.domain.category.exception.CategoryException;
 import com.example.study_cards.domain.category.repository.CategoryRepository;
@@ -16,14 +20,15 @@ import java.util.List;
 public class CategoryDomainService {
 
     private final CategoryRepository categoryRepository;
+    private final CardRepository cardRepository;
 
     public Category findById(Long id) {
-        return categoryRepository.findById(id)
+        return categoryRepository.findByIdAndStatus(id, CategoryStatus.ACTIVE)
                 .orElseThrow(() -> new CategoryException(CategoryErrorCode.CATEGORY_NOT_FOUND));
     }
 
     public Category findByCode(String code) {
-        return categoryRepository.findByCode(code)
+        return categoryRepository.findByCodeAndStatus(code, CategoryStatus.ACTIVE)
                 .orElseThrow(() -> new CategoryException(CategoryErrorCode.CATEGORY_NOT_FOUND));
     }
 
@@ -31,7 +36,7 @@ public class CategoryDomainService {
         if (code == null || code.isBlank()) {
             return null;
         }
-        return categoryRepository.findByCode(code).orElse(null);
+        return categoryRepository.findByCodeAndStatus(code, CategoryStatus.ACTIVE).orElse(null);
     }
 
     public List<Category> findAll() {
@@ -39,7 +44,7 @@ public class CategoryDomainService {
     }
 
     public List<Category> findRootCategories() {
-        return categoryRepository.findByParentIsNullOrderByDisplayOrder();
+        return categoryRepository.findByParentIsNullAndStatusOrderByDisplayOrder(CategoryStatus.ACTIVE);
     }
 
     public List<Category> findRootCategoriesWithChildren() {
@@ -47,7 +52,7 @@ public class CategoryDomainService {
     }
 
     public List<Category> findByParent(Category parent) {
-        return categoryRepository.findByParentOrderByDisplayOrder(parent);
+        return categoryRepository.findByParentAndStatusOrderByDisplayOrder(parent, CategoryStatus.ACTIVE);
     }
 
     public Category createCategory(String code, String name, Category parent, Integer displayOrder) {
@@ -81,7 +86,9 @@ public class CategoryDomainService {
             throw new CategoryException(CategoryErrorCode.CATEGORY_HAS_CHILDREN);
         }
 
-        categoryRepository.delete(category);
+        List<Card> cardsInCategory = cardRepository.findByCategoryAndStatus(category, CardStatus.ACTIVE);
+        cardsInCategory.forEach(Card::delete);
+        category.delete();
     }
 
     public boolean existsByCode(String code) {
@@ -89,11 +96,11 @@ public class CategoryDomainService {
     }
 
     public Page<Category> findAll(Pageable pageable) {
-        return categoryRepository.findAll(pageable);
+        return categoryRepository.findAllByStatus(CategoryStatus.ACTIVE, pageable);
     }
 
     public Page<Category> findByParent(Category parent, Pageable pageable) {
-        return categoryRepository.findByParent(parent, pageable);
+        return categoryRepository.findByParentAndStatus(parent, CategoryStatus.ACTIVE, pageable);
     }
 
     private void validateCodeNotExists(String code) {

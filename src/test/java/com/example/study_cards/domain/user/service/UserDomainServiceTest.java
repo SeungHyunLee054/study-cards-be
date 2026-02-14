@@ -2,6 +2,7 @@ package com.example.study_cards.domain.user.service;
 
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.user.entity.UserStatus;
 import com.example.study_cards.domain.user.exception.UserErrorCode;
 import com.example.study_cards.domain.user.exception.UserException;
 import com.example.study_cards.domain.user.repository.UserRepository;
@@ -124,7 +125,7 @@ class UserDomainServiceTest extends BaseUnitTest {
         @DisplayName("이메일로 사용자를 조회한다")
         void findByEmail_returnsUser() {
             // given
-            given(userRepository.findByEmail(EMAIL)).willReturn(Optional.of(testUser));
+            given(userRepository.findByEmailAndStatus(EMAIL, UserStatus.ACTIVE)).willReturn(Optional.of(testUser));
 
             // when
             User result = userDomainService.findByEmail(EMAIL);
@@ -138,7 +139,7 @@ class UserDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하지 않는 이메일로 조회 시 예외를 발생시킨다")
         void findByEmail_withNonExistentEmail_throwsException() {
             // given
-            given(userRepository.findByEmail(EMAIL)).willReturn(Optional.empty());
+            given(userRepository.findByEmailAndStatus(EMAIL, UserStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> userDomainService.findByEmail(EMAIL))
@@ -158,7 +159,7 @@ class UserDomainServiceTest extends BaseUnitTest {
         @DisplayName("ID로 사용자를 조회한다")
         void findById_returnsUser() {
             // given
-            given(userRepository.findById(USER_ID)).willReturn(Optional.of(testUser));
+            given(userRepository.findByIdAndStatus(USER_ID, UserStatus.ACTIVE)).willReturn(Optional.of(testUser));
 
             // when
             User result = userDomainService.findById(USER_ID);
@@ -172,7 +173,7 @@ class UserDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하지 않는 ID로 조회 시 예외를 발생시킨다")
         void findById_withNonExistentId_throwsException() {
             // given
-            given(userRepository.findById(USER_ID)).willReturn(Optional.empty());
+            given(userRepository.findByIdAndStatus(USER_ID, UserStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> userDomainService.findById(USER_ID))
@@ -211,6 +212,36 @@ class UserDomainServiceTest extends BaseUnitTest {
                     .satisfies(exception -> {
                         UserException userException = (UserException) exception;
                         assertThat(userException.getErrorCode()).isEqualTo(UserErrorCode.INVALID_PASSWORD);
+                    });
+        }
+    }
+
+    @Nested
+    @DisplayName("ban")
+    class BanTest {
+
+        @Test
+        @DisplayName("활성 사용자를 제재한다")
+        void ban_activeUser_success() {
+            // when
+            userDomainService.ban(testUser);
+
+            // then
+            assertThat(testUser.getStatus()).isEqualTo(UserStatus.BANNED);
+        }
+
+        @Test
+        @DisplayName("이미 제재된 사용자면 예외를 발생시킨다")
+        void ban_alreadyBanned_throwsException() {
+            // given
+            testUser.ban();
+
+            // when & then
+            assertThatThrownBy(() -> userDomainService.ban(testUser))
+                    .isInstanceOf(UserException.class)
+                    .satisfies(exception -> {
+                        UserException userException = (UserException) exception;
+                        assertThat(userException.getErrorCode()).isEqualTo(UserErrorCode.USER_ALREADY_BANNED);
                     });
         }
     }

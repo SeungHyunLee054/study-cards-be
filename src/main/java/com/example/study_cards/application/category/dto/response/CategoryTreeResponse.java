@@ -20,6 +20,7 @@ public record CategoryTreeResponse(
                 category.getDepth(),
                 category.getDisplayOrder(),
                 category.getChildren().stream()
+                        .filter(Category::isActive)
                         .map(CategoryTreeResponse::from)
                         .toList()
         );

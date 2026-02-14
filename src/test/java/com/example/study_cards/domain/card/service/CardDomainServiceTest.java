@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.card.service;
 
 import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
 import com.example.study_cards.domain.card.exception.CardErrorCode;
 import com.example.study_cards.domain.card.exception.CardException;
 import com.example.study_cards.domain.card.repository.CardRepository;
@@ -23,6 +24,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 class CardDomainServiceTest extends BaseUnitTest {
 
@@ -109,7 +111,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하는 ID로 카드를 조회한다")
         void findById_returnsCard() {
             // given
-            given(cardRepository.findById(CARD_ID)).willReturn(Optional.of(testCard));
+            given(cardRepository.findByIdAndStatus(CARD_ID, CardStatus.ACTIVE)).willReturn(Optional.of(testCard));
 
             // when
             Card result = cardDomainService.findById(CARD_ID);
@@ -123,7 +125,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하지 않는 ID로 조회 시 예외를 발생시킨다")
         void findById_withNonExistentId_throwsException() {
             // given
-            given(cardRepository.findById(CARD_ID)).willReturn(Optional.empty());
+            given(cardRepository.findByIdAndStatus(CARD_ID, CardStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> cardDomainService.findById(CARD_ID))
@@ -143,7 +145,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("모든 카드를 조회한다")
         void findAll_returnsAllCards() {
             // given
-            given(cardRepository.findAll()).willReturn(List.of(testCard));
+            given(cardRepository.findByStatus(CardStatus.ACTIVE)).willReturn(List.of(testCard));
 
             // when
             List<Card> result = cardDomainService.findAll();
@@ -162,7 +164,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("카테고리별 카드를 조회한다")
         void findByCategory_returnsCardsInCategory() {
             // given
-            given(cardRepository.findByCategory(testCategory)).willReturn(List.of(testCard));
+            given(cardRepository.findByCategoryAndStatus(testCategory, CardStatus.ACTIVE)).willReturn(List.of(testCard));
 
             // when
             List<Card> result = cardDomainService.findByCategory(testCategory);
@@ -219,7 +221,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("카드 정보를 업데이트한다")
         void updateCard_updatesCardInfo() {
             // given
-            given(cardRepository.findById(CARD_ID)).willReturn(Optional.of(testCard));
+            given(cardRepository.findByIdAndStatus(CARD_ID, CardStatus.ACTIVE)).willReturn(Optional.of(testCard));
 
             // when
             Card result = cardDomainService.updateCard(
@@ -246,21 +248,23 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("카드를 삭제한다")
         void deleteCard_deletesCard() {
             // given
-            given(cardRepository.findById(CARD_ID)).willReturn(Optional.of(testCard));
+            given(cardRepository.findByIdAndStatus(CARD_ID, CardStatus.ACTIVE)).willReturn(Optional.of(testCard));
             given(studyRecordRepository.existsByCard(testCard)).willReturn(false);
 
             // when
             cardDomainService.deleteCard(CARD_ID);
 
             // then
-            verify(cardRepository).delete(testCard);
+            assertThat(testCard.getStatus()).isEqualTo(CardStatus.DELETED);
+            assertThat(testCard.getDeletedAt()).isNotNull();
+            verify(cardRepository, never()).delete(any(Card.class));
         }
 
         @Test
         @DisplayName("존재하지 않는 카드 삭제 시 예외를 발생시킨다")
         void deleteCard_withNonExistentId_throwsException() {
             // given
-            given(cardRepository.findById(CARD_ID)).willReturn(Optional.empty());
+            given(cardRepository.findByIdAndStatus(CARD_ID, CardStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> cardDomainService.deleteCard(CARD_ID))
@@ -271,7 +275,7 @@ class CardDomainServiceTest extends BaseUnitTest {
         @DisplayName("학습 기록이 존재하는 카드 삭제 시 예외를 발생시킨다")
         void deleteCard_withStudyRecords_throwsException() {
             // given
-            given(cardRepository.findById(CARD_ID)).willReturn(Optional.of(testCard));
+            given(cardRepository.findByIdAndStatus(CARD_ID, CardStatus.ACTIVE)).willReturn(Optional.of(testCard));
             given(studyRecordRepository.existsByCard(testCard)).willReturn(true);
 
             // when & then

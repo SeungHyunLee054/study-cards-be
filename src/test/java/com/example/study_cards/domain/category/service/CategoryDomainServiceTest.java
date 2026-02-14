@@ -1,6 +1,10 @@
 package com.example.study_cards.domain.category.service;
 
+import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
+import com.example.study_cards.domain.card.repository.CardRepository;
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.entity.CategoryStatus;
 import com.example.study_cards.domain.category.exception.CategoryErrorCode;
 import com.example.study_cards.domain.category.exception.CategoryException;
 import com.example.study_cards.domain.category.repository.CategoryRepository;
@@ -21,11 +25,15 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.never;
 
 class CategoryDomainServiceTest extends BaseUnitTest {
 
     @Mock
     private CategoryRepository categoryRepository;
+
+    @Mock
+    private CardRepository cardRepository;
 
     @InjectMocks
     private CategoryDomainService categoryDomainService;
@@ -61,7 +69,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하는 ID로 카테고리를 조회한다")
         void findById_returnsCategory() {
             // given
-            given(categoryRepository.findById(ROOT_CATEGORY_ID)).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByIdAndStatus(ROOT_CATEGORY_ID, CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
 
             // when
             Category result = categoryDomainService.findById(ROOT_CATEGORY_ID);
@@ -75,7 +83,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하지 않는 ID로 조회 시 예외를 발생시킨다")
         void findById_withNonExistentId_throwsException() {
             // given
-            given(categoryRepository.findById(ROOT_CATEGORY_ID)).willReturn(Optional.empty());
+            given(categoryRepository.findByIdAndStatus(ROOT_CATEGORY_ID, CategoryStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> categoryDomainService.findById(ROOT_CATEGORY_ID))
@@ -95,7 +103,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하는 코드로 카테고리를 조회한다")
         void findByCode_returnsCategory() {
             // given
-            given(categoryRepository.findByCode("CS")).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByCodeAndStatus("CS", CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
 
             // when
             Category result = categoryDomainService.findByCode("CS");
@@ -109,7 +117,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하지 않는 코드로 조회 시 예외를 발생시킨다")
         void findByCode_withNonExistentCode_throwsException() {
             // given
-            given(categoryRepository.findByCode("INVALID")).willReturn(Optional.empty());
+            given(categoryRepository.findByCodeAndStatus("INVALID", CategoryStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> categoryDomainService.findByCode("INVALID"))
@@ -129,7 +137,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하는 코드로 카테고리를 조회한다")
         void findByCodeOrNull_returnsCategory() {
             // given
-            given(categoryRepository.findByCode("CS")).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByCodeAndStatus("CS", CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
 
             // when
             Category result = categoryDomainService.findByCodeOrNull("CS");
@@ -143,7 +151,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("존재하지 않는 코드로 조회 시 null을 반환한다")
         void findByCodeOrNull_withNonExistentCode_returnsNull() {
             // given
-            given(categoryRepository.findByCode("INVALID")).willReturn(Optional.empty());
+            given(categoryRepository.findByCodeAndStatus("INVALID", CategoryStatus.ACTIVE)).willReturn(Optional.empty());
 
             // when
             Category result = categoryDomainService.findByCodeOrNull("INVALID");
@@ -200,7 +208,8 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("루트 카테고리 목록을 조회한다")
         void findRootCategories_returnsRootCategories() {
             // given
-            given(categoryRepository.findByParentIsNullOrderByDisplayOrder()).willReturn(List.of(rootCategory));
+            given(categoryRepository.findByParentIsNullAndStatusOrderByDisplayOrder(CategoryStatus.ACTIVE))
+                    .willReturn(List.of(rootCategory));
 
             // when
             List<Category> result = categoryDomainService.findRootCategories();
@@ -219,7 +228,8 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("부모 카테고리로 하위 카테고리를 조회한다")
         void findByParent_returnsChildCategories() {
             // given
-            given(categoryRepository.findByParentOrderByDisplayOrder(rootCategory)).willReturn(List.of(childCategory));
+            given(categoryRepository.findByParentAndStatusOrderByDisplayOrder(rootCategory, CategoryStatus.ACTIVE))
+                    .willReturn(List.of(childCategory));
 
             // when
             List<Category> result = categoryDomainService.findByParent(rootCategory);
@@ -278,7 +288,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("카테고리 정보를 업데이트한다")
         void updateCategory_updatesCategory() {
             // given
-            given(categoryRepository.findById(ROOT_CATEGORY_ID)).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByIdAndStatus(ROOT_CATEGORY_ID, CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
 
             // when
             Category result = categoryDomainService.updateCategory(ROOT_CATEGORY_ID, "CS", "컴퓨터 공학", 2);
@@ -292,7 +302,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("코드 변경 시 중복 체크를 수행한다")
         void updateCategory_withNewCode_checksForDuplicate() {
             // given
-            given(categoryRepository.findById(ROOT_CATEGORY_ID)).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByIdAndStatus(ROOT_CATEGORY_ID, CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
             given(categoryRepository.existsByCode("CS_NEW")).willReturn(false);
 
             // when
@@ -307,7 +317,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         @DisplayName("이미 존재하는 코드로 변경 시 예외를 발생시킨다")
         void updateCategory_withExistingCode_throwsException() {
             // given
-            given(categoryRepository.findById(ROOT_CATEGORY_ID)).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByIdAndStatus(ROOT_CATEGORY_ID, CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
             given(categoryRepository.existsByCode("ENGLISH")).willReturn(true);
 
             // when & then
@@ -329,13 +339,23 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         void deleteCategory_deletesCategory() {
             // given
             Category categoryToDelete = createCategory(3L, "TO_DELETE", "삭제할 카테고리", null, 1);
-            given(categoryRepository.findById(3L)).willReturn(Optional.of(categoryToDelete));
+            Card cardInCategory = Card.builder()
+                    .question("Q")
+                    .answer("A")
+                    .category(categoryToDelete)
+                    .build();
+            given(categoryRepository.findByIdAndStatus(3L, CategoryStatus.ACTIVE)).willReturn(Optional.of(categoryToDelete));
+            given(cardRepository.findByCategoryAndStatus(categoryToDelete, CardStatus.ACTIVE)).willReturn(List.of(cardInCategory));
 
             // when
             categoryDomainService.deleteCategory(3L);
 
             // then
-            verify(categoryRepository).delete(categoryToDelete);
+            assertThat(categoryToDelete.getStatus()).isEqualTo(CategoryStatus.DELETED);
+            assertThat(categoryToDelete.getDeletedAt()).isNotNull();
+            assertThat(cardInCategory.getStatus()).isEqualTo(CardStatus.DELETED);
+            assertThat(cardInCategory.getDeletedAt()).isNotNull();
+            verify(categoryRepository, never()).delete(any(Category.class));
         }
 
         @Test
@@ -343,7 +363,7 @@ class CategoryDomainServiceTest extends BaseUnitTest {
         void deleteCategory_withChildren_throwsException() {
             // given
             rootCategory.addChild(childCategory);
-            given(categoryRepository.findById(ROOT_CATEGORY_ID)).willReturn(Optional.of(rootCategory));
+            given(categoryRepository.findByIdAndStatus(ROOT_CATEGORY_ID, CategoryStatus.ACTIVE)).willReturn(Optional.of(rootCategory));
 
             // when & then
             assertThatThrownBy(() -> categoryDomainService.deleteCategory(ROOT_CATEGORY_ID))

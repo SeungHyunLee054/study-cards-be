@@ -2,7 +2,9 @@ package com.example.study_cards.domain.bookmark.repository;
 
 import com.example.study_cards.domain.bookmark.entity.Bookmark;
 import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.entity.CategoryStatus;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -26,7 +28,8 @@ public class BookmarkRepositoryCustomImpl implements BookmarkRepositoryCustom {
 
     @Override
     public Page<Bookmark> findByUser(User user, Category category, Pageable pageable) {
-        BooleanExpression condition = bookmark.user.eq(user);
+        BooleanExpression condition = bookmark.user.eq(user)
+                .and(visibleBookmarkCondition());
 
         if (category != null) {
             condition = condition.and(
@@ -97,8 +100,19 @@ public class BookmarkRepositoryCustomImpl implements BookmarkRepositoryCustom {
         Long count = queryFactory
                 .select(bookmark.count())
                 .from(bookmark)
-                .where(bookmark.user.eq(user))
+                .where(
+                        bookmark.user.eq(user),
+                        visibleBookmarkCondition()
+                )
                 .fetchOne();
         return count != null ? count : 0L;
+    }
+
+    private BooleanExpression visibleBookmarkCondition() {
+        return bookmark.card.isNull()
+                .or(
+                        bookmark.card.status.eq(CardStatus.ACTIVE)
+                                .and(bookmark.card.category.status.eq(CategoryStatus.ACTIVE))
+                );
     }
 }

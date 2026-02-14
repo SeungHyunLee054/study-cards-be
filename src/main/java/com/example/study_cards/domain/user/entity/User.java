@@ -8,6 +8,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -54,6 +55,12 @@ public class User extends BaseEntity {
     @Column(nullable = false)
     private Boolean emailVerified = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserStatus status;
+
+    private LocalDateTime withdrawnAt;
+
     @Version
     private Long version;
 
@@ -69,10 +76,23 @@ public class User extends BaseEntity {
         this.streak = 0;
         this.pushEnabled = true;
         this.emailVerified = false;
+        this.status = UserStatus.ACTIVE;
     }
 
     public boolean isOAuthUser() {
         return this.provider != OAuthProvider.LOCAL;
+    }
+
+    public boolean isActive() {
+        return this.status == UserStatus.ACTIVE;
+    }
+
+    public boolean isWithdrawn() {
+        return this.status == UserStatus.WITHDRAWN;
+    }
+
+    public boolean isBanned() {
+        return this.status == UserStatus.BANNED;
     }
 
     public void addRole(Role role) {
@@ -122,6 +142,35 @@ public class User extends BaseEntity {
 
     public void verifyEmail() {
         this.emailVerified = true;
+    }
+
+    public void withdraw() {
+        if (this.status == UserStatus.WITHDRAWN) {
+            return;
+        }
+
+        String uniqueSuffix = this.id != null ? String.valueOf(this.id) : String.valueOf(System.nanoTime());
+
+        this.status = UserStatus.WITHDRAWN;
+        this.withdrawnAt = LocalDateTime.now();
+        this.email = "withdrawn+" + uniqueSuffix + "@studycard.local";
+        this.password = null;
+        this.nickname = "withdrawn-user-" + uniqueSuffix;
+        this.providerId = null;
+        this.roles = new HashSet<>(Set.of(Role.ROLE_USER));
+        this.pushEnabled = false;
+        this.fcmToken = null;
+        this.emailVerified = false;
+    }
+
+    public void ban() {
+        if (this.status == UserStatus.BANNED) {
+            return;
+        }
+        this.status = UserStatus.BANNED;
+        this.withdrawnAt = LocalDateTime.now();
+        this.pushEnabled = false;
+        this.fcmToken = null;
     }
 
 }

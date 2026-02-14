@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.card.service;
 
 import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
 import com.example.study_cards.domain.card.exception.CardErrorCode;
 import com.example.study_cards.domain.card.exception.CardException;
 import com.example.study_cards.domain.card.repository.CardRepository;
@@ -34,16 +35,16 @@ public class CardDomainService {
     }
 
     public Card findById(Long id) {
-        return cardRepository.findById(id)
+        return cardRepository.findByIdAndStatus(id, CardStatus.ACTIVE)
                 .orElseThrow(() -> new CardException(CardErrorCode.CARD_NOT_FOUND));
     }
 
     public List<Card> findAll() {
-        return cardRepository.findAll();
+        return cardRepository.findByStatus(CardStatus.ACTIVE);
     }
 
     public List<Card> findByCategory(Category category) {
-        return cardRepository.findByCategory(category);
+        return cardRepository.findByCategoryAndStatus(category, CardStatus.ACTIVE);
     }
 
     public List<Card> findCardsForStudy() {
@@ -65,15 +66,15 @@ public class CardDomainService {
         if (studyRecordRepository.existsByCard(card)) {
             throw new CardException(CardErrorCode.CARD_HAS_STUDY_RECORDS);
         }
-        cardRepository.delete(card);
+        card.delete();
     }
 
     public long count() {
-        return cardRepository.count();
+        return cardRepository.countByStatus(CardStatus.ACTIVE);
     }
 
     public long countByCategory(Category category) {
-        return cardRepository.countByCategory(category);
+        return cardRepository.countByCategoryAndStatus(category, CardStatus.ACTIVE);
     }
 
     public Page<Card> findAll(Pageable pageable) {

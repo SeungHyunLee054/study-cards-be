@@ -63,6 +63,14 @@ class CategoryTest {
             // then
             assertThat(category.getDisplayOrder()).isEqualTo(0);
         }
+
+        @Test
+        @DisplayName("카테고리 생성 시 상태는 ACTIVE이다")
+        void builder_defaultStatus_active() {
+            // then
+            assertThat(rootCategory.getStatus()).isEqualTo(CategoryStatus.ACTIVE);
+            assertThat(rootCategory.getDeletedAt()).isNull();
+        }
     }
 
     @Nested
@@ -175,6 +183,27 @@ class CategoryTest {
             // then
             assertThat(parent.hasChildren()).isTrue();
         }
+
+        @Test
+        @DisplayName("삭제된 자식만 있으면 false를 반환한다")
+        void hasChildren_onlyDeletedChildren_returnsFalse() {
+            // given
+            Category parent = Category.builder()
+                    .code("PARENT2")
+                    .name("Parent2")
+                    .displayOrder(1)
+                    .build();
+            Category child = Category.builder()
+                    .code("CHILD2")
+                    .name("Child2")
+                    .displayOrder(1)
+                    .build();
+            parent.addChild(child);
+            child.delete();
+
+            // then
+            assertThat(parent.hasChildren()).isFalse();
+        }
     }
 
     @Nested
@@ -204,6 +233,37 @@ class CategoryTest {
             assertThat(parent.getChildren()).contains(child);
             assertThat(child.getParent()).isEqualTo(parent);
             assertThat(child.getDepth()).isEqualTo(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("delete")
+    class DeleteTest {
+
+        @Test
+        @DisplayName("카테고리를 soft delete 처리한다")
+        void delete_marksCategoryAsDeleted() {
+            // when
+            rootCategory.delete();
+
+            // then
+            assertThat(rootCategory.getStatus()).isEqualTo(CategoryStatus.DELETED);
+            assertThat(rootCategory.getDeletedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("이미 삭제된 카테고리를 다시 삭제해도 deletedAt은 유지된다")
+        void delete_whenAlreadyDeleted_keepsDeletedAt() {
+            // given
+            rootCategory.delete();
+            var firstDeletedAt = rootCategory.getDeletedAt();
+
+            // when
+            rootCategory.delete();
+
+            // then
+            assertThat(rootCategory.getStatus()).isEqualTo(CategoryStatus.DELETED);
+            assertThat(rootCategory.getDeletedAt()).isEqualTo(firstDeletedAt);
         }
     }
 }

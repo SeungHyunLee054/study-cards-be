@@ -8,6 +8,8 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import java.time.LocalDateTime;
+
 @Getter
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 @Entity
@@ -42,6 +44,12 @@ public class Card extends BaseEntity {
     @JoinColumn(name = "category_id", nullable = false)
     private Category category;
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private CardStatus status;
+
+    private LocalDateTime deletedAt;
+
     @Builder
     public Card(String question, String questionSub, String answer, String answerSub,
                 Double efFactor, Boolean aiGenerated, Category category) {
@@ -52,10 +60,15 @@ public class Card extends BaseEntity {
         this.efFactor = efFactor != null ? efFactor : 2.5;
         this.aiGenerated = aiGenerated != null ? aiGenerated : false;
         this.category = category;
+        this.status = CardStatus.ACTIVE;
     }
 
     public boolean isAiGenerated() {
         return Boolean.TRUE.equals(aiGenerated);
+    }
+
+    public boolean isActive() {
+        return this.status == CardStatus.ACTIVE;
     }
 
     public void update(String question, String questionSub, String answer, String answerSub, Category category) {
@@ -64,5 +77,13 @@ public class Card extends BaseEntity {
         this.answer = answer;
         this.answerSub = answerSub;
         this.category = category;
+    }
+
+    public void delete() {
+        if (this.status == CardStatus.DELETED) {
+            return;
+        }
+        this.status = CardStatus.DELETED;
+        this.deletedAt = LocalDateTime.now();
     }
 }

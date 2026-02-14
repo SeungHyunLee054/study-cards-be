@@ -92,5 +92,44 @@ class CardTest {
             // then
             assertThat(newCard.getEfFactor()).isEqualTo(3.0);
         }
+
+        @Test
+        @DisplayName("카드 생성 시 상태는 ACTIVE이다")
+        void builder_defaultStatus_active() {
+            // then
+            assertThat(card.getStatus()).isEqualTo(CardStatus.ACTIVE);
+            assertThat(card.getDeletedAt()).isNull();
+        }
+    }
+
+    @Nested
+    @DisplayName("delete")
+    class DeleteTest {
+
+        @Test
+        @DisplayName("카드를 soft delete 처리한다")
+        void delete_marksCardAsDeleted() {
+            // when
+            card.delete();
+
+            // then
+            assertThat(card.getStatus()).isEqualTo(CardStatus.DELETED);
+            assertThat(card.getDeletedAt()).isNotNull();
+        }
+
+        @Test
+        @DisplayName("이미 삭제된 카드를 다시 삭제해도 deletedAt은 유지된다")
+        void delete_whenAlreadyDeleted_keepsDeletedAt() {
+            // given
+            card.delete();
+            var firstDeletedAt = card.getDeletedAt();
+
+            // when
+            card.delete();
+
+            // then
+            assertThat(card.getStatus()).isEqualTo(CardStatus.DELETED);
+            assertThat(card.getDeletedAt()).isEqualTo(firstDeletedAt);
+        }
     }
 }

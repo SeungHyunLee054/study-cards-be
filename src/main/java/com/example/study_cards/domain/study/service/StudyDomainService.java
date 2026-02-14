@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.study.service;
 
 import com.example.study_cards.domain.card.entity.Card;
+import com.example.study_cards.domain.card.entity.CardStatus;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.card.repository.CardRepository;
 import com.example.study_cards.domain.study.constant.SM2Constants;
@@ -349,7 +350,7 @@ public class StudyDomainService {
     }
 
     public boolean isCategoryFullyMastered(User user, Category category) {
-        long totalCardsInCategory = cardRepository.countByCategory(category);
+        long totalCardsInCategory = cardRepository.countByCategoryAndStatus(category, CardStatus.ACTIVE);
         if (totalCardsInCategory == 0) {
             return false;
         }
