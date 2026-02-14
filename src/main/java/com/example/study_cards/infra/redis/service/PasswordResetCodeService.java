@@ -1,12 +1,12 @@
 package com.example.study_cards.infra.redis.service;
 
-import lombok.RequiredArgsConstructor;
+import java.security.SecureRandom;
+import java.util.concurrent.TimeUnit;
+
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
-import java.security.SecureRandom;
-import java.util.Optional;
-import java.util.concurrent.TimeUnit;
+import lombok.RequiredArgsConstructor;
 
 @RequiredArgsConstructor
 @Service
