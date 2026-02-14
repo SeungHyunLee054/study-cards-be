@@ -182,7 +182,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
         void confirmPayment_success() throws Exception {
             CheckoutRequest checkoutRequest = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
                     .set("plan", SubscriptionPlan.PRO)
-                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .set("billingCycle", BillingCycle.YEARLY)
                     .sample();
             String checkoutResponseBody = mockMvc.perform(post("/api/payments/checkout")
                             .header("Authorization", "Bearer " + accessToken)
@@ -233,6 +233,7 @@ class PaymentControllerTest extends BaseIntegrationTest {
                                     fieldWithPath("startDate").type(JsonFieldType.STRING).description("시작일"),
                                     fieldWithPath("endDate").type(JsonFieldType.STRING).description("종료일"),
                                     fieldWithPath("isActive").type(JsonFieldType.BOOLEAN).description("활성화 여부"),
+                                    fieldWithPath("autoRenewalEnabled").type(JsonFieldType.BOOLEAN).description("자동 갱신 활성 여부"),
                                     fieldWithPath("canGenerateAiCards").type(JsonFieldType.BOOLEAN).description("AI 카드 생성 가능 여부"),
                                     fieldWithPath("canUseAiRecommendations").type(JsonFieldType.BOOLEAN).description("AI 복습 추천 사용 가능 여부"),
                                     fieldWithPath("aiGenerationDailyLimit").type(JsonFieldType.NUMBER).description("AI 생성 일일 제한")
@@ -270,6 +271,38 @@ class PaymentControllerTest extends BaseIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isBadRequest());
+        }
+
+        @Test
+        @DisplayName("월간 결제로 결제 확인 요청 시 400을 반환한다")
+        void confirmPayment_withMonthlyPayment_returns400() throws Exception {
+            CheckoutRequest checkoutRequest = fixtureMonkey.giveMeBuilder(CheckoutRequest.class)
+                    .set("plan", SubscriptionPlan.PRO)
+                    .set("billingCycle", BillingCycle.MONTHLY)
+                    .sample();
+            String checkoutResponseBody = mockMvc.perform(post("/api/payments/checkout")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(checkoutRequest)))
+                    .andReturn()
+                    .getResponse()
+                    .getContentAsString();
+
+            String orderId = objectMapper.readTree(checkoutResponseBody).get("orderId").asText();
+            int amount = objectMapper.readTree(checkoutResponseBody).get("amount").asInt();
+
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", "test_payment_key_123")
+                    .set("orderId", orderId)
+                    .set("amount", amount)
+                    .sample();
+
+            mockMvc.perform(post("/api/payments/confirm")
+                            .header("Authorization", "Bearer " + accessToken)
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isBadRequest())
+                    .andExpect(jsonPath("$.status").value(400));
         }
     }
 

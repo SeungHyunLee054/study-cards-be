@@ -141,6 +141,10 @@ public class PaymentService {
             throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND);
         }
 
+        if (payment.getBillingCycle() != BillingCycle.YEARLY) {
+            throw new PaymentException(PaymentErrorCode.PAYMENT_NOT_SUPPORTED_FOR_CYCLE);
+        }
+
         if (payment.isCompleted()) {
             return findExistingSubscription(user.getId());
         }

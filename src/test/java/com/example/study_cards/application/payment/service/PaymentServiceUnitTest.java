@@ -220,6 +220,18 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("결제를 확정한다")
         void confirmPayment_success() {
             // given
+            Payment yearlyPayment = Payment.builder()
+                    .user(testUser)
+                    .orderId(ORDER_ID)
+                    .amount(9900)
+                    .status(PaymentStatus.PENDING)
+                    .type(PaymentType.INITIAL)
+                    .plan(SubscriptionPlan.PRO)
+                    .billingCycle(BillingCycle.YEARLY)
+                    .customerKey(CUSTOMER_KEY)
+                    .build();
+            ReflectionTestUtils.setField(yearlyPayment, "id", 1L);
+
             ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
                     .set("paymentKey", PAYMENT_KEY)
                     .set("orderId", ORDER_ID)
@@ -230,9 +242,9 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     9900, "카드", null, null, null, null
             );
 
-            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(yearlyPayment);
             given(tossPaymentService.confirmPayment(PAYMENT_KEY, ORDER_ID, 9900)).willReturn(tossResponse);
-            given(subscriptionDomainService.createSubscriptionFromPayment(eq(testPayment), isNull()))
+            given(subscriptionDomainService.createSubscriptionFromPayment(eq(yearlyPayment), isNull()))
                     .willReturn(testSubscription);
 
             // when
@@ -240,8 +252,8 @@ class PaymentServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
-            verify(paymentDomainService).completePayment(testPayment, PAYMENT_KEY, "카드");
-            verify(subscriptionDomainService).createSubscriptionFromPayment(eq(testPayment), isNull());
+            verify(paymentDomainService).completePayment(yearlyPayment, PAYMENT_KEY, "카드");
+            verify(subscriptionDomainService).createSubscriptionFromPayment(eq(yearlyPayment), isNull());
         }
 
         @Test
@@ -273,12 +285,24 @@ class PaymentServiceUnitTest extends BaseUnitTest {
         @DisplayName("금액이 일치하지 않으면 예외를 던진다")
         void confirmPayment_amountMismatch_throwsException() {
             // given
+            Payment yearlyPayment = Payment.builder()
+                    .user(testUser)
+                    .orderId(ORDER_ID)
+                    .amount(9900)
+                    .status(PaymentStatus.PENDING)
+                    .type(PaymentType.INITIAL)
+                    .plan(SubscriptionPlan.PRO)
+                    .billingCycle(BillingCycle.YEARLY)
+                    .customerKey(CUSTOMER_KEY)
+                    .build();
+            ReflectionTestUtils.setField(yearlyPayment, "id", 1L);
+
             ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
                     .set("paymentKey", PAYMENT_KEY)
                     .set("orderId", ORDER_ID)
                     .set("amount", 5000)
                     .sample();
-            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(yearlyPayment);
 
             // when & then
             assertThatThrownBy(() -> paymentService.confirmPayment(testUser, request))
@@ -298,7 +322,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .status(PaymentStatus.COMPLETED)
                     .type(PaymentType.INITIAL)
                     .plan(SubscriptionPlan.PRO)
-                    .billingCycle(BillingCycle.MONTHLY)
+                    .billingCycle(BillingCycle.YEARLY)
                     .customerKey(CUSTOMER_KEY)
                     .build();
             ReflectionTestUtils.setField(completedPayment, "id", 1L);
@@ -317,6 +341,24 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(result.plan()).isEqualTo(SubscriptionPlan.PRO);
             assertThat(result.isActive()).isTrue();
+        }
+
+        @Test
+        @DisplayName("월간 결제는 일반 결제 확인을 지원하지 않는다")
+        void confirmPayment_monthlyPayment_throwsException() {
+            // given
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
+            ConfirmPaymentRequest request = fixtureMonkey.giveMeBuilder(ConfirmPaymentRequest.class)
+                    .set("paymentKey", PAYMENT_KEY)
+                    .set("orderId", ORDER_ID)
+                    .set("amount", 9900)
+                    .sample();
+
+            // when & then
+            assertThatThrownBy(() -> paymentService.confirmPayment(testUser, request))
+                    .isInstanceOf(PaymentException.class)
+                    .extracting(e -> ((PaymentException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.PAYMENT_NOT_SUPPORTED_FOR_CYCLE);
         }
     }
 
