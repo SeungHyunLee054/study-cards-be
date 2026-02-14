@@ -20,29 +20,6 @@ public class SubscriptionDomainService {
 
     private final SubscriptionRepository subscriptionRepository;
 
-    public Subscription createSubscription(User user, SubscriptionPlan plan, BillingCycle billingCycle, String customerKey) {
-        if (subscriptionRepository.existsActiveByUserId(user.getId())) {
-            throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
-        }
-
-        validatePurchasablePlan(plan);
-
-        LocalDateTime now = LocalDateTime.now();
-        LocalDateTime endDate = calculateEndDate(now, billingCycle);
-
-        Subscription subscription = Subscription.builder()
-                .user(user)
-                .plan(plan)
-                .status(SubscriptionStatus.PENDING)
-                .billingCycle(billingCycle)
-                .startDate(now)
-                .endDate(endDate)
-                .customerKey(customerKey)
-                .build();
-
-        return subscriptionRepository.save(subscription);
-    }
-
     public SubscriptionPlan getEffectivePlan(User user) {
         if (user.hasRole(Role.ROLE_ADMIN)) {
             return SubscriptionPlan.PRO;
@@ -57,19 +34,8 @@ public class SubscriptionDomainService {
                 .orElseThrow(() -> new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_NOT_FOUND));
     }
 
-    public Subscription getSubscriptionByCustomerKey(String customerKey) {
-        return subscriptionRepository.findByCustomerKey(customerKey)
-                .orElseThrow(() -> new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_NOT_FOUND));
-    }
-
     public boolean hasActiveSubscription(Long userId) {
         return subscriptionRepository.existsActiveByUserId(userId);
-    }
-
-    public void activateSubscription(Subscription subscription, String billingKey) {
-        subscription.activate();
-        subscription.updateBillingKey(billingKey);
-        subscriptionRepository.save(subscription);
     }
 
     public void cancelSubscription(Subscription subscription, String reason) {

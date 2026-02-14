@@ -327,21 +327,4 @@ class BookmarkDomainServiceTest extends BaseUnitTest {
         }
     }
 
-    @Nested
-    @DisplayName("countBookmarks")
-    class CountBookmarksTest {
-
-        @Test
-        @DisplayName("사용자의 북마크 수를 반환한다")
-        void countBookmarks_성공() {
-            // given
-            given(bookmarkRepository.countByUser(testUser)).willReturn(5L);
-
-            // when
-            long result = bookmarkDomainService.countBookmarks(testUser);
-
-            // then
-            assertThat(result).isEqualTo(5L);
-        }
-    }
 }

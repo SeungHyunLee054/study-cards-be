@@ -43,10 +43,6 @@ public class CategoryDomainService {
         return categoryRepository.findAllWithParent();
     }
 
-    public List<Category> findRootCategories() {
-        return categoryRepository.findByParentIsNullAndStatusOrderByDisplayOrder(CategoryStatus.ACTIVE);
-    }
-
     public List<Category> findRootCategoriesWithChildren() {
         return categoryRepository.findRootCategoriesWithChildren();
     }

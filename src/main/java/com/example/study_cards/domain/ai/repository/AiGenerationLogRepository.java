@@ -6,7 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface AiGenerationLogRepository extends JpaRepository<AiGenerationLog, Long> {
 
-    long countByUserIdAndType(Long userId, AiGenerationType type);
-
     long countByUserIdAndTypeAndSuccessTrue(Long userId, AiGenerationType type);
 }

@@ -63,10 +63,6 @@ public class Card extends BaseEntity {
         this.status = CardStatus.ACTIVE;
     }
 
-    public boolean isAiGenerated() {
-        return Boolean.TRUE.equals(aiGenerated);
-    }
-
     public boolean isActive() {
         return this.status == CardStatus.ACTIVE;
     }

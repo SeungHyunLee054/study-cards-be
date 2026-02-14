@@ -736,33 +736,6 @@ class StudyDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("validateSessionActive")
-    class ValidateSessionActiveTest {
-
-        @Test
-        @DisplayName("활성 세션이면 정상 통과한다")
-        void validateSessionActive_active_success() {
-            // when & then (endedAt이 null이므로 예외 없이 통과)
-            studyDomainService.validateSessionActive(testSession);
-        }
-
-        @Test
-        @DisplayName("종료된 세션이면 예외를 발생시킨다")
-        void validateSessionActive_ended_throwsException() {
-            // given
-            testSession.endSession();
-
-            // when & then
-            assertThatThrownBy(() -> studyDomainService.validateSessionActive(testSession))
-                    .isInstanceOf(StudyException.class)
-                    .satisfies(exception -> {
-                        StudyException e = (StudyException) exception;
-                        assertThat(e.getErrorCode()).isEqualTo(StudyErrorCode.SESSION_ALREADY_ENDED);
-                    });
-        }
-    }
-
-    @Nested
     @DisplayName("countDueCards")
     class CountDueCardsTest {
 

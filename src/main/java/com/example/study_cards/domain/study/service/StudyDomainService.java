@@ -334,12 +334,6 @@ public class StudyDomainService {
         }
     }
 
-    public void validateSessionActive(StudySession session) {
-        if (session.getEndedAt() != null) {
-            throw new StudyException(StudyErrorCode.SESSION_ALREADY_ENDED);
-        }
-    }
-
     public List<StudyRecord> findRecordsBySession(StudySession session) {
         return studyRecordRepository.findBySessionWithDetails(session);
     }

@@ -55,18 +55,8 @@ public class PaymentDomainService {
         return paymentRepository.save(payment);
     }
 
-    public Payment getPaymentByOrderId(String orderId) {
-        return paymentRepository.findByOrderId(orderId)
-                .orElseThrow(() -> new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND));
-    }
-
     public Payment getPaymentByOrderIdForUpdate(String orderId) {
         return paymentRepository.findByOrderIdForUpdate(orderId)
-                .orElseThrow(() -> new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND));
-    }
-
-    public Payment getPaymentByPaymentKey(String paymentKey) {
-        return paymentRepository.findByPaymentKey(paymentKey)
                 .orElseThrow(() -> new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND));
     }
 

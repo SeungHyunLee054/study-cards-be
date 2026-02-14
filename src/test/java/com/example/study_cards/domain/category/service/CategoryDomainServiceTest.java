@@ -201,26 +201,6 @@ class CategoryDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("findRootCategories")
-    class FindRootCategoriesTest {
-
-        @Test
-        @DisplayName("루트 카테고리 목록을 조회한다")
-        void findRootCategories_returnsRootCategories() {
-            // given
-            given(categoryRepository.findByParentIsNullAndStatusOrderByDisplayOrder(CategoryStatus.ACTIVE))
-                    .willReturn(List.of(rootCategory));
-
-            // when
-            List<Category> result = categoryDomainService.findRootCategories();
-
-            // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).isRootCategory()).isTrue();
-        }
-    }
-
-    @Nested
     @DisplayName("findByParent")
     class FindByParentTest {
 

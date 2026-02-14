@@ -64,8 +64,4 @@ public class BookmarkDomainService {
     public Page<Bookmark> findBookmarks(User user, Category category, Pageable pageable) {
         return bookmarkRepository.findByUser(user, category, pageable);
     }
-
-    public long countBookmarks(User user) {
-        return bookmarkRepository.countByUser(user);
-    }
 }
