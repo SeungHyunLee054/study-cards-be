@@ -44,7 +44,7 @@ public class PaymentWebhookService {
     public void handleBillingKeyDeleted(DataPayload data) {
         String billingKey = data.billingKey();
         if (billingKey == null) {
-            log.warn("BILLING_KEY_DELETED webhook received without billingKey");
+            log.warn("BILLING_DELETED webhook received without billingKey");
             return;
         }
 
@@ -75,14 +75,40 @@ public class PaymentWebhookService {
     }
 
     private void processPaymentDone(Payment payment, DataPayload data) {
-        if (data.totalAmount() != null && !payment.getAmount().equals(data.totalAmount())) {
-            log.error("Webhook 금액 불일치: orderId={}, expected={}, received={}",
-                    data.orderId(), payment.getAmount(), data.totalAmount());
+        if (data.paymentKey() == null || data.paymentKey().isBlank()) {
+            log.warn("Webhook DONE 이벤트에 paymentKey가 없습니다: orderId={}", data.orderId());
+            return;
+        }
+
+        TossConfirmResponse paymentDetail;
+        try {
+            paymentDetail = tossPaymentService.getPayment(data.paymentKey());
+        } catch (Exception e) {
+            log.warn("Failed to verify webhook payment with Toss API: paymentKey={}, orderId={}",
+                    data.paymentKey(), data.orderId());
+            return;
+        }
+
+        if (!"DONE".equals(paymentDetail.status())) {
+            log.warn("Webhook verification failed: payment is not DONE. paymentKey={}, status={}",
+                    data.paymentKey(), paymentDetail.status());
+            return;
+        }
+
+        if (paymentDetail.orderId() == null || !payment.getOrderId().equals(paymentDetail.orderId())) {
+            log.warn("Webhook orderId mismatch: expected={}, received={}",
+                    payment.getOrderId(), paymentDetail.orderId());
+            return;
+        }
+
+        if (paymentDetail.totalAmount() == null || !payment.getAmount().equals(paymentDetail.totalAmount())) {
+            log.warn("Webhook amount mismatch after Toss verification: orderId={}, expected={}, received={}",
+                    payment.getOrderId(), payment.getAmount(), paymentDetail.totalAmount());
             return;
         }
 
         boolean completed = paymentDomainService.tryCompletePayment(
-                payment, data.paymentKey(), data.method());
+                payment, paymentDetail.paymentKey(), paymentDetail.method());
 
         if (!completed) {
             log.info("Payment already processed, skipping: orderId={}", data.orderId());
@@ -91,15 +117,9 @@ public class PaymentWebhookService {
 
         log.info("Payment completed via webhook: orderId={}", data.orderId());
 
-        // Toss API에서 결제 상세 조회하여 billingKey 추출
         String billingKey = null;
-        try {
-            TossConfirmResponse paymentDetail = tossPaymentService.getPayment(data.paymentKey());
-            if (paymentDetail.card() != null && paymentDetail.card().billingKey() != null) {
-                billingKey = paymentDetail.card().billingKey();
-            }
-        } catch (Exception e) {
-            log.warn("Failed to fetch payment detail for billingKey: paymentKey={}", data.paymentKey());
+        if (paymentDetail.card() != null && paymentDetail.card().billingKey() != null) {
+            billingKey = paymentDetail.card().billingKey();
         }
 
         try {

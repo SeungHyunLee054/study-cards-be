@@ -1,6 +1,7 @@
 package com.example.study_cards.infra.payment.dto.response;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.databind.JsonNode;
 
 @JsonIgnoreProperties(ignoreUnknown = true)
 public record TossConfirmResponse(
@@ -13,7 +14,7 @@ public record TossConfirmResponse(
         String requestedAt,
         String approvedAt,
         CardInfo card,
-        EasyPayInfo easyPay
+        JsonNode easyPay
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record CardInfo(
@@ -22,14 +23,6 @@ public record TossConfirmResponse(
             String cardType,
             String ownerType,
             String billingKey
-    ) {
-    }
-
-    @JsonIgnoreProperties(ignoreUnknown = true)
-    public record EasyPayInfo(
-            String provider,
-            Integer amount,
-            Integer discountAmount
     ) {
     }
 }

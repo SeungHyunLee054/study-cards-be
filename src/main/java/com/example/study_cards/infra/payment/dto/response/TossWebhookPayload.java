@@ -6,7 +6,9 @@ import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 public record TossWebhookPayload(
         String eventType,
         String createdAt,
-        DataPayload data
+        DataPayload data,
+        String billingKey,
+        String reason
 ) {
     @JsonIgnoreProperties(ignoreUnknown = true)
     public record DataPayload(
