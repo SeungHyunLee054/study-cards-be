@@ -173,6 +173,12 @@ public class PaymentWebhookService {
         paymentRepository.findByOrderId(data.orderId())
                 .ifPresentOrElse(
                         payment -> {
+                            if (!payment.isPending()) {
+                                log.info("Payment already processed, skipping failed webhook: orderId={}, status={}",
+                                        data.orderId(), status);
+                                return;
+                            }
+
                             paymentDomainService.failPayment(payment, "Payment " + status.toLowerCase());
                             log.info("Payment {} via webhook: orderId={}", status.toLowerCase(), data.orderId());
 

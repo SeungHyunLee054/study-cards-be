@@ -199,6 +199,21 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 verify(notificationService).sendNotification(
                         eq(user), eq(NotificationType.PAYMENT_FAILED), anyString(), anyString());
             }
+
+            @Test
+            @DisplayName("이미 처리된 결제는 실패 웹훅 알림을 보내지 않는다")
+            void handleFailed_alreadyProcessed_skips() {
+                Payment payment = createCompletedPayment();
+                DataPayload data = createDataPayload("ABORTED", "ORDER_123", "pk_123", "카드");
+
+                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+
+                paymentWebhookService.handlePaymentStatusChanged(data);
+
+                verify(paymentDomainService, never()).failPayment(any(), anyString());
+                verify(notificationService, never()).sendNotification(
+                        any(User.class), eq(NotificationType.PAYMENT_FAILED), anyString(), anyString());
+            }
         }
     }
 
