@@ -2,6 +2,7 @@ package com.example.study_cards.infra.security.oauth;
 
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.user.entity.UserStatus;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -100,7 +101,8 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
 
             doReturn(defaultOAuth2User).when(customOAuth2UserService).loadUser(any(OAuth2UserRequest.class));
 
-            given(userRepository.findByProviderAndProviderId(OAuthProvider.GOOGLE, "google_user_123"))
+            given(userRepository.findByProviderAndProviderIdAndStatus(
+                    OAuthProvider.GOOGLE, "google_user_123", UserStatus.ACTIVE))
                     .willReturn(Optional.of(existingUser));
 
             // when - 직접 호출 대신 내부 로직 테스트
@@ -117,7 +119,8 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
         @DisplayName("신규 OAuth 사용자를 생성한다")
         void loadUser_newUser_createsUser() {
             // given
-            given(userRepository.findByProviderAndProviderId(OAuthProvider.GOOGLE, "google_user_123"))
+            given(userRepository.findByProviderAndProviderIdAndStatus(
+                    OAuthProvider.GOOGLE, "google_user_123", UserStatus.ACTIVE))
                     .willReturn(Optional.empty());
             given(userRepository.existsByEmail("test@gmail.com"))
                     .willReturn(false);
@@ -147,7 +150,8 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
         @DisplayName("이미 존재하는 이메일로 OAuth 가입 시도하면 예외가 발생한다")
         void loadUser_existingEmail_throwsException() {
             // given
-            given(userRepository.findByProviderAndProviderId(OAuthProvider.GOOGLE, "google_user_123"))
+            given(userRepository.findByProviderAndProviderIdAndStatus(
+                    OAuthProvider.GOOGLE, "google_user_123", UserStatus.ACTIVE))
                     .willReturn(Optional.empty());
             given(userRepository.existsByEmail("test@gmail.com"))
                     .willReturn(true);

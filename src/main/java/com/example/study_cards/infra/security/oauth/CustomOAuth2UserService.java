@@ -1,6 +1,7 @@
 package com.example.study_cards.infra.security.oauth;
 
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.user.entity.UserStatus;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import com.example.study_cards.infra.security.oauth.userinfo.OAuth2UserInfo;
 import com.example.study_cards.infra.security.oauth.userinfo.OAuth2UserInfoFactory;
@@ -29,7 +30,11 @@ public class CustomOAuth2UserService extends DefaultOAuth2UserService {
         String registrationId = userRequest.getClientRegistration().getRegistrationId();
         OAuth2UserInfo userInfo = OAuth2UserInfoFactory.getOAuth2UserInfo(registrationId, oAuth2User.getAttributes());
 
-        User user = userRepository.findByProviderAndProviderId(userInfo.getProvider(), userInfo.getProviderId())
+        User user = userRepository.findByProviderAndProviderIdAndStatus(
+                        userInfo.getProvider(),
+                        userInfo.getProviderId(),
+                        UserStatus.ACTIVE
+                )
                 .orElseGet(() -> findOrCreateUser(userInfo));
 
         return new CustomOAuth2User(

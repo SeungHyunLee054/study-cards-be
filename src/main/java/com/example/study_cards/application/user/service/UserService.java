@@ -7,7 +7,10 @@ import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.exception.UserErrorCode;
 import com.example.study_cards.domain.user.exception.UserException;
 import com.example.study_cards.domain.user.service.UserDomainService;
+import com.example.study_cards.infra.redis.service.RefreshTokenService;
+import com.example.study_cards.infra.redis.service.TokenBlacklistService;
 import com.example.study_cards.infra.redis.service.UserCacheService;
+import com.example.study_cards.infra.security.jwt.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -19,6 +22,9 @@ public class UserService {
 
     private final UserDomainService userDomainService;
     private final UserCacheService userCacheService;
+    private final RefreshTokenService refreshTokenService;
+    private final TokenBlacklistService tokenBlacklistService;
+    private final JwtTokenProvider jwtTokenProvider;
 
     public UserResponse getMyInfo(Long userId) {
         User user = userDomainService.findById(userId);
@@ -44,5 +50,17 @@ public class UserService {
 
         userDomainService.validatePassword(request.currentPassword(), user.getPassword());
         userDomainService.changePassword(user, request.newPassword());
+    }
+
+    @Transactional
+    public void withdrawMyAccount(Long userId, String accessToken) {
+        User user = userDomainService.findById(userId);
+
+        long remainingMs = jwtTokenProvider.getRemainingExpiration(accessToken);
+        tokenBlacklistService.blacklistToken(accessToken, remainingMs);
+        refreshTokenService.deleteRefreshToken(userId);
+        userCacheService.evictUser(userId);
+
+        userDomainService.withdraw(user);
     }
 }

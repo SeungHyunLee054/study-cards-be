@@ -1,6 +1,8 @@
 package com.example.study_cards.infra.security.jwt;
 
 import com.example.study_cards.domain.user.entity.Role;
+import com.example.study_cards.domain.user.entity.UserStatus;
+import com.example.study_cards.domain.user.repository.UserRepository;
 import com.example.study_cards.infra.security.exception.JwtErrorCode;
 import com.example.study_cards.infra.security.exception.JwtException;
 import com.example.study_cards.infra.redis.service.TokenBlacklistService;
@@ -30,6 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
+    private final UserRepository userRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -46,6 +49,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 jwtTokenProvider.validateToken(token);
 
                 Long userId = jwtTokenProvider.getUserId(token);
+                userRepository.findByIdAndStatus(userId, UserStatus.ACTIVE)
+                        .orElseThrow(() -> new JwtException(JwtErrorCode.INVALID_TOKEN));
                 String email = jwtTokenProvider.getEmail(token);
                 Set<Role> roles = jwtTokenProvider.getRoles(token);
 

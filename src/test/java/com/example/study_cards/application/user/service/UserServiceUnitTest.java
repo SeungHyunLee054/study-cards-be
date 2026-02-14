@@ -8,7 +8,10 @@ import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.exception.UserErrorCode;
 import com.example.study_cards.domain.user.exception.UserException;
 import com.example.study_cards.domain.user.service.UserDomainService;
+import com.example.study_cards.infra.redis.service.RefreshTokenService;
+import com.example.study_cards.infra.redis.service.TokenBlacklistService;
 import com.example.study_cards.infra.redis.service.UserCacheService;
+import com.example.study_cards.infra.security.jwt.JwtTokenProvider;
 import org.springframework.test.util.ReflectionTestUtils;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -34,6 +37,15 @@ class UserServiceUnitTest extends BaseUnitTest {
     @Mock
     private UserCacheService userCacheService;
 
+    @Mock
+    private RefreshTokenService refreshTokenService;
+
+    @Mock
+    private TokenBlacklistService tokenBlacklistService;
+
+    @Mock
+    private JwtTokenProvider jwtTokenProvider;
+
     @InjectMocks
     private UserService userService;
 
@@ -44,6 +56,7 @@ class UserServiceUnitTest extends BaseUnitTest {
     private static final String NICKNAME = "testUser";
     private static final String PASSWORD = "encodedPassword";
     private static final String NEW_NICKNAME = "newNickname";
+    private static final String ACCESS_TOKEN = "access-token";
 
     @BeforeEach
     void setUp() {
@@ -166,6 +179,44 @@ class UserServiceUnitTest extends BaseUnitTest {
                     .isInstanceOf(UserException.class)
                     .extracting("errorCode")
                     .isEqualTo(UserErrorCode.INVALID_PASSWORD);
+        }
+    }
+
+    @Nested
+    @DisplayName("withdrawMyAccount")
+    class WithdrawMyAccountTest {
+
+        @Test
+        @DisplayName("회원 탈퇴 시 토큰 정리 후 탈퇴 처리한다")
+        void withdrawMyAccount_success() {
+            // given
+            given(userDomainService.findById(USER_ID)).willReturn(testUser);
+            given(jwtTokenProvider.getRemainingExpiration(ACCESS_TOKEN)).willReturn(1000L);
+
+            // when
+            userService.withdrawMyAccount(USER_ID, ACCESS_TOKEN);
+
+            // then
+            verify(tokenBlacklistService).blacklistToken(ACCESS_TOKEN, 1000L);
+            verify(refreshTokenService).deleteRefreshToken(USER_ID);
+            verify(userCacheService).evictUser(USER_ID);
+            verify(userDomainService).withdraw(testUser);
+        }
+
+        @Test
+        @DisplayName("이미 탈퇴한 사용자면 예외가 발생한다")
+        void withdrawMyAccount_alreadyWithdrawn_throwsException() {
+            // given
+            given(userDomainService.findById(USER_ID)).willReturn(testUser);
+            given(jwtTokenProvider.getRemainingExpiration(ACCESS_TOKEN)).willReturn(1000L);
+            doThrow(new UserException(UserErrorCode.USER_ALREADY_WITHDRAWN))
+                    .when(userDomainService).withdraw(testUser);
+
+            // when & then
+            assertThatThrownBy(() -> userService.withdrawMyAccount(USER_ID, ACCESS_TOKEN))
+                    .isInstanceOf(UserException.class)
+                    .extracting("errorCode")
+                    .isEqualTo(UserErrorCode.USER_ALREADY_WITHDRAWN);
         }
     }
 }

@@ -6,6 +6,7 @@ import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.service.AuthService;
 import com.example.study_cards.application.user.dto.request.PasswordChangeRequest;
 import com.example.study_cards.application.user.dto.request.UserUpdateRequest;
+import com.example.study_cards.domain.user.entity.UserStatus;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.repository.UserRepository;
 import com.example.study_cards.support.BaseIntegrationTest;
@@ -28,6 +29,7 @@ import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
 import static org.springframework.restdocs.payload.PayloadDocumentation.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -48,6 +50,7 @@ class UserControllerTest extends BaseIntegrationTest {
     private UserRepository userRepository;
 
     private String accessToken;
+    private Long userId;
 
     private static final String EMAIL = "test@example.com";
     private static final String PASSWORD = "password123";
@@ -72,6 +75,10 @@ class UserControllerTest extends BaseIntegrationTest {
                 .sample();
         TokenResult tokenResult = authService.signIn(signInRequest);
         accessToken = tokenResult.accessToken();
+
+        userId = userRepository.findByEmail(EMAIL)
+                .map(User::getId)
+                .orElseThrow();
     }
 
     private void verifyUserEmail(String email) {
@@ -247,6 +254,36 @@ class UserControllerTest extends BaseIntegrationTest {
             mockMvc.perform(patch("/api/users/me/password")
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("DELETE /api/users/me")
+    class WithdrawMyAccountEndpointTest {
+
+        @Test
+        @DisplayName("회원 탈퇴 성공 시 204 No Content를 반환한다")
+        void withdrawMyAccount_success_returns204() throws Exception {
+            mockMvc.perform(delete("/api/users/me")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isNoContent())
+                    .andDo(document("user/withdraw-my-account",
+                            preprocessRequest(prettyPrint()),
+                            preprocessResponse(prettyPrint()),
+                            requestHeaders(
+                                    headerWithName("Authorization").description("Bearer 액세스 토큰")
+                            )
+                    ));
+
+            User withdrawnUser = userRepository.findById(userId).orElseThrow();
+            org.assertj.core.api.Assertions.assertThat(withdrawnUser.getStatus()).isEqualTo(UserStatus.WITHDRAWN);
+        }
+
+        @Test
+        @DisplayName("인증되지 않은 요청은 401 Unauthorized를 반환한다")
+        void withdrawMyAccount_withoutAuth_returns401() throws Exception {
+            mockMvc.perform(delete("/api/users/me"))
                     .andExpect(status().isUnauthorized());
         }
     }

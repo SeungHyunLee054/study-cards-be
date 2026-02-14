@@ -1,6 +1,8 @@
 package com.example.study_cards.application.user.controller;
 
 import com.example.study_cards.application.auth.dto.response.UserResponse;
+import com.example.study_cards.application.auth.exception.AuthErrorCode;
+import com.example.study_cards.application.auth.exception.AuthException;
 import com.example.study_cards.application.user.dto.request.PasswordChangeRequest;
 import com.example.study_cards.application.user.dto.request.UserUpdateRequest;
 import com.example.study_cards.application.user.service.UserService;
@@ -37,5 +39,20 @@ public class UserController {
             @Valid @RequestBody PasswordChangeRequest request) {
         userService.changePassword(userDetails.userId(), request);
         return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> withdrawMyAccount(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestHeader("Authorization") String authorization) {
+        userService.withdrawMyAccount(userDetails.userId(), extractBearerToken(authorization));
+        return ResponseEntity.noContent().build();
+    }
+
+    private String extractBearerToken(String authorization) {
+        if (authorization == null || !authorization.startsWith("Bearer ")) {
+            throw new AuthException(AuthErrorCode.INVALID_TOKEN);
+        }
+        return authorization.substring(7);
     }
 }
