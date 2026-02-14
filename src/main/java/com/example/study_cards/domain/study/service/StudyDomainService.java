@@ -24,7 +24,6 @@ import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
-import java.util.stream.Collectors;
 
 import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
 import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryCount;
@@ -126,36 +125,6 @@ public class StudyDomainService {
         return result.size() > limit ? result.subList(0, limit) : result;
     }
 
-    public List<Card> findTodayStudyCards(User user, Category category, int limit) {
-        LocalDate today = LocalDate.now();
-
-        List<StudyRecord> dueRecords = studyRecordRepository.findDueRecordsByCategory(user, today, category);
-        List<Card> dueCards = dueRecords.stream()
-                .map(StudyRecord::getCard)
-                .limit(limit)
-                .collect(Collectors.toList());
-
-        if (dueCards.size() >= limit) {
-            return dueCards;
-        }
-
-        List<Long> studiedCardIds = studyRecordRepository.findStudiedCardIdsByUser(user);
-        List<Card> newCards = (category != null
-                ? cardRepository.findByCategoryOrderByEfFactorAsc(category)
-                : cardRepository.findAllByOrderByEfFactorAsc())
-                .stream()
-                .filter(card -> !studiedCardIds.contains(card.getId()))
-                .limit(limit - dueCards.size())
-                .collect(Collectors.toList());
-
-        dueCards.addAll(newCards);
-        return dueCards;
-    }
-
-    public List<Card> findTodayStudyCards(User user, Category category) {
-        return findTodayStudyCards(user, category, DEFAULT_STUDY_LIMIT);
-    }
-
     public StudyRecord processAnswer(User user, Card card, StudySession session, Boolean isCorrect) {
         Optional<StudyRecord> existingRecord = studyRecordRepository.findByUserAndCard(user, card);
 
@@ -215,39 +184,6 @@ public class StudyDomainService {
             int prevInterval = (int) Math.round(SM2Constants.SECOND_INTERVAL * Math.pow(efFactor, repetitionCount - 3));
             return (int) Math.round(prevInterval * efFactor);
         }
-    }
-
-    public List<UserCard> findTodayUserCardsForStudy(User user, Category category, int limit) {
-        LocalDate today = LocalDate.now();
-
-        List<StudyRecord> dueRecords = category != null
-                ? studyRecordRepository.findDueUserCardRecordsByCategory(user, today, category)
-                : studyRecordRepository.findDueUserCardRecords(user, today);
-
-        List<UserCard> dueCards = dueRecords.stream()
-                .map(StudyRecord::getUserCard)
-                .limit(limit)
-                .collect(Collectors.toList());
-
-        if (dueCards.size() >= limit) {
-            return dueCards;
-        }
-
-        List<Long> studiedUserCardIds = studyRecordRepository.findStudiedUserCardIdsByUser(user);
-        List<UserCard> newCards = (category != null
-                ? userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category)
-                : userCardRepository.findByUserOrderByEfFactorAsc(user))
-                .stream()
-                .filter(card -> !studiedUserCardIds.contains(card.getId()))
-                .limit(limit - dueCards.size())
-                .collect(Collectors.toList());
-
-        dueCards.addAll(newCards);
-        return dueCards;
-    }
-
-    public List<UserCard> findTodayUserCardsForStudy(User user, Category category) {
-        return findTodayUserCardsForStudy(user, category, DEFAULT_STUDY_LIMIT);
     }
 
     public StudyRecord processUserCardAnswer(User user, UserCard userCard, StudySession session, Boolean isCorrect) {

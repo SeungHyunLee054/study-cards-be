@@ -30,15 +30,6 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
     }
 
     @Override
-    public List<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category) {
-        return queryFactory
-                .selectFrom(userCard)
-                .where(userCard.user.eq(user), userCard.category.eq(category))
-                .orderBy(userCard.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .fetch();
-    }
-
-    @Override
     public List<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories) {
         if (categories == null || categories.isEmpty()) {
             return List.of();
@@ -66,26 +57,6 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .select(userCard.count())
                 .from(userCard)
                 .where(userCard.user.eq(user))
-                .fetchOne();
-
-        return new PageImpl<>(content, pageable, total != null ? total : 0L);
-    }
-
-    @Override
-    public Page<UserCard> findByUserAndCategoryWithCategory(User user, Category category, Pageable pageable) {
-        List<UserCard> content = queryFactory
-                .selectFrom(userCard)
-                .join(userCard.category).fetchJoin()
-                .where(userCard.user.eq(user), userCard.category.eq(category))
-                .orderBy(userCard.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
-
-        Long total = queryFactory
-                .select(userCard.count())
-                .from(userCard)
-                .where(userCard.user.eq(user), userCard.category.eq(category))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
@@ -130,26 +101,6 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .select(userCard.count())
                 .from(userCard)
                 .where(userCard.user.eq(user))
-                .fetchOne();
-
-        return new PageImpl<>(content, pageable, total != null ? total : 0L);
-    }
-
-    @Override
-    public Page<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category, Pageable pageable) {
-        List<UserCard> content = queryFactory
-                .selectFrom(userCard)
-                .join(userCard.category).fetchJoin()
-                .where(userCard.user.eq(user), userCard.category.eq(category))
-                .orderBy(userCard.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
-
-        Long total = queryFactory
-                .select(userCard.count())
-                .from(userCard)
-                .where(userCard.user.eq(user), userCard.category.eq(category))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
@@ -213,16 +164,6 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .select(userCard.count())
                 .from(userCard)
                 .where(userCard.user.eq(user))
-                .fetchOne();
-        return count != null ? count : 0L;
-    }
-
-    @Override
-    public long countByUserAndCategory(User user, Category category) {
-        Long count = queryFactory
-                .select(userCard.count())
-                .from(userCard)
-                .where(userCard.user.eq(user), userCard.category.eq(category))
                 .fetchOne();
         return count != null ? count : 0L;
     }

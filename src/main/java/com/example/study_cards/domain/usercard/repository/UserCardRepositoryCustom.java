@@ -12,25 +12,17 @@ public interface UserCardRepositoryCustom {
 
     List<UserCard> findByUserOrderByEfFactorAsc(User user);
 
-    List<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category);
-
     List<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories);
 
     Page<UserCard> findByUserWithCategory(User user, Pageable pageable);
-
-    Page<UserCard> findByUserAndCategoryWithCategory(User user, Category category, Pageable pageable);
 
     Page<UserCard> findByUserAndCategoriesWithCategory(User user, List<Category> categories, Pageable pageable);
 
     Page<UserCard> findByUserOrderByEfFactorAsc(User user, Pageable pageable);
 
-    Page<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category, Pageable pageable);
-
     Page<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories, Pageable pageable);
 
     long countByUser(User user);
-
-    long countByUserAndCategory(User user, Category category);
 
     long countByUserAndCategories(User user, List<Category> categories);
 

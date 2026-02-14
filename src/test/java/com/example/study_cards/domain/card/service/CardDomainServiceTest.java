@@ -195,25 +195,6 @@ class CardDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("findCardsForStudyByCategory")
-    class FindCardsForStudyByCategoryTest {
-
-        @Test
-        @DisplayName("카테고리별로 efFactor 오름차순으로 카드를 조회한다")
-        void findCardsForStudyByCategory_returnsSortedByEfFactor() {
-            // given
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(testCategory)).willReturn(List.of(testCard));
-
-            // when
-            List<Card> result = cardDomainService.findCardsForStudyByCategory(testCategory);
-
-            // then
-            assertThat(result).hasSize(1);
-            verify(cardRepository).findByCategoryOrderByEfFactorAsc(testCategory);
-        }
-    }
-
-    @Nested
     @DisplayName("updateCard")
     class UpdateCardTest {
 

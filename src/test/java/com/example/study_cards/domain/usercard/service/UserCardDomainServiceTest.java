@@ -184,26 +184,6 @@ class UserCardDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("findByUserAndCategory")
-    class FindByUserAndCategoryTest {
-
-        @Test
-        @DisplayName("사용자의 카테고리별 카드 목록을 조회한다")
-        void findByUserAndCategory_success() {
-            // given
-            List<UserCard> cards = List.of(testUserCard);
-            given(userCardRepository.findByUserAndCategory(testUser, testCategory)).willReturn(cards);
-
-            // when
-            List<UserCard> result = userCardDomainService.findByUserAndCategory(testUser, testCategory);
-
-            // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0).getCategory().getCode()).isEqualTo("CS");
-        }
-    }
-
-    @Nested
     @DisplayName("updateUserCard")
     class UpdateUserCardTest {
 

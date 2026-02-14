@@ -51,10 +51,6 @@ public class CardDomainService {
         return cardRepository.findAllByOrderByEfFactorAsc();
     }
 
-    public List<Card> findCardsForStudyByCategory(Category category) {
-        return cardRepository.findByCategoryOrderByEfFactorAsc(category);
-    }
-
     public Card updateCard(Long id, String question, String questionSub, String answer, String answerSub, Category category) {
         Card card = findById(id);
         card.update(question, questionSub, answer, answerSub, category);
@@ -73,10 +69,6 @@ public class CardDomainService {
         return cardRepository.countByStatus(CardStatus.ACTIVE);
     }
 
-    public long countByCategory(Category category) {
-        return cardRepository.countByCategoryAndStatus(category, CardStatus.ACTIVE);
-    }
-
     public long countByCategories(List<Category> categories) {
         if (categories == null || categories.isEmpty()) {
             return 0L;
@@ -88,20 +80,12 @@ public class CardDomainService {
         return cardRepository.findAllWithCategory(pageable);
     }
 
-    public Page<Card> findByCategory(Category category, Pageable pageable) {
-        return cardRepository.findByCategoryWithCategory(category, pageable);
-    }
-
     public Page<Card> findByCategories(List<Category> categories, Pageable pageable) {
         return cardRepository.findByCategoriesWithCategory(categories, pageable);
     }
 
     public Page<Card> findCardsForStudy(Pageable pageable) {
         return cardRepository.findAllByOrderByEfFactorAscWithCategory(pageable);
-    }
-
-    public Page<Card> findCardsForStudyByCategory(Category category, Pageable pageable) {
-        return cardRepository.findByCategoryOrderByEfFactorAscWithCategory(category, pageable);
     }
 
     public Page<Card> findCardsForStudyByCategories(List<Category> categories, Pageable pageable) {

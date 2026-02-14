@@ -234,8 +234,8 @@ class DashboardServiceUnitTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("카테고리 진행률을 상위 5개만 반환한다")
-        void getDashboard_categoryProgress_limitsToTop5() {
+        @DisplayName("카테고리 진행률을 전체 카테고리로 반환한다")
+        void getDashboard_categoryProgress_returnsAllCategories() {
             // given
             setupBasicMocks();
             given(categoryDomainService.findAll()).willReturn(List.of(
@@ -259,7 +259,7 @@ class DashboardServiceUnitTest extends BaseUnitTest {
             DashboardResponse result = dashboardService.getDashboard(testUser);
 
             // then
-            assertThat(result.categoryProgress()).hasSize(5);
+            assertThat(result.categoryProgress()).hasSize(6);
         }
 
         private void setupBasicMocks() {

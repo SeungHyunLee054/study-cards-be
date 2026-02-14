@@ -55,19 +55,6 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
-    public List<Card> findByCategoryOrderByEfFactorAsc(Category category) {
-        return queryFactory
-                .selectFrom(card)
-                .where(
-                        card.category.eq(category),
-                        card.status.eq(CardStatus.ACTIVE),
-                        card.category.status.eq(CategoryStatus.ACTIVE)
-                )
-                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .fetch();
-    }
-
-    @Override
     public List<Card> findByCategoriesOrderByEfFactorAsc(List<Category> categories) {
         if (categories == null || categories.isEmpty()) {
             return List.of();
@@ -77,20 +64,6 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
                 .selectFrom(card)
                 .where(
                         card.category.in(categories),
-                        card.status.eq(CardStatus.ACTIVE),
-                        card.category.status.eq(CategoryStatus.ACTIVE)
-                )
-                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .fetch();
-    }
-
-    @Override
-    public List<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category) {
-        return queryFactory
-                .selectFrom(card)
-                .join(card.category).fetchJoin()
-                .where(
-                        card.category.eq(category),
                         card.status.eq(CardStatus.ACTIVE),
                         card.category.status.eq(CategoryStatus.ACTIVE)
                 )
@@ -157,34 +130,6 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
-    public Page<Card> findByCategoryWithCategory(Category category, Pageable pageable) {
-        List<Card> content = queryFactory
-                .selectFrom(card)
-                .join(card.category).fetchJoin()
-                .where(
-                        card.category.eq(category),
-                        card.status.eq(CardStatus.ACTIVE),
-                        card.category.status.eq(CategoryStatus.ACTIVE)
-                )
-                .orderBy(card.createdAt.desc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
-
-        Long total = queryFactory
-                .select(card.count())
-                .from(card)
-                .where(
-                        card.category.eq(category),
-                        card.status.eq(CardStatus.ACTIVE),
-                        card.category.status.eq(CategoryStatus.ACTIVE)
-                )
-                .fetchOne();
-
-        return new PageImpl<>(content, pageable, total != null ? total : 0L);
-    }
-
-    @Override
     public Page<Card> findByCategoriesWithCategory(List<Category> categories, Pageable pageable) {
         if (categories == null || categories.isEmpty()) {
             return new PageImpl<>(List.of(), pageable, 0);
@@ -234,34 +179,6 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
                 .select(card.count())
                 .from(card)
                 .where(
-                        card.status.eq(CardStatus.ACTIVE),
-                        card.category.status.eq(CategoryStatus.ACTIVE)
-                )
-                .fetchOne();
-
-        return new PageImpl<>(content, pageable, total != null ? total : 0L);
-    }
-
-    @Override
-    public Page<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category, Pageable pageable) {
-        List<Card> content = queryFactory
-                .selectFrom(card)
-                .join(card.category).fetchJoin()
-                .where(
-                        card.category.eq(category),
-                        card.status.eq(CardStatus.ACTIVE),
-                        card.category.status.eq(CategoryStatus.ACTIVE)
-                )
-                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
-                .offset(pageable.getOffset())
-                .limit(pageable.getPageSize())
-                .fetch();
-
-        Long total = queryFactory
-                .select(card.count())
-                .from(card)
-                .where(
-                        card.category.eq(category),
                         card.status.eq(CardStatus.ACTIVE),
                         card.category.status.eq(CategoryStatus.ACTIVE)
                 )

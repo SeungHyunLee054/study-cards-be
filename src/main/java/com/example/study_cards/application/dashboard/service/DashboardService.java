@@ -21,8 +21,6 @@ import static com.example.study_cards.domain.study.repository.StudyRecordReposit
 @Transactional(readOnly = true)
 public class DashboardService {
 
-    private static final int TOP_CATEGORIES_LIMIT = 5;
-
     private final StudyDomainService studyDomainService;
     private final CardDomainService cardDomainService;
     private final CategoryDomainService categoryDomainService;
@@ -94,7 +92,7 @@ public class DashboardService {
             return Long.compare(b.totalCards(), a.totalCards());
         });
 
-        return progressList.stream().limit(TOP_CATEGORIES_LIMIT).toList();
+        return progressList;
     }
 
     private List<RecentActivitySummary> buildRecentActivity(User user) {

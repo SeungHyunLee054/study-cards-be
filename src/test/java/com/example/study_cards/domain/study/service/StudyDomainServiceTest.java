@@ -260,49 +260,6 @@ class StudyDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
-    @DisplayName("findTodayStudyCards")
-    class FindTodayStudyCardsTest {
-
-        @Test
-        @DisplayName("복습할 카드가 충분하면 복습 카드만 반환한다")
-        void findTodayStudyCards_withEnoughDueCards_returnsDueCardsOnly() {
-            // given
-            StudyRecord dueRecord = StudyRecord.builder()
-                    .user(testUser)
-                    .card(testCard)
-                    .build();
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
-                    .willReturn(List.of(dueRecord));
-
-            // when
-            List<Card> result = studyDomainService.findTodayStudyCards(testUser, testCategory, 1);
-
-            // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0)).isEqualTo(testCard);
-        }
-
-        @Test
-        @DisplayName("복습할 카드가 부족하면 새 카드를 추가한다")
-        void findTodayStudyCards_withNotEnoughDueCards_addsNewCards() {
-            // given
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
-                    .willReturn(Collections.emptyList());
-            given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
-                    .willReturn(Collections.emptyList());
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(eq(testCategory)))
-                    .willReturn(List.of(testCard));
-
-            // when
-            List<Card> result = studyDomainService.findTodayStudyCards(testUser, testCategory, 20);
-
-            // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0)).isEqualTo(testCard);
-        }
-    }
-
-    @Nested
     @DisplayName("processAnswer")
     class ProcessAnswerTest {
 
@@ -392,48 +349,6 @@ class StudyDomainServiceTest extends BaseUnitTest {
 
             // then
             assertThat(interval).isGreaterThan(6);
-        }
-    }
-
-    @Nested
-    @DisplayName("findTodayUserCardsForStudy")
-    class FindTodayUserCardsForStudyTest {
-
-        @Test
-        @DisplayName("사용자 카드를 조회한다")
-        void findTodayUserCardsForStudy_returnsUserCards() {
-            // given
-            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
-                    .willReturn(Collections.emptyList());
-            given(studyRecordRepository.findStudiedUserCardIdsByUser(testUser))
-                    .willReturn(Collections.emptyList());
-            given(userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(testUser, testCategory))
-                    .willReturn(List.of(testUserCard));
-
-            // when
-            List<UserCard> result = studyDomainService.findTodayUserCardsForStudy(testUser, testCategory, 20);
-
-            // then
-            assertThat(result).hasSize(1);
-            assertThat(result.get(0)).isEqualTo(testUserCard);
-        }
-
-        @Test
-        @DisplayName("카테고리 없이 모든 사용자 카드를 조회한다")
-        void findTodayUserCardsForStudy_withoutCategory_returnsAllUserCards() {
-            // given
-            given(studyRecordRepository.findDueUserCardRecords(any(), any()))
-                    .willReturn(Collections.emptyList());
-            given(studyRecordRepository.findStudiedUserCardIdsByUser(testUser))
-                    .willReturn(Collections.emptyList());
-            given(userCardRepository.findByUserOrderByEfFactorAsc(testUser))
-                    .willReturn(List.of(testUserCard));
-
-            // when
-            List<UserCard> result = studyDomainService.findTodayUserCardsForStudy(testUser, null, 20);
-
-            // then
-            assertThat(result).hasSize(1);
         }
     }
 
