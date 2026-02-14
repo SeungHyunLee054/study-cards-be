@@ -31,7 +31,7 @@ include::{snippets}/auth/signup/http-response.adoc[]
 
 `POST /api/auth/signin`
 
-로그인하여 액세스 토큰을 발급받습니다. 리프레시 토큰은 쿠키로 전달됩니다.
+로그인하여 액세스 토큰(30분, `expiresIn` ms 단위)을 발급받습니다. 리프레시 토큰은 쿠키(`Refresh_Token`)로 전달됩니다.
 
 ==== 요청
 
@@ -81,7 +81,7 @@ include::{snippets}/auth/signout/http-response.adoc[]
 
 `POST /api/auth/refresh`
 
-리프레시 토큰을 사용하여 새로운 액세스 토큰을 발급받습니다.
+리프레시 토큰 쿠키(`Refresh_Token`)를 사용하여 새로운 액세스 토큰을 발급받습니다. `Authorization` 헤더는 필수가 아닙니다.
 
 ==== 요청 쿠키
 

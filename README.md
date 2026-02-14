@@ -96,6 +96,14 @@ Swagger UI: `/swagger-ui.html`
 
 상세 API 명세: [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md)
 
+### 인증/토큰 정책
+
+| 항목 | 값 |
+|------|----|
+| Access Token | 30분 (`expiresIn`: `1800000` ms) |
+| Refresh Token | 14일 (`HttpOnly` 쿠키 `Refresh_Token`) |
+| 토큰 갱신 API | `POST /api/auth/refresh` (Refresh 쿠키 필요, `Authorization` 헤더 불필요) |
+
 ### 주요 API
 
 | API | 설명 |

@@ -36,6 +36,14 @@
 Authorization: Bearer {accessToken}
 ```
 
+### 토큰 정책
+
+| 항목 | 값 |
+|------|----|
+| Access Token 만료 | 30분 (`expiresIn`: `1800000` ms) |
+| Refresh Token 만료 | 14일 (HttpOnly 쿠키) |
+| Refresh 쿠키 이름 | `Refresh_Token` |
+
 ### Rate Limiting
 
 인증 관련 엔드포인트에는 Rate Limiting이 적용됩니다.
@@ -137,11 +145,12 @@ POST /api/auth/signin
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tokenType": "Bearer",
-  "expiresIn": 900
+  "expiresIn": 1800000
 }
 ```
 
-> **Note**: Refresh Token은 HttpOnly 쿠키로 설정됨
+> **Note**: `expiresIn` 단위는 초(second)가 아닌 밀리초(ms)입니다.
+> **Note**: Refresh Token은 `Refresh_Token` HttpOnly 쿠키로 설정됩니다.
 
 ---
 
@@ -164,14 +173,15 @@ Authorization: Bearer {accessToken}
 POST /api/auth/refresh
 ```
 
-> Refresh Token 쿠키 필요
+> `Refresh_Token` 쿠키 필요
+> `Authorization` 헤더는 필수가 아닙니다.
 
 **Response** `200 OK`
 ```json
 {
   "accessToken": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "tokenType": "Bearer",
-  "expiresIn": 900
+  "expiresIn": 1800000
 }
 ```
 
