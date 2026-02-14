@@ -56,7 +56,7 @@ public class StatsService {
     }
 
     private List<DeckStats> calculateDeckStats(User user, LocalDate today) {
-        List<Category> allCategories = categoryDomainService.findAll();
+        List<Category> allCategories = categoryDomainService.findLeafCategories();
 
         // 카테고리별 전체 카드 수
         Map<String, Long> totalByCategory = new HashMap<>();

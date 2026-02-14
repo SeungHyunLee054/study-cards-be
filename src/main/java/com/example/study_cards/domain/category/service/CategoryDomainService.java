@@ -16,8 +16,10 @@ import org.springframework.stereotype.Service;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 @Service
 @RequiredArgsConstructor
@@ -45,6 +47,19 @@ public class CategoryDomainService {
 
     public List<Category> findAll() {
         return categoryRepository.findAllWithParent();
+    }
+
+    public List<Category> findLeafCategories() {
+        List<Category> allCategories = categoryRepository.findAllWithParent();
+        Set<Long> parentIds = allCategories.stream()
+                .map(Category::getParent)
+                .filter(parent -> parent != null)
+                .map(Category::getId)
+                .collect(HashSet::new, HashSet::add, HashSet::addAll);
+
+        return allCategories.stream()
+                .filter(category -> !parentIds.contains(category.getId()))
+                .toList();
     }
 
     public List<Category> findRootCategoriesWithChildren() {

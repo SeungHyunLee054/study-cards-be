@@ -90,7 +90,7 @@ class StatsServiceUnitTest extends BaseUnitTest {
             given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(100L, 80L));
 
-            given(categoryDomainService.findAll()).willReturn(List.of(testCategory));
+            given(categoryDomainService.findLeafCategories()).willReturn(List.of(testCategory));
             given(cardDomainService.countAllByCategory()).willReturn(List.of(new CategoryCount(CATEGORY_ID, "CS", 50L)));
             given(studyDomainService.countStudiedByCategory(testUser))
                     .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 30L)));
@@ -126,7 +126,7 @@ class StatsServiceUnitTest extends BaseUnitTest {
             given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(0L, 0L));
 
-            given(categoryDomainService.findAll()).willReturn(List.of(testCategory));
+            given(categoryDomainService.findLeafCategories()).willReturn(List.of(testCategory));
             given(cardDomainService.countAllByCategory()).willReturn(List.of(new CategoryCount(CATEGORY_ID, "CS", 50L)));
             given(studyDomainService.countStudiedByCategory(testUser)).willReturn(Collections.emptyList());
             given(studyDomainService.countLearningByCategory(testUser)).willReturn(Collections.emptyList());
@@ -157,7 +157,7 @@ class StatsServiceUnitTest extends BaseUnitTest {
             given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(0L, 0L));
 
-            given(categoryDomainService.findAll()).willReturn(List.of(testCategory));
+            given(categoryDomainService.findLeafCategories()).willReturn(List.of(testCategory));
             given(cardDomainService.countAllByCategory()).willReturn(List.of(new CategoryCount(CATEGORY_ID, "CS", 100L)));
             given(studyDomainService.countStudiedByCategory(testUser))
                     .willReturn(List.of(new StudyRecordRepositoryCustom.CategoryCount(CATEGORY_ID, "CS", 40L)));
@@ -195,7 +195,7 @@ class StatsServiceUnitTest extends BaseUnitTest {
             given(studyDomainService.countTotalAndCorrect(testUser))
                     .willReturn(new StudyRecordRepositoryCustom.TotalAndCorrect(0L, 0L));
 
-            given(categoryDomainService.findAll()).willReturn(Collections.emptyList());
+            given(categoryDomainService.findLeafCategories()).willReturn(Collections.emptyList());
             given(cardDomainService.countAllByCategory()).willReturn(Collections.emptyList());
             given(studyDomainService.countStudiedByCategory(testUser)).willReturn(Collections.emptyList());
             given(studyDomainService.countLearningByCategory(testUser)).willReturn(Collections.emptyList());
