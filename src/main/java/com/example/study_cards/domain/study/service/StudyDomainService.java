@@ -68,12 +68,20 @@ public class StudyDomainService {
     }
 
     public List<StudyCardItem> findTodayAllStudyCards(User user, Category category, int limit) {
+        return findTodayAllStudyCards(user, category != null ? List.of(category) : null, limit);
+    }
+
+    public List<StudyCardItem> findTodayAllStudyCards(User user, List<Category> categories, int limit) {
         LocalDate today = LocalDate.now();
 
-        List<StudyRecord> dueUserCardRecords = category != null
-                ? studyRecordRepository.findDueUserCardRecordsByCategory(user, today, category)
+        boolean hasCategoryScope = categories != null && !categories.isEmpty();
+
+        List<StudyRecord> dueUserCardRecords = hasCategoryScope
+                ? studyRecordRepository.findDueUserCardRecordsByCategories(user, today, categories)
                 : studyRecordRepository.findDueUserCardRecords(user, today);
-        List<StudyRecord> dueCardRecords = studyRecordRepository.findDueRecordsByCategory(user, today, category);
+        List<StudyRecord> dueCardRecords = hasCategoryScope
+                ? studyRecordRepository.findDueRecordsByCategories(user, today, categories)
+                : studyRecordRepository.findDueRecordsByCategory(user, today, null);
 
         List<StudyCardItem> result = new java.util.ArrayList<>();
 
@@ -92,8 +100,8 @@ public class StudyDomainService {
         }
 
         List<Long> studiedUserCardIds = studyRecordRepository.findStudiedUserCardIdsByUser(user);
-        List<UserCard> newUserCards = (category != null
-                ? userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category)
+        List<UserCard> newUserCards = (hasCategoryScope
+                ? userCardRepository.findByUserAndCategoriesOrderByEfFactorAsc(user, categories)
                 : userCardRepository.findByUserOrderByEfFactorAsc(user))
                 .stream()
                 .filter(uc -> !studiedUserCardIds.contains(uc.getId()))
@@ -106,8 +114,8 @@ public class StudyDomainService {
         }
 
         List<Long> studiedCardIds = studyRecordRepository.findStudiedCardIdsByUser(user);
-        List<Card> newCards = (category != null
-                ? cardRepository.findByCategoryOrderByEfFactorAsc(category)
+        List<Card> newCards = (hasCategoryScope
+                ? cardRepository.findByCategoriesOrderByEfFactorAsc(categories)
                 : cardRepository.findAllByOrderByEfFactorAsc())
                 .stream()
                 .filter(card -> !studiedCardIds.contains(card.getId()))

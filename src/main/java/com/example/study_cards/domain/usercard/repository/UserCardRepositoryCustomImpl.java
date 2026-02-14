@@ -39,6 +39,19 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
     }
 
     @Override
+    public List<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+                .selectFrom(userCard)
+                .where(userCard.user.eq(user), userCard.category.in(categories))
+                .orderBy(userCard.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
+                .fetch();
+    }
+
+    @Override
     public Page<UserCard> findByUserWithCategory(User user, Pageable pageable) {
         List<UserCard> content = queryFactory
                 .selectFrom(userCard)
@@ -73,6 +86,30 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .select(userCard.count())
                 .from(userCard)
                 .where(userCard.user.eq(user), userCard.category.eq(category))
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public Page<UserCard> findByUserAndCategoriesWithCategory(User user, List<Category> categories, Pageable pageable) {
+        if (categories == null || categories.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<UserCard> content = queryFactory
+                .selectFrom(userCard)
+                .join(userCard.category).fetchJoin()
+                .where(userCard.user.eq(user), userCard.category.in(categories))
+                .orderBy(userCard.createdAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(userCard.count())
+                .from(userCard)
+                .where(userCard.user.eq(user), userCard.category.in(categories))
                 .fetchOne();
 
         return new PageImpl<>(content, pageable, total != null ? total : 0L);
@@ -119,13 +156,37 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
     }
 
     @Override
-    public Page<UserCard> searchByKeyword(User user, String keyword, Category category, Pageable pageable) {
+    public Page<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories, Pageable pageable) {
+        if (categories == null || categories.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<UserCard> content = queryFactory
+                .selectFrom(userCard)
+                .join(userCard.category).fetchJoin()
+                .where(userCard.user.eq(user), userCard.category.in(categories))
+                .orderBy(userCard.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(userCard.count())
+                .from(userCard)
+                .where(userCard.user.eq(user), userCard.category.in(categories))
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public Page<UserCard> searchByKeyword(User user, String keyword, List<Category> categories, Pageable pageable) {
         BooleanExpression keywordCondition = userCard.question.containsIgnoreCase(keyword)
                 .or(userCard.answer.containsIgnoreCase(keyword));
 
         BooleanExpression whereCondition = userCard.user.eq(user).and(keywordCondition);
-        if (category != null) {
-            whereCondition = whereCondition.and(userCard.category.eq(category));
+        if (categories != null) {
+            whereCondition = whereCondition.and(userCard.category.in(categories));
         }
 
         List<UserCard> content = queryFactory
@@ -162,6 +223,20 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .select(userCard.count())
                 .from(userCard)
                 .where(userCard.user.eq(user), userCard.category.eq(category))
+                .fetchOne();
+        return count != null ? count : 0L;
+    }
+
+    @Override
+    public long countByUserAndCategories(User user, List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return 0L;
+        }
+
+        Long count = queryFactory
+                .select(userCard.count())
+                .from(userCard)
+                .where(userCard.user.eq(user), userCard.category.in(categories))
                 .fetchOne();
         return count != null ? count : 0L;
     }

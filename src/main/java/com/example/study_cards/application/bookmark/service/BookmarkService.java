@@ -18,6 +18,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 @Transactional(readOnly = true)
@@ -62,7 +64,8 @@ public class BookmarkService {
     public Page<BookmarkResponse> getBookmarks(Long userId, String categoryCode, Pageable pageable) {
         User user = userDomainService.findById(userId);
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
-        Page<Bookmark> bookmarks = bookmarkDomainService.findBookmarks(user, category, pageable);
+        List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
+        Page<Bookmark> bookmarks = bookmarkDomainService.findBookmarks(user, categoryScope, pageable);
         return bookmarks.map(BookmarkResponse::from);
     }
 

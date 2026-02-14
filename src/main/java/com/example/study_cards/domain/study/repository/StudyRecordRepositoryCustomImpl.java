@@ -179,6 +179,25 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
     }
 
     @Override
+    public List<StudyRecord> findDueRecordsByCategories(User user, LocalDate date, List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+                .selectFrom(studyRecord)
+                .join(studyRecord.card, card).fetchJoin()
+                .join(card.category).fetchJoin()
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.nextReviewDate.loe(date),
+                        activeJoinedCardCondition(),
+                        card.category.in(categories)
+                )
+                .fetch();
+    }
+
+    @Override
     public List<Long> findStudiedCardIdsByUser(User user) {
         return queryFactory
                 .select(studyRecord.card.id)
@@ -251,6 +270,24 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                         studyRecord.user.eq(user),
                         studyRecord.nextReviewDate.loe(date),
                         userCard.category.eq(category)
+                )
+                .fetch();
+    }
+
+    @Override
+    public List<StudyRecord> findDueUserCardRecordsByCategories(User user, LocalDate date, List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+                .selectFrom(studyRecord)
+                .join(studyRecord.userCard, userCard).fetchJoin()
+                .join(userCard.category).fetchJoin()
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.nextReviewDate.loe(date),
+                        userCard.category.in(categories)
                 )
                 .fetch();
     }

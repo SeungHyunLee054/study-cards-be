@@ -163,7 +163,8 @@ class CardServiceUnitTest extends BaseUnitTest {
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "createdAt"));
             Page<Card> cardPage = new PageImpl<>(List.of(testCard), pageable, 1);
             given(categoryDomainService.findByCode("CS")).willReturn(csCategory);
-            given(cardDomainService.findByCategory(csCategory, pageable)).willReturn(cardPage);
+            given(categoryDomainService.findSelfAndDescendants(csCategory)).willReturn(List.of(csCategory));
+            given(cardDomainService.findByCategories(List.of(csCategory), pageable)).willReturn(cardPage);
 
             // when
             Page<CardResponse> result = cardService.getCardsByCategory("CS", pageable);
@@ -226,14 +227,15 @@ class CardServiceUnitTest extends BaseUnitTest {
             // given
             Page<Card> cardPage = new PageImpl<>(List.of(testCard), pageable, 1);
             given(categoryDomainService.findByCodeOrNull("CS")).willReturn(csCategory);
-            given(cardDomainService.findCardsForStudyByCategory(csCategory, pageable)).willReturn(cardPage);
+            given(categoryDomainService.findSelfAndDescendants(csCategory)).willReturn(List.of(csCategory));
+            given(cardDomainService.findCardsForStudyByCategories(List.of(csCategory), pageable)).willReturn(cardPage);
 
             // when
             Page<CardResponse> result = cardService.getCardsForStudy("CS", true, "127.0.0.1", pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
-            verify(cardDomainService).findCardsForStudyByCategory(csCategory, pageable);
+            verify(cardDomainService).findCardsForStudyByCategories(List.of(csCategory), pageable);
         }
 
         @Test
@@ -449,7 +451,8 @@ class CardServiceUnitTest extends BaseUnitTest {
             // given
             Page<Card> cardPage = new PageImpl<>(List.of(testCard), pageable, 1);
             given(categoryDomainService.findByCodeOrNull("CS")).willReturn(csCategory);
-            given(cardDomainService.searchByKeyword("자바", csCategory, pageable)).willReturn(cardPage);
+            given(categoryDomainService.findSelfAndDescendants(csCategory)).willReturn(List.of(csCategory));
+            given(cardDomainService.searchByKeyword("자바", List.of(csCategory), pageable)).willReturn(cardPage);
 
             // when
             Page<CardResponse> result = cardService.searchCards(null, "자바", "CS", pageable);

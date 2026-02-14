@@ -198,9 +198,9 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .user(testUser).userCard(testUserCard).isCorrect(true)
                     .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
 
-            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+            given(studyRecordRepository.findDueUserCardRecordsByCategories(eq(testUser), any(), eq(List.of(testCategory))))
                     .willReturn(List.of(userCardDueRecord));
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+            given(studyRecordRepository.findDueRecordsByCategories(eq(testUser), any(), eq(List.of(testCategory))))
                     .willReturn(List.of(cardDueRecord));
 
             // when
@@ -216,17 +216,17 @@ class StudyDomainServiceTest extends BaseUnitTest {
         @DisplayName("복습 카드가 부족하면 미학습 UserCard를 먼저 보충한다")
         void findTodayAllStudyCards_newUserCardsBeforeNewPublicCards() {
             // given
-            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+            given(studyRecordRepository.findDueUserCardRecordsByCategories(eq(testUser), any(), eq(List.of(testCategory))))
                     .willReturn(Collections.emptyList());
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+            given(studyRecordRepository.findDueRecordsByCategories(eq(testUser), any(), eq(List.of(testCategory))))
                     .willReturn(Collections.emptyList());
             given(studyRecordRepository.findStudiedUserCardIdsByUser(testUser))
                     .willReturn(Collections.emptyList());
-            given(userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(testUser, testCategory))
+            given(userCardRepository.findByUserAndCategoriesOrderByEfFactorAsc(testUser, List.of(testCategory)))
                     .willReturn(List.of(testUserCard));
             given(studyRecordRepository.findStudiedCardIdsByUser(testUser))
                     .willReturn(Collections.emptyList());
-            given(cardRepository.findByCategoryOrderByEfFactorAsc(testCategory))
+            given(cardRepository.findByCategoriesOrderByEfFactorAsc(List.of(testCategory)))
                     .willReturn(List.of(testCard));
 
             // when
@@ -246,9 +246,9 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .user(testUser).userCard(testUserCard).isCorrect(true)
                     .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
 
-            given(studyRecordRepository.findDueUserCardRecordsByCategory(any(), any(), any()))
+            given(studyRecordRepository.findDueUserCardRecordsByCategories(eq(testUser), any(), eq(List.of(testCategory))))
                     .willReturn(List.of(dueRecord));
-            given(studyRecordRepository.findDueRecordsByCategory(any(), any(), any()))
+            given(studyRecordRepository.findDueRecordsByCategories(eq(testUser), any(), eq(List.of(testCategory))))
                     .willReturn(Collections.emptyList());
 
             // when

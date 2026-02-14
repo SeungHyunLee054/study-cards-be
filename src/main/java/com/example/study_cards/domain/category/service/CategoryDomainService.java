@@ -13,7 +13,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayDeque;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
@@ -97,6 +101,34 @@ public class CategoryDomainService {
 
     public Page<Category> findByParent(Category parent, Pageable pageable) {
         return categoryRepository.findByParentAndStatus(parent, CategoryStatus.ACTIVE, pageable);
+    }
+
+    public List<Category> findSelfAndDescendants(Category root) {
+        List<Category> allCategories = categoryRepository.findAllWithParent();
+        Map<Long, List<Category>> childrenByParent = new HashMap<>();
+
+        for (Category category : allCategories) {
+            Category parent = category.getParent();
+            if (parent != null) {
+                childrenByParent.computeIfAbsent(parent.getId(), key -> new ArrayList<>()).add(category);
+            }
+        }
+
+        List<Category> result = new ArrayList<>();
+        ArrayDeque<Category> queue = new ArrayDeque<>();
+        queue.add(root);
+
+        while (!queue.isEmpty()) {
+            Category current = queue.poll();
+            result.add(current);
+
+            List<Category> children = childrenByParent.get(current.getId());
+            if (children != null) {
+                queue.addAll(children);
+            }
+        }
+
+        return result;
     }
 
     private void validateCodeNotExists(String code) {

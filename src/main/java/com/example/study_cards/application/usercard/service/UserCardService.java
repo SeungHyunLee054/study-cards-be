@@ -15,6 +15,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 @Transactional(readOnly = true)
@@ -33,7 +35,8 @@ public class UserCardService {
     public Page<UserCardResponse> getUserCardsByCategory(Long userId, String categoryCode, Pageable pageable) {
         User user = userDomainService.findById(userId);
         Category category = categoryDomainService.findByCode(categoryCode);
-        Page<UserCard> userCards = userCardDomainService.findByUserAndCategory(user, category, pageable);
+        List<Category> categoryScope = categoryDomainService.findSelfAndDescendants(category);
+        Page<UserCard> userCards = userCardDomainService.findByUserAndCategories(user, categoryScope, pageable);
         return userCards.map(UserCardResponse::from);
     }
 
@@ -49,7 +52,8 @@ public class UserCardService {
 
         Page<UserCard> userCards;
         if (category != null) {
-            userCards = userCardDomainService.findUserCardsForStudyByCategory(user, category, pageable);
+            List<Category> categoryScope = categoryDomainService.findSelfAndDescendants(category);
+            userCards = userCardDomainService.findUserCardsForStudyByCategories(user, categoryScope, pageable);
         } else {
             userCards = userCardDomainService.findUserCardsForStudy(user, pageable);
         }

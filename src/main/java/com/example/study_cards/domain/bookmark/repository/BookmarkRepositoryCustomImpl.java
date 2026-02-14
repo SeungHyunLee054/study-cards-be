@@ -27,14 +27,14 @@ public class BookmarkRepositoryCustomImpl implements BookmarkRepositoryCustom {
     private final JPAQueryFactory queryFactory;
 
     @Override
-    public Page<Bookmark> findByUser(User user, Category category, Pageable pageable) {
+    public Page<Bookmark> findByUser(User user, List<Category> categories, Pageable pageable) {
         BooleanExpression condition = bookmark.user.eq(user)
                 .and(visibleBookmarkCondition());
 
-        if (category != null) {
+        if (categories != null) {
             condition = condition.and(
-                    bookmark.card.category.eq(category)
-                            .or(bookmark.userCard.category.eq(category))
+                    bookmark.card.category.in(categories)
+                            .or(bookmark.userCard.category.in(categories))
             );
         }
 

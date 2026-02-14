@@ -25,6 +25,8 @@ public interface StudyRecordRepositoryCustom {
 
     List<StudyRecord> findDueRecordsByCategory(User user, LocalDate date, Category category);
 
+    List<StudyRecord> findDueRecordsByCategories(User user, LocalDate date, List<Category> categories);
+
     List<Long> findStudiedCardIdsByUser(User user);
 
     TotalAndCorrect countTotalAndCorrect(User user);
@@ -32,6 +34,8 @@ public interface StudyRecordRepositoryCustom {
     List<CategoryCount> countMasteredByCategory(User user);
 
     List<StudyRecord> findDueUserCardRecordsByCategory(User user, LocalDate date, Category category);
+
+    List<StudyRecord> findDueUserCardRecordsByCategories(User user, LocalDate date, List<Category> categories);
 
     List<Long> findStudiedUserCardIdsByUser(User user);
 

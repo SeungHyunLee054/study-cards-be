@@ -137,7 +137,8 @@ class UserCardServiceUnitTest extends BaseUnitTest {
             Page<UserCard> userCardPage = new PageImpl<>(List.of(testUserCard), pageable, 1);
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
-            given(userCardDomainService.findByUserAndCategory(testUser, testCategory, pageable)).willReturn(userCardPage);
+            given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
+            given(userCardDomainService.findByUserAndCategories(testUser, List.of(testCategory), pageable)).willReturn(userCardPage);
 
             // when
             Page<UserCardResponse> result = userCardService.getUserCardsByCategory(USER_ID, "CS", pageable);

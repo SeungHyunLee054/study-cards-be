@@ -245,7 +245,8 @@ class BookmarkServiceUnitTest extends BaseUnitTest {
             Page<Bookmark> bookmarkPage = new PageImpl<>(List.of(cardBookmark), pageable, 1);
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
             given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
-            given(bookmarkDomainService.findBookmarks(testUser, testCategory, pageable)).willReturn(bookmarkPage);
+            given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
+            given(bookmarkDomainService.findBookmarks(testUser, List.of(testCategory), pageable)).willReturn(bookmarkPage);
 
             // when
             Page<BookmarkResponse> result = bookmarkService.getBookmarks(USER_ID, "CS", pageable);

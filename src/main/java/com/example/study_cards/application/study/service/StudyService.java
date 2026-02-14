@@ -45,7 +45,8 @@ public class StudyService {
 
     public Page<StudyCardResponse> getTodayCards(User user, String categoryCode, Pageable pageable) {
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
-        List<StudyCardItem> cards = studyDomainService.findTodayAllStudyCards(user, category, pageable.getPageSize());
+        List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
+        List<StudyCardItem> cards = studyDomainService.findTodayAllStudyCards(user, categoryScope, pageable.getPageSize());
 
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), cards.size());

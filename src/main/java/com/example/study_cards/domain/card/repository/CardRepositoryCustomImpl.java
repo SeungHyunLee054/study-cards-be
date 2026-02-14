@@ -68,6 +68,23 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
+    public List<Card> findByCategoriesOrderByEfFactorAsc(List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return List.of();
+        }
+
+        return queryFactory
+                .selectFrom(card)
+                .where(
+                        card.category.in(categories),
+                        card.status.eq(CardStatus.ACTIVE),
+                        card.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
+                .fetch();
+    }
+
+    @Override
     public List<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category) {
         return queryFactory
                 .selectFrom(card)
@@ -79,6 +96,38 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
                 )
                 .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
                 .fetch();
+    }
+
+    @Override
+    public Page<Card> findByCategoriesOrderByEfFactorAscWithCategory(List<Category> categories, Pageable pageable) {
+        if (categories == null || categories.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<Card> content = queryFactory
+                .selectFrom(card)
+                .join(card.category).fetchJoin()
+                .where(
+                        card.category.in(categories),
+                        card.status.eq(CardStatus.ACTIVE),
+                        card.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .orderBy(card.efFactor.asc(), Expressions.numberTemplate(Double.class, "random()").asc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(card.count())
+                .from(card)
+                .where(
+                        card.category.in(categories),
+                        card.status.eq(CardStatus.ACTIVE),
+                        card.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
     }
 
     @Override
@@ -127,6 +176,38 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
                 .from(card)
                 .where(
                         card.category.eq(category),
+                        card.status.eq(CardStatus.ACTIVE),
+                        card.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .fetchOne();
+
+        return new PageImpl<>(content, pageable, total != null ? total : 0L);
+    }
+
+    @Override
+    public Page<Card> findByCategoriesWithCategory(List<Category> categories, Pageable pageable) {
+        if (categories == null || categories.isEmpty()) {
+            return new PageImpl<>(List.of(), pageable, 0);
+        }
+
+        List<Card> content = queryFactory
+                .selectFrom(card)
+                .join(card.category).fetchJoin()
+                .where(
+                        card.category.in(categories),
+                        card.status.eq(CardStatus.ACTIVE),
+                        card.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .orderBy(card.createdAt.desc())
+                .offset(pageable.getOffset())
+                .limit(pageable.getPageSize())
+                .fetch();
+
+        Long total = queryFactory
+                .select(card.count())
+                .from(card)
+                .where(
+                        card.category.in(categories),
                         card.status.eq(CardStatus.ACTIVE),
                         card.category.status.eq(CategoryStatus.ACTIVE)
                 )
@@ -190,15 +271,15 @@ public class CardRepositoryCustomImpl implements CardRepositoryCustom {
     }
 
     @Override
-    public Page<Card> searchByKeyword(String keyword, Category category, Pageable pageable) {
+    public Page<Card> searchByKeyword(String keyword, List<Category> categories, Pageable pageable) {
         BooleanExpression keywordCondition = card.question.containsIgnoreCase(keyword)
                 .or(card.answer.containsIgnoreCase(keyword));
 
         BooleanExpression visibilityCondition = card.status.eq(CardStatus.ACTIVE)
                 .and(card.category.status.eq(CategoryStatus.ACTIVE));
 
-        BooleanExpression whereCondition = category != null
-                ? keywordCondition.and(card.category.eq(category)).and(visibilityCondition)
+        BooleanExpression whereCondition = categories != null
+                ? keywordCondition.and(card.category.in(categories)).and(visibilityCondition)
                 : keywordCondition.and(visibilityCondition);
 
         List<Card> content = queryFactory

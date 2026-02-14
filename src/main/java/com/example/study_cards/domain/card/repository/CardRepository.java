@@ -19,4 +19,6 @@ public interface CardRepository extends JpaRepository<Card, Long>, CardRepositor
     long countByStatus(CardStatus status);
 
     long countByCategoryAndStatus(Category category, CardStatus status);
+
+    long countByCategoryInAndStatus(List<Category> categories, CardStatus status);
 }

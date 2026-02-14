@@ -58,14 +58,6 @@ public class UserCardDomainService {
         return userCardRepository.findByUserAndCategory(user, category);
     }
 
-    public List<UserCard> findUserCardsForStudy(User user) {
-        return userCardRepository.findByUserOrderByEfFactorAsc(user);
-    }
-
-    public List<UserCard> findUserCardsForStudyByCategory(User user, Category category) {
-        return userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category);
-    }
-
     public UserCard updateUserCard(Long id, User user, String question, String questionSub,
                                    String answer, String answerSub, Category category) {
         Objects.requireNonNull(id, "id must not be null");
@@ -91,6 +83,10 @@ public class UserCardDomainService {
         return userCardRepository.findByUserAndCategoryWithCategory(user, category, pageable);
     }
 
+    public Page<UserCard> findByUserAndCategories(User user, List<Category> categories, Pageable pageable) {
+        return userCardRepository.findByUserAndCategoriesWithCategory(user, categories, pageable);
+    }
+
     public Page<UserCard> findUserCardsForStudy(User user, Pageable pageable) {
         return userCardRepository.findByUserOrderByEfFactorAsc(user, pageable);
     }
@@ -99,8 +95,12 @@ public class UserCardDomainService {
         return userCardRepository.findByUserAndCategoryOrderByEfFactorAsc(user, category, pageable);
     }
 
-    public Page<UserCard> searchByKeyword(User user, String keyword, Category category, Pageable pageable) {
-        return userCardRepository.searchByKeyword(user, keyword, category, pageable);
+    public Page<UserCard> findUserCardsForStudyByCategories(User user, List<Category> categories, Pageable pageable) {
+        return userCardRepository.findByUserAndCategoriesOrderByEfFactorAsc(user, categories, pageable);
+    }
+
+    public Page<UserCard> searchByKeyword(User user, String keyword, List<Category> categories, Pageable pageable) {
+        return userCardRepository.searchByKeyword(user, keyword, categories, pageable);
     }
 
     public long countByUser(User user) {
@@ -109,5 +109,9 @@ public class UserCardDomainService {
 
     public long countByUserAndCategory(User user, Category category) {
         return userCardRepository.countByUserAndCategory(user, category);
+    }
+
+    public long countByUserAndCategories(User user, List<Category> categories) {
+        return userCardRepository.countByUserAndCategories(user, categories);
     }
 }

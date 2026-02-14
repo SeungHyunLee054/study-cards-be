@@ -520,7 +520,7 @@ GET /api/cards/study
 **Query Parameters**
 | 파라미터 | 필수 | 설명 |
 |---------|------|------|
-| category | X | 카테고리 코드 |
+| category | X | 카테고리 코드 (상위 카테고리 지정 시 하위 카테고리 카드 포함) |
 
 **Response** `200 OK` (페이지네이션)
 
@@ -536,7 +536,7 @@ GET /api/cards/all
 **Query Parameters**
 | 파라미터 | 필수 | 설명 |
 |---------|------|------|
-| category | X | 카테고리 코드 |
+| category | X | 카테고리 코드 (상위 카테고리 지정 시 하위 카테고리 카드 포함) |
 
 **Response** `200 OK` (페이지네이션)
 
@@ -823,7 +823,7 @@ GET /api/study/cards
 **Query Parameters**
 | 파라미터 | 기본값 | 설명 |
 |---------|--------|------|
-| category | CS | 카테고리 코드 |
+| category | CS | 카테고리 코드 (상위 카테고리 지정 시 하위 카테고리 카드 포함) |
 
 **Response** `200 OK`
 ```json

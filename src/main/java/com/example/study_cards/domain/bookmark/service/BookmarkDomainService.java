@@ -13,6 +13,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.util.List;
+
 @RequiredArgsConstructor
 @Service
 public class BookmarkDomainService {
@@ -61,7 +63,7 @@ public class BookmarkDomainService {
         return bookmarkRepository.existsByUserAndUserCard(user, userCard);
     }
 
-    public Page<Bookmark> findBookmarks(User user, Category category, Pageable pageable) {
-        return bookmarkRepository.findByUser(user, category, pageable);
+    public Page<Bookmark> findBookmarks(User user, List<Category> categories, Pageable pageable) {
+        return bookmarkRepository.findByUser(user, categories, pageable);
     }
 }

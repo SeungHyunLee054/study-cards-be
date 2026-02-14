@@ -15,17 +15,23 @@ public interface CardRepositoryCustom {
 
     List<Card> findByCategoryOrderByEfFactorAsc(Category category);
 
+    List<Card> findByCategoriesOrderByEfFactorAsc(List<Category> categories);
+
     List<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category);
+
+    Page<Card> findByCategoriesOrderByEfFactorAscWithCategory(List<Category> categories, Pageable pageable);
 
     Page<Card> findAllWithCategory(Pageable pageable);
 
     Page<Card> findByCategoryWithCategory(Category category, Pageable pageable);
 
+    Page<Card> findByCategoriesWithCategory(List<Category> categories, Pageable pageable);
+
     Page<Card> findAllByOrderByEfFactorAscWithCategory(Pageable pageable);
 
     Page<Card> findByCategoryOrderByEfFactorAscWithCategory(Category category, Pageable pageable);
 
-    Page<Card> searchByKeyword(String keyword, Category category, Pageable pageable);
+    Page<Card> searchByKeyword(String keyword, List<Category> categories, Pageable pageable);
 
     record CategoryCount(Long categoryId, String categoryCode, Long count) {}
 }

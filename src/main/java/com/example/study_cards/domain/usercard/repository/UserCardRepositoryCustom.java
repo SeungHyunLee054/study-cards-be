@@ -14,17 +14,25 @@ public interface UserCardRepositoryCustom {
 
     List<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category);
 
+    List<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories);
+
     Page<UserCard> findByUserWithCategory(User user, Pageable pageable);
 
     Page<UserCard> findByUserAndCategoryWithCategory(User user, Category category, Pageable pageable);
+
+    Page<UserCard> findByUserAndCategoriesWithCategory(User user, List<Category> categories, Pageable pageable);
 
     Page<UserCard> findByUserOrderByEfFactorAsc(User user, Pageable pageable);
 
     Page<UserCard> findByUserAndCategoryOrderByEfFactorAsc(User user, Category category, Pageable pageable);
 
+    Page<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories, Pageable pageable);
+
     long countByUser(User user);
 
     long countByUserAndCategory(User user, Category category);
 
-    Page<UserCard> searchByKeyword(User user, String keyword, Category category, Pageable pageable);
+    long countByUserAndCategories(User user, List<Category> categories);
+
+    Page<UserCard> searchByKeyword(User user, String keyword, List<Category> categories, Pageable pageable);
 }

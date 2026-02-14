@@ -77,12 +77,23 @@ public class CardDomainService {
         return cardRepository.countByCategoryAndStatus(category, CardStatus.ACTIVE);
     }
 
+    public long countByCategories(List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return 0L;
+        }
+        return cardRepository.countByCategoryInAndStatus(categories, CardStatus.ACTIVE);
+    }
+
     public Page<Card> findAll(Pageable pageable) {
         return cardRepository.findAllWithCategory(pageable);
     }
 
     public Page<Card> findByCategory(Category category, Pageable pageable) {
         return cardRepository.findByCategoryWithCategory(category, pageable);
+    }
+
+    public Page<Card> findByCategories(List<Category> categories, Pageable pageable) {
+        return cardRepository.findByCategoriesWithCategory(categories, pageable);
     }
 
     public Page<Card> findCardsForStudy(Pageable pageable) {
@@ -93,8 +104,12 @@ public class CardDomainService {
         return cardRepository.findByCategoryOrderByEfFactorAscWithCategory(category, pageable);
     }
 
-    public Page<Card> searchByKeyword(String keyword, Category category, Pageable pageable) {
-        return cardRepository.searchByKeyword(keyword, category, pageable);
+    public Page<Card> findCardsForStudyByCategories(List<Category> categories, Pageable pageable) {
+        return cardRepository.findByCategoriesOrderByEfFactorAscWithCategory(categories, pageable);
+    }
+
+    public Page<Card> searchByKeyword(String keyword, List<Category> categories, Pageable pageable) {
+        return cardRepository.searchByKeyword(keyword, categories, pageable);
     }
 
     public List<CategoryCount> countAllByCategory() {

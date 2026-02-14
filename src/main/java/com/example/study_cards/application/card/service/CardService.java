@@ -46,7 +46,8 @@ public class CardService {
 
     public Page<CardResponse> getCardsByCategory(String categoryCode, Pageable pageable) {
         Category category = categoryDomainService.findByCode(categoryCode);
-        Page<Card> cards = cardDomainService.findByCategory(category, pageable);
+        List<Category> categoryScope = categoryDomainService.findSelfAndDescendants(category);
+        Page<Card> cards = cardDomainService.findByCategories(categoryScope, pageable);
         return cards.map(CardResponse::from);
     }
 
@@ -56,10 +57,11 @@ public class CardService {
 
     public Page<CardResponse> getCardsForStudy(String categoryCode, boolean isAuthenticated, String ipAddress, Pageable pageable) {
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
+        List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
 
         Page<Card> cards;
-        if (category != null) {
-            cards = cardDomainService.findCardsForStudyByCategory(category, pageable);
+        if (categoryScope != null) {
+            cards = cardDomainService.findCardsForStudyByCategories(categoryScope, pageable);
         } else {
             cards = cardDomainService.findCardsForStudy(pageable);
         }
@@ -128,12 +130,13 @@ public class CardService {
     public Page<CardResponse> getAllCardsWithUserCards(Long userId, String categoryCode, Pageable pageable) {
         User user = userDomainService.findById(userId);
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
+        List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
 
-        long publicCardCount = category != null
-                ? cardDomainService.countByCategory(category)
+        long publicCardCount = categoryScope != null
+                ? cardDomainService.countByCategories(categoryScope)
                 : cardDomainService.count();
-        long userCardCount = category != null
-                ? userCardDomainService.countByUserAndCategory(user, category)
+        long userCardCount = categoryScope != null
+                ? userCardDomainService.countByUserAndCategories(user, categoryScope)
                 : userCardDomainService.countByUser(user);
         long totalCount = userCardCount + publicCardCount;
 
@@ -144,23 +147,23 @@ public class CardService {
         if (offset < userCardCount) {
             int userCardSize = (int) Math.min(size, userCardCount - offset);
             int userPageNum = (int) (offset / size);
-            Page<UserCard> userCards = category != null
-                    ? userCardDomainService.findByUserAndCategory(user, category, PageRequest.of(userPageNum, userCardSize).withSort(pageable.getSort()))
+            Page<UserCard> userCards = categoryScope != null
+                    ? userCardDomainService.findByUserAndCategories(user, categoryScope, PageRequest.of(userPageNum, userCardSize).withSort(pageable.getSort()))
                     : userCardDomainService.findByUser(user, PageRequest.of(userPageNum, userCardSize).withSort(pageable.getSort()));
             content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
 
             int remaining = size - content.size();
             if (remaining > 0) {
-                Page<Card> publicCards = category != null
-                        ? cardDomainService.findByCategory(category, PageRequest.of(0, remaining))
+                Page<Card> publicCards = categoryScope != null
+                        ? cardDomainService.findByCategories(categoryScope, PageRequest.of(0, remaining))
                         : cardDomainService.findAll(PageRequest.of(0, remaining));
                 content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
             }
         } else {
             long publicCardOffset = offset - userCardCount;
             int publicPageNum = (int) (publicCardOffset / size);
-            Page<Card> publicCards = category != null
-                    ? cardDomainService.findByCategory(category, PageRequest.of(publicPageNum, size))
+            Page<Card> publicCards = categoryScope != null
+                    ? cardDomainService.findByCategories(categoryScope, PageRequest.of(publicPageNum, size))
                     : cardDomainService.findAll(PageRequest.of(publicPageNum, size));
             content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
         }
@@ -171,12 +174,13 @@ public class CardService {
     public Page<CardResponse> getCardsForStudyWithUserCards(Long userId, String categoryCode, Pageable pageable) {
         User user = userDomainService.findById(userId);
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
+        List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
 
-        long publicCardCount = category != null
-                ? cardDomainService.countByCategory(category)
+        long publicCardCount = categoryScope != null
+                ? cardDomainService.countByCategories(categoryScope)
                 : cardDomainService.count();
-        long userCardCount = category != null
-                ? userCardDomainService.countByUserAndCategory(user, category)
+        long userCardCount = categoryScope != null
+                ? userCardDomainService.countByUserAndCategories(user, categoryScope)
                 : userCardDomainService.countByUser(user);
         long totalCount = userCardCount + publicCardCount;
 
@@ -187,23 +191,23 @@ public class CardService {
         if (offset < userCardCount) {
             int userCardSize = (int) Math.min(size, userCardCount - offset);
             int userPageNum = (int) (offset / size);
-            Page<UserCard> userCards = category != null
-                    ? userCardDomainService.findUserCardsForStudyByCategory(user, category, PageRequest.of(userPageNum, userCardSize))
+            Page<UserCard> userCards = categoryScope != null
+                    ? userCardDomainService.findUserCardsForStudyByCategories(user, categoryScope, PageRequest.of(userPageNum, userCardSize))
                     : userCardDomainService.findUserCardsForStudy(user, PageRequest.of(userPageNum, userCardSize));
             content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
 
             int remaining = size - content.size();
             if (remaining > 0) {
-                Page<Card> publicCards = category != null
-                        ? cardDomainService.findCardsForStudyByCategory(category, PageRequest.of(0, remaining))
+                Page<Card> publicCards = categoryScope != null
+                        ? cardDomainService.findCardsForStudyByCategories(categoryScope, PageRequest.of(0, remaining))
                         : cardDomainService.findCardsForStudy(PageRequest.of(0, remaining));
                 content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
             }
         } else {
             long publicCardOffset = offset - userCardCount;
             int publicPageNum = (int) (publicCardOffset / size);
-            Page<Card> publicCards = category != null
-                    ? cardDomainService.findCardsForStudyByCategory(category, PageRequest.of(publicPageNum, size))
+            Page<Card> publicCards = categoryScope != null
+                    ? cardDomainService.findCardsForStudyByCategories(categoryScope, PageRequest.of(publicPageNum, size))
                     : cardDomainService.findCardsForStudy(PageRequest.of(publicPageNum, size));
             content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
         }
@@ -217,12 +221,13 @@ public class CardService {
         }
         String trimmedKeyword = keyword.trim();
         Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
+        List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
 
         if (userId != null) {
             User user = userDomainService.findById(userId);
 
-            long userCardTotal = userCardDomainService.searchByKeyword(user, trimmedKeyword, category, PageRequest.of(0, 1)).getTotalElements();
-            long publicCardTotal = cardDomainService.searchByKeyword(trimmedKeyword, category, PageRequest.of(0, 1)).getTotalElements();
+            long userCardTotal = userCardDomainService.searchByKeyword(user, trimmedKeyword, categoryScope, PageRequest.of(0, 1)).getTotalElements();
+            long publicCardTotal = cardDomainService.searchByKeyword(trimmedKeyword, categoryScope, PageRequest.of(0, 1)).getTotalElements();
             long totalCount = userCardTotal + publicCardTotal;
 
             long offset = pageable.getOffset();
@@ -232,32 +237,33 @@ public class CardService {
             if (offset < userCardTotal) {
                 int userCardSize = (int) Math.min(size, userCardTotal - offset);
                 int userPageNum = (int) (offset / size);
-                Page<UserCard> userCards = userCardDomainService.searchByKeyword(user, trimmedKeyword, category, PageRequest.of(userPageNum, userCardSize));
+                Page<UserCard> userCards = userCardDomainService.searchByKeyword(user, trimmedKeyword, categoryScope, PageRequest.of(userPageNum, userCardSize));
                 content.addAll(userCards.getContent().stream().map(CardResponse::fromUserCard).toList());
 
                 int remaining = size - content.size();
                 if (remaining > 0) {
-                    Page<Card> publicCards = cardDomainService.searchByKeyword(trimmedKeyword, category, PageRequest.of(0, remaining));
+                    Page<Card> publicCards = cardDomainService.searchByKeyword(trimmedKeyword, categoryScope, PageRequest.of(0, remaining));
                     content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
                 }
             } else {
                 long publicCardOffset = offset - userCardTotal;
                 int publicPageNum = (int) (publicCardOffset / size);
-                Page<Card> publicCards = cardDomainService.searchByKeyword(trimmedKeyword, category, PageRequest.of(publicPageNum, size));
+                Page<Card> publicCards = cardDomainService.searchByKeyword(trimmedKeyword, categoryScope, PageRequest.of(publicPageNum, size));
                 content.addAll(publicCards.getContent().stream().map(CardResponse::from).toList());
             }
 
             return new PageImpl<>(content, pageable, totalCount);
         }
 
-        Page<Card> cards = cardDomainService.searchByKeyword(trimmedKeyword, category, pageable);
+        Page<Card> cards = cardDomainService.searchByKeyword(trimmedKeyword, categoryScope, pageable);
         return cards.map(CardResponse::from);
     }
 
     public long getCardCount(String categoryCode) {
         if (categoryCode != null) {
             Category category = categoryDomainService.findByCode(categoryCode);
-            return cardDomainService.countByCategory(category);
+            List<Category> categoryScope = categoryDomainService.findSelfAndDescendants(category);
+            return cardDomainService.countByCategories(categoryScope);
         }
         return cardDomainService.count();
     }

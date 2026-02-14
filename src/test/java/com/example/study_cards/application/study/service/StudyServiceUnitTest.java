@@ -43,7 +43,6 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.doThrow;
@@ -177,7 +176,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
         void getTodayCards_withCategoryCode_returnsCards() {
             // given
             given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
-            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(testCategory), anyInt()))
+            given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
+            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(List.of(testCategory)), anyInt()))
                     .willReturn(List.of(StudyCardItem.ofCard(testCard)));
 
             // when
@@ -194,7 +194,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("카테고리 없이 모든 학습 카드를 페이지네이션하여 조회한다")
         void getTodayCards_withoutCategoryCode_returnsAllCards() {
             // given
-            given(studyDomainService.findTodayAllStudyCards(eq(testUser), isNull(), anyInt()))
+            given(studyDomainService.findTodayAllStudyCards(eq(testUser), org.mockito.ArgumentMatchers.<List<Category>>isNull(), anyInt()))
                     .willReturn(List.of(StudyCardItem.ofCard(testCard)));
 
             // when
@@ -209,7 +209,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
         void getTodayCards_withMixedCards_returnsUserCardFirst() {
             // given
             given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
-            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(testCategory), anyInt()))
+            given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
+            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(List.of(testCategory)), anyInt()))
                     .willReturn(List.of(
                             StudyCardItem.ofUserCard(testUserCard),
                             StudyCardItem.ofCard(testCard)

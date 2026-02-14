@@ -317,10 +317,10 @@ class BookmarkDomainServiceTest extends BaseUnitTest {
             Pageable pageable = PageRequest.of(0, 20);
             Bookmark bookmark = createBookmark(testCard, null);
             Page<Bookmark> bookmarkPage = new PageImpl<>(List.of(bookmark), pageable, 1);
-            given(bookmarkRepository.findByUser(testUser, testCategory, pageable)).willReturn(bookmarkPage);
+            given(bookmarkRepository.findByUser(testUser, List.of(testCategory), pageable)).willReturn(bookmarkPage);
 
             // when
-            Page<Bookmark> result = bookmarkDomainService.findBookmarks(testUser, testCategory, pageable);
+            Page<Bookmark> result = bookmarkDomainService.findBookmarks(testUser, List.of(testCategory), pageable);
 
             // then
             assertThat(result.getContent()).hasSize(1);
