@@ -44,6 +44,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class PaymentServiceUnitTest extends BaseUnitTest {
@@ -423,6 +424,26 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .isInstanceOf(PaymentException.class)
                     .extracting(e -> ((PaymentException) e).getErrorCode())
                     .isEqualTo(PaymentErrorCode.PAYMENT_NOT_FOUND);
+        }
+
+        @Test
+        @DisplayName("customerKey가 일치하지 않으면 예외를 던진다")
+        void confirmBilling_customerKeyMismatch_throwsException() {
+            // given
+            ConfirmBillingRequest request = fixtureMonkey.giveMeBuilder(ConfirmBillingRequest.class)
+                    .set("authKey", AUTH_KEY)
+                    .set("customerKey", "WRONG_CUSTOMER_KEY")
+                    .set("orderId", ORDER_ID)
+                    .sample();
+            given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(testPayment);
+
+            // when & then
+            assertThatThrownBy(() -> paymentService.confirmBilling(testUser, request))
+                    .isInstanceOf(PaymentException.class)
+                    .extracting(e -> ((PaymentException) e).getErrorCode())
+                    .isEqualTo(PaymentErrorCode.PAYMENT_CUSTOMER_KEY_MISMATCH);
+
+            verify(tossPaymentService, never()).issueBillingKey(anyString(), anyString());
         }
 
         @Test

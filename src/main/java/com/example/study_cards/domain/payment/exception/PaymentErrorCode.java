@@ -13,6 +13,7 @@ public enum PaymentErrorCode implements ErrorCode {
     PAYMENT_ALREADY_COMPLETED(HttpStatus.BAD_REQUEST, "이미 완료된 결제입니다."),
     PAYMENT_ALREADY_PROCESSED(HttpStatus.BAD_REQUEST, "이미 처리된 결제입니다."),
     PAYMENT_AMOUNT_MISMATCH(HttpStatus.BAD_REQUEST, "결제 금액이 일치하지 않습니다."),
+    PAYMENT_CUSTOMER_KEY_MISMATCH(HttpStatus.BAD_REQUEST, "고객 키가 일치하지 않습니다."),
     PAYMENT_NOT_SUPPORTED_FOR_CYCLE(HttpStatus.BAD_REQUEST, "연간 구독만 일반 결제 확인을 지원합니다."),
     PAYMENT_CONFIRMATION_FAILED(HttpStatus.BAD_REQUEST, "결제 승인에 실패했습니다."),
     PAYMENT_CANCEL_FAILED(HttpStatus.BAD_REQUEST, "결제 취소에 실패했습니다."),

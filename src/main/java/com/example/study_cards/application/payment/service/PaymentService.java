@@ -29,6 +29,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Objects;
 import java.util.UUID;
 
 @Slf4j
@@ -86,6 +87,10 @@ public class PaymentService {
 
         if (payment.getBillingCycle() != BillingCycle.MONTHLY) {
             throw new PaymentException(PaymentErrorCode.BILLING_NOT_SUPPORTED_FOR_CYCLE);
+        }
+
+        if (!Objects.equals(payment.getCustomerKey(), request.customerKey())) {
+            throw new PaymentException(PaymentErrorCode.PAYMENT_CUSTOMER_KEY_MISMATCH);
         }
 
         if (payment.isCompleted()) {
@@ -169,12 +174,7 @@ public class PaymentService {
                 tossResponse.method()
         );
 
-        String billingKey = null;
-        if (tossResponse.card() != null && tossResponse.card().billingKey() != null) {
-            billingKey = tossResponse.card().billingKey();
-        }
-
-        Subscription subscription = subscriptionDomainService.createSubscriptionFromPayment(payment, billingKey);
+        Subscription subscription = subscriptionDomainService.createSubscriptionFromPayment(payment, null);
 
         return SubscriptionResponse.from(subscription);
     }
