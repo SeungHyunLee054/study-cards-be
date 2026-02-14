@@ -1,6 +1,7 @@
 package com.example.study_cards.infra.security.jwt;
 
 import com.example.study_cards.common.response.CommonResponse;
+import com.example.study_cards.infra.security.exception.JwtException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -29,9 +30,14 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
+        String message = "인증이 필요합니다.";
+        if (authException.getCause() instanceof JwtException jwtException) {
+            message = jwtException.getErrorCode().getMessage();
+        }
+
         CommonResponse errorResponse = CommonResponse.of(
                 HttpStatus.UNAUTHORIZED.value(),
-                "인증이 필요합니다."
+                message
         );
 
         response.getWriter().write(objectMapper.writeValueAsString(errorResponse));

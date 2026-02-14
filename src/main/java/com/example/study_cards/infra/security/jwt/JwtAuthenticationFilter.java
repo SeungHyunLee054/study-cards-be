@@ -10,6 +10,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
@@ -28,32 +29,42 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
+    private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        String token = extractToken(request);
+        try {
+            String token = extractToken(request);
 
-        if (token != null) {
-            if (tokenBlacklistService.isBlacklisted(token)) {
-                throw new JwtException(JwtErrorCode.BLACKLISTED_TOKEN);
+            if (token != null) {
+                if (tokenBlacklistService.isBlacklisted(token)) {
+                    throw new JwtException(JwtErrorCode.BLACKLISTED_TOKEN);
+                }
+
+                jwtTokenProvider.validateToken(token);
+
+                Long userId = jwtTokenProvider.getUserId(token);
+                String email = jwtTokenProvider.getEmail(token);
+                Set<Role> roles = jwtTokenProvider.getRoles(token);
+
+                CustomUserDetails userDetails = new CustomUserDetails(userId, email, roles);
+                UsernamePasswordAuthenticationToken authentication =
+                        new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
+
+                SecurityContextHolder.getContext().setAuthentication(authentication);
             }
 
-            jwtTokenProvider.validateToken(token);
-
-            Long userId = jwtTokenProvider.getUserId(token);
-            String email = jwtTokenProvider.getEmail(token);
-            Set<Role> roles = jwtTokenProvider.getRoles(token);
-
-            CustomUserDetails userDetails = new CustomUserDetails(userId, email, roles);
-            UsernamePasswordAuthenticationToken authentication =
-                    new UsernamePasswordAuthenticationToken(userDetails, null, userDetails.getAuthorities());
-
-            SecurityContextHolder.getContext().setAuthentication(authentication);
+            filterChain.doFilter(request, response);
+        } catch (JwtException e) {
+            SecurityContextHolder.clearContext();
+            jwtAuthenticationEntryPoint.commence(
+                    request,
+                    response,
+                    new BadCredentialsException(e.getErrorCode().getMessage(), e)
+            );
         }
-
-        filterChain.doFilter(request, response);
     }
 
     private String extractToken(HttpServletRequest request) {

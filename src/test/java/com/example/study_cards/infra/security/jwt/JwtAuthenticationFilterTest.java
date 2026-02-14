@@ -15,14 +15,17 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mock;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class JwtAuthenticationFilterTest extends BaseUnitTest {
@@ -32,6 +35,9 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
 
     @Mock
     private TokenBlacklistService tokenBlacklistService;
+
+    @Mock
+    private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Mock
     private FilterChain filterChain;
@@ -48,7 +54,10 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
 
     @BeforeEach
     void setUp() {
-        jwtAuthenticationFilter = new JwtAuthenticationFilter(jwtTokenProvider, tokenBlacklistService);
+        jwtAuthenticationFilter = new JwtAuthenticationFilter(
+                jwtTokenProvider,
+                tokenBlacklistService,
+                jwtAuthenticationEntryPoint);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         SecurityContextHolder.clearContext();
@@ -111,33 +120,35 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("블랙리스트에 있는 토큰은 BLACKLISTED_TOKEN 예외를 발생시킨다")
-        void doFilterInternal_withBlacklistedToken_throwsException() {
+        @DisplayName("블랙리스트에 있는 토큰은 entry point로 위임한다")
+        void doFilterInternal_withBlacklistedToken_delegatesToEntryPoint() throws ServletException, IOException {
             // given
             request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
             given(tokenBlacklistService.isBlacklisted(VALID_TOKEN)).willReturn(true);
 
-            // when & then
-            assertThatThrownBy(() -> jwtAuthenticationFilter.doFilterInternal(request, response, filterChain))
-                    .isInstanceOf(JwtException.class)
-                    .satisfies(exception -> {
-                        JwtException jwtException = (JwtException) exception;
-                        assertThat(jwtException.getErrorCode()).isEqualTo(JwtErrorCode.BLACKLISTED_TOKEN);
-                    });
+            // when
+            jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+            // then
+            verify(jwtAuthenticationEntryPoint).commence(eq(request), eq(response), any(BadCredentialsException.class));
+            verify(filterChain, never()).doFilter(request, response);
         }
 
         @Test
-        @DisplayName("토큰 검증 실패 시 예외를 전파한다")
-        void doFilterInternal_withInvalidToken_propagatesException() {
+        @DisplayName("토큰 검증 실패 시 entry point로 위임한다")
+        void doFilterInternal_withInvalidToken_delegatesToEntryPoint() throws ServletException, IOException {
             // given
             request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
             given(tokenBlacklistService.isBlacklisted(VALID_TOKEN)).willReturn(false);
             org.mockito.Mockito.doThrow(new JwtException(JwtErrorCode.INVALID_TOKEN))
                     .when(jwtTokenProvider).validateToken(VALID_TOKEN);
 
-            // when & then
-            assertThatThrownBy(() -> jwtAuthenticationFilter.doFilterInternal(request, response, filterChain))
-                    .isInstanceOf(JwtException.class);
+            // when
+            jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
+
+            // then
+            verify(jwtAuthenticationEntryPoint).commence(eq(request), eq(response), any(BadCredentialsException.class));
+            verify(filterChain, never()).doFilter(request, response);
         }
     }
 
