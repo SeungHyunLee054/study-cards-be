@@ -15,6 +15,7 @@ import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCo
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import com.example.study_cards.infra.payment.dto.response.TossWebhookPayload.DataPayload;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
 import com.example.study_cards.support.BaseUnitTest;
@@ -67,6 +68,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
                 given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
+                given(tossPaymentService.getPayment("pk_123")).willReturn(createDonePaymentDetail());
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(true);
                 given(subscriptionDomainService.createSubscriptionFromPayment(payment, null)).willReturn(subscription);
 
@@ -83,6 +85,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
                 given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
+                given(tossPaymentService.getPayment("pk_123")).willReturn(createDonePaymentDetail());
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(false);
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
@@ -98,6 +101,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
                 given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
+                given(tossPaymentService.getPayment("pk_123")).willReturn(createDonePaymentDetail());
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(true);
                 given(subscriptionDomainService.createSubscriptionFromPayment(payment, null))
                         .willThrow(new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS));
@@ -323,5 +327,20 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
 
     private DataPayload createBillingKeyDeletedPayload(String billingKey) {
         return new DataPayload(null, null, null, null, null, null, null, null, billingKey);
+    }
+
+    private TossConfirmResponse createDonePaymentDetail() {
+        return new TossConfirmResponse(
+                "pk_123",
+                "ORDER_123",
+                "프로 월간 구독",
+                "DONE",
+                3900,
+                "카드",
+                "2024-01-01T10:00:00",
+                "2024-01-01T10:00:00",
+                null,
+                null
+        );
     }
 }
