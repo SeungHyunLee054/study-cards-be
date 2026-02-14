@@ -56,5 +56,5 @@ app:
       issuer: study-cards-test
       # HMAC-SHA256은 최소 256비트(32바이트) 키 필요
       secret: test-jwt-secret-key-must-be-at-least-32-bytes-long-for-hmac-sha256
-      access-token-expire-minutes: 15
+      access-token-expire-minutes: 30
       refresh-token-expire-days: 14

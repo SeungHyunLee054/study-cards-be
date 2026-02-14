@@ -72,7 +72,7 @@ app:
       issuer: study-cards
       # dev/prod에서 각각 override
       secret: ${APP_JWT_SECRET}
-      access-token-expire-minutes: 15
+      access-token-expire-minutes: 30
       refresh-token-expire-days: 14
     refresh-token:
       redis-prefix: "refresh:"

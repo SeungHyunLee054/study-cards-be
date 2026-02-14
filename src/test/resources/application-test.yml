@@ -38,7 +38,7 @@ app:
     jwt:
       issuer: study-cards-test
       secret: test-jwt-secret-key-must-be-at-least-32-bytes-long-for-hmac-sha256
-      access-token-expire-minutes: 15
+      access-token-expire-minutes: 30
       refresh-token-expire-days: 14
   payment:
     toss:

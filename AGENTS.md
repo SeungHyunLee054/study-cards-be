@@ -324,7 +324,7 @@ public class CardException extends BaseException {
 ## 보안
 
 - JWT 기반 인증 (Access Token + Refresh Token)
-- Access Token: 15분, Authorization Header
+- Access Token: 30분, Authorization Header
 - Refresh Token: 14일, Redis 저장
 - 로그아웃 시 Access Token은 Redis 블랙리스트 등록
 
