@@ -77,6 +77,7 @@ public class GeneratedCard extends BaseEntity {
 
     public void reject() {
         this.status = GenerationStatus.REJECTED;
+        this.approvedAt = null;
     }
 
     public void markAsMigrated() {

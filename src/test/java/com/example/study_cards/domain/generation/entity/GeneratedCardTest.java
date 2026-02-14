@@ -90,6 +90,20 @@ class GeneratedCardTest {
             // then
             assertThat(generatedCard.getStatus()).isEqualTo(GenerationStatus.REJECTED);
         }
+
+        @Test
+        @DisplayName("승인 후 거부하면 승인 시간이 초기화된다")
+        void reject_afterApprove_clearsApprovedAt() {
+            // given
+            generatedCard.approve();
+
+            // when
+            generatedCard.reject();
+
+            // then
+            assertThat(generatedCard.getStatus()).isEqualTo(GenerationStatus.REJECTED);
+            assertThat(generatedCard.getApprovedAt()).isNull();
+        }
     }
 
     @Nested

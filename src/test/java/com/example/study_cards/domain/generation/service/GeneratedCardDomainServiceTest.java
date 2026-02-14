@@ -201,6 +201,21 @@ class GeneratedCardDomainServiceTest extends BaseUnitTest {
                                 .isEqualTo(GenerationErrorCode.ALREADY_MIGRATED);
                     });
         }
+
+        @Test
+        @DisplayName("거부된 카드를 다시 승인할 수 있다")
+        void approve_fromRejected_approvesCard() {
+            // given
+            testGeneratedCard.reject();
+            given(generatedCardRepository.findById(CARD_ID)).willReturn(Optional.of(testGeneratedCard));
+
+            // when
+            GeneratedCard result = generatedCardDomainService.approve(CARD_ID);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(GenerationStatus.APPROVED);
+            assertThat(result.getApprovedAt()).isNotNull();
+        }
     }
 
     @Nested
@@ -235,6 +250,21 @@ class GeneratedCardDomainServiceTest extends BaseUnitTest {
                         assertThat(generationException.getErrorCode())
                                 .isEqualTo(GenerationErrorCode.ALREADY_REJECTED);
                     });
+        }
+
+        @Test
+        @DisplayName("승인된 카드를 다시 거부할 수 있다")
+        void reject_fromApproved_rejectsCard() {
+            // given
+            testGeneratedCard.approve();
+            given(generatedCardRepository.findById(CARD_ID)).willReturn(Optional.of(testGeneratedCard));
+
+            // when
+            GeneratedCard result = generatedCardDomainService.reject(CARD_ID);
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(GenerationStatus.REJECTED);
+            assertThat(result.getApprovedAt()).isNull();
         }
     }
 

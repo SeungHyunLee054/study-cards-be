@@ -102,9 +102,6 @@ public class GeneratedCardDomainService {
         if (generatedCard.isApproved()) {
             throw new GenerationException(GenerationErrorCode.ALREADY_APPROVED);
         }
-        if (generatedCard.getStatus() == GenerationStatus.REJECTED) {
-            throw new GenerationException(GenerationErrorCode.ALREADY_REJECTED);
-        }
         if (generatedCard.getStatus() == GenerationStatus.MIGRATED) {
             throw new GenerationException(GenerationErrorCode.ALREADY_MIGRATED);
         }
