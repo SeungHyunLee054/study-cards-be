@@ -2,6 +2,7 @@
 
 > Base URL: `/api`
 > 인증: JWT Bearer Token (Authorization 헤더)
+> Last Updated: `2026-02-14`
 
 ---
 
@@ -365,6 +366,24 @@ PATCH /api/users/me/password
 |-----|------|------|--------|
 | currentPassword | String | O | - |
 | newPassword | String | O | 8-20자 |
+
+**Response** `204 No Content`
+
+---
+
+### 2.4 회원 탈퇴 (소프트 딜리트)
+```
+DELETE /api/users/me
+```
+
+> 인증 필요
+> `Authorization: Bearer {accessToken}` 헤더 필수
+
+**동작**
+- 사용자 상태를 `WITHDRAWN`으로 변경
+- Refresh Token 삭제
+- Access Token 블랙리스트 등록
+- 사용자 캐시 삭제
 
 **Response** `204 No Content`
 
@@ -1352,6 +1371,7 @@ GET /api/subscriptions/me
   "startDate": "2024-01-01T00:00:00",
   "endDate": "2024-02-01T00:00:00",
   "isActive": true,
+  "autoRenewalEnabled": true,
   "canGenerateAiCards": true,
   "canUseAiRecommendations": true,
   "aiGenerationDailyLimit": 30
@@ -1388,9 +1408,11 @@ POST /api/subscriptions/cancel
 }
 ```
 
-**Response** `204 No Content`
+**Response** `200 OK` (SubscriptionResponse)
 
-> 구독은 즉시 취소되지 않고 현재 결제 기간 종료 시점까지 유지됩니다.
+> 실제 동작은 "구독 해지"가 아니라 **자동 갱신 해제**입니다.
+> 월간(MONTHLY) 구독 + billingKey 존재 시에만 처리됩니다.
+> 연간(YEARLY) 선결제는 해당 API로 취소할 수 없습니다.
 
 ---
 
@@ -1398,6 +1420,10 @@ POST /api/subscriptions/cancel
 
 > 모든 API 인증 필요
 > 결제 제공자: Toss Payments (토스페이먼츠)
+
+### 결제 플로우
+- `MONTHLY` : `checkout` -> `confirm-billing` (빌링키 발급 + 최초 결제)
+- `YEARLY` : `checkout` -> `confirm` (일반 단건 결제)
 
 ### 13.1 결제 세션 생성 (Checkout)
 ```
@@ -1437,6 +1463,7 @@ POST /api/payments/confirm-billing
 ```
 
 > 자동결제(정기구독)용 빌링키 발급 및 최초 결제
+> `MONTHLY` 결제 건만 지원
 
 **Request Body**
 ```json
@@ -1461,6 +1488,8 @@ POST /api/payments/confirm-billing
 ```
 POST /api/payments/confirm
 ```
+
+> `YEARLY` 결제 건만 지원
 
 **Request Body**
 ```json
@@ -1600,7 +1629,62 @@ GET /api/ai/generation-limit
 
 > ADMIN 권한 필요
 
-### 15.1 카테고리 관리
+### 15.1 사용자 관리
+
+#### 사용자 목록 조회
+```
+GET /api/admin/users
+```
+
+**Query Parameters**
+| 파라미터 | 필수 | 설명 |
+|---------|------|------|
+| status | X | `ACTIVE`, `WITHDRAWN`, `BANNED` |
+| page | X | 페이지 번호 (기본: 0) |
+| size | X | 페이지 크기 (기본: 20) |
+| sort | X | 정렬 (기본: `createdAt,desc`) |
+
+**Response** `200 OK` (Page\<AdminUserResponse\>)
+
+---
+
+#### 사용자 상세 조회
+```
+GET /api/admin/users/{id}
+```
+
+**Response** `200 OK`
+```json
+{
+  "id": 1,
+  "email": "user@example.com",
+  "nickname": "닉네임",
+  "roles": ["ROLE_USER"],
+  "provider": "LOCAL",
+  "status": "ACTIVE",
+  "emailVerified": true,
+  "createdAt": "2024-01-01T00:00:00",
+  "modifiedAt": "2024-01-01T00:00:00"
+}
+```
+
+---
+
+#### 사용자 이용 제한(BAN)
+```
+DELETE /api/admin/users/{id}
+```
+
+**동작**
+- 사용자 상태를 `BANNED`로 변경
+- Refresh Token 삭제
+- 사용자 캐시 삭제
+
+**Response** `204 No Content`
+
+---
+
+### 15.2 카테고리 관리
 
 #### 카테고리 생성
 ```
@@ -1655,7 +1739,7 @@ DELETE /api/admin/categories/{id}
 
 ---
 
-### 15.2 카드 관리
+### 15.3 카드 관리
 
 #### 카드 목록 조회
 ```
@@ -1741,6 +1825,7 @@ DELETE /api/admin/cards/{id}
 ```
 
 > 스케줄러가 매일 새벽 3시에 승인된 카드를 자동으로 Card 테이블로 이동합니다.
+> `MIGRATED` 전까지는 관리자 판단으로 `APPROVED <-> REJECTED` 상태 전환이 가능합니다.
 
 ### 카테고리별 생성 형식
 
@@ -1943,10 +2028,7 @@ POST /api/webhooks/toss
 
 Toss Payments에서 결제 상태 변경 시 호출
 
-**Headers**
-| 헤더 | 필수 | 설명 |
-|------|------|------|
-| Toss-Signature | O | HMAC-SHA256 시그니처 |
+> 현재 서버 구현은 `rawBody`만 사용하며 별도 시그니처 헤더 검증을 수행하지 않습니다.
 
 **Request Body**
 ```json
@@ -1964,7 +2046,7 @@ Toss Payments에서 결제 상태 변경 시 호출
 | eventType | 설명 |
 |-----------|------|
 | PAYMENT_STATUS_CHANGED | 결제 상태 변경 |
-| BILLING_KEY_DELETED | 빌링키 삭제 |
+| BILLING_DELETED | 빌링키 삭제/자동갱신 해제 트리거 |
 
 | status | 설명 |
 |--------|------|
@@ -1982,10 +2064,21 @@ Toss Payments에서 결제 상태 변경 시 호출
 ### 인증 관련
 | 코드 | HTTP 상태 | 설명 |
 |-----|----------|------|
-| UNAUTHORIZED | 401 | 인증되지 않음 |
-| TOKEN_EXPIRED | 401 | 토큰 만료 |
-| TOKEN_INVALID | 401 | 유효하지 않은 토큰 |
-| ACCESS_DENIED | 403 | 접근 권한 없음 |
+| INVALID_TOKEN | 401 | 유효하지 않은 토큰 |
+| EXPIRED_TOKEN | 401 | 만료된 토큰 |
+| MALFORMED_TOKEN | 401 | 잘못된 형식의 토큰 |
+| INVALID_SIGNATURE | 401 | 토큰 서명 오류 |
+| UNSUPPORTED_TOKEN | 401 | 지원하지 않는 토큰 |
+| BLACKLISTED_TOKEN | 401 | 사용 중지된 토큰 |
+| MISSING_TOKEN | 401 | 토큰 누락 |
+| INVALID_REFRESH_TOKEN | 401 | 유효하지 않은 리프레시 토큰 |
+| REFRESH_TOKEN_NOT_FOUND | 401 | 리프레시 토큰 없음 |
+| TOO_MANY_ATTEMPTS | 429 | 인증 시도 횟수 초과 |
+| EMAIL_NOT_VERIFIED | 403 | 이메일 미인증 |
+| INVALID_RESET_CODE | 400 | 비밀번호 재설정 코드 오류 |
+| RESET_CODE_EXPIRED | 400 | 비밀번호 재설정 코드 만료 |
+| INVALID_VERIFICATION_CODE | 400 | 이메일 인증 코드 오류 |
+| VERIFICATION_CODE_EXPIRED | 400 | 이메일 인증 코드 만료 |
 
 ### 사용자 관련
 | 코드 | HTTP 상태 | 설명 |
@@ -1994,6 +2087,8 @@ Toss Payments에서 결제 상태 변경 시 호출
 | DUPLICATE_EMAIL | 409 | 이미 존재하는 이메일 |
 | INVALID_PASSWORD | 401 | 비밀번호 불일치 |
 | OAUTH_USER_CANNOT_CHANGE_PASSWORD | 400 | OAuth 사용자는 비밀번호 변경 불가 |
+| USER_ALREADY_WITHDRAWN | 400 | 이미 탈퇴 처리된 사용자 |
+| USER_ALREADY_BANNED | 400 | 이미 이용 제한된 사용자 |
 
 ### 카드 관련
 | 코드 | HTTP 상태 | 설명 |
@@ -2040,6 +2135,8 @@ Toss Payments에서 결제 상태 변경 시 호출
 | SUBSCRIPTION_ALREADY_EXISTS | 409 | 이미 활성 구독이 존재함 |
 | SUBSCRIPTION_NOT_ACTIVE | 400 | 구독이 활성 상태가 아님 |
 | SUBSCRIPTION_ALREADY_CANCELED | 400 | 이미 취소된 구독 |
+| AUTO_RENEWAL_ALREADY_DISABLED | 400 | 자동 갱신이 이미 해제됨 |
+| YEARLY_SUBSCRIPTION_CANNOT_BE_CANCELED | 400 | 연간 선결제는 자동 갱신 해제 대상 아님 |
 | SUBSCRIPTION_EXPIRED | 400 | 만료된 구독 |
 | INVALID_PLAN_CHANGE | 400 | 유효하지 않은 플랜 변경 |
 | FREE_PLAN_NOT_PURCHASABLE | 400 | 무료 플랜은 구매 불가 |
@@ -2051,10 +2148,12 @@ Toss Payments에서 결제 상태 변경 시 호출
 | PAYMENT_ALREADY_COMPLETED | 400 | 이미 완료된 결제 |
 | PAYMENT_ALREADY_PROCESSED | 400 | 이미 처리된 결제 |
 | PAYMENT_AMOUNT_MISMATCH | 400 | 결제 금액 불일치 |
+| PAYMENT_NOT_SUPPORTED_FOR_CYCLE | 400 | 연간 결제 건만 일반 결제 확인 지원 |
 | PAYMENT_CONFIRMATION_FAILED | 400 | 결제 확인 실패 |
 | PAYMENT_CANCEL_FAILED | 400 | 결제 취소 실패 |
 | BILLING_KEY_ISSUE_FAILED | 400 | 빌링키 발급 실패 |
 | BILLING_PAYMENT_FAILED | 400 | 빌링 결제 실패 |
+| BILLING_NOT_SUPPORTED_FOR_CYCLE | 400 | 월간 결제 건만 빌링 결제 확인 지원 |
 | INVALID_WEBHOOK_SIGNATURE | 401 | 유효하지 않은 웹훅 시그니처 |
 
 ### AI 카드 생성 관련 (사용자)
