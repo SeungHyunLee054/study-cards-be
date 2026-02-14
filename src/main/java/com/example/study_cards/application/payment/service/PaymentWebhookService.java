@@ -5,6 +5,7 @@ import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.payment.entity.Payment;
 import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
+import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
@@ -51,6 +52,14 @@ public class PaymentWebhookService {
         subscriptionDomainService.findSubscriptionByBillingKey(billingKey)
                 .ifPresentOrElse(
                         subscription -> {
+                            if (subscription.getBillingCycle() != BillingCycle.MONTHLY) {
+                                subscriptionDomainService.updateBillingKey(subscription, null);
+                                log.info("Billing key removed for non-monthly subscription: billingKey={}, userId={}",
+                                        billingKey, subscription.getUser().getId());
+                                return;
+                            }
+
+                            subscription.updateBillingKey(null);
                             subscriptionDomainService.disableAutoRenewal(subscription);
                             log.info("Auto-renewal disabled: billingKey={}, userId={}",
                                     billingKey, subscription.getUser().getId());
@@ -118,7 +127,9 @@ public class PaymentWebhookService {
         log.info("Payment completed via webhook: orderId={}", data.orderId());
 
         String billingKey = null;
-        if (paymentDetail.card() != null && paymentDetail.card().billingKey() != null) {
+        if (payment.getBillingCycle() == BillingCycle.MONTHLY
+                && paymentDetail.card() != null
+                && paymentDetail.card().billingKey() != null) {
             billingKey = paymentDetail.card().billingKey();
         }
 

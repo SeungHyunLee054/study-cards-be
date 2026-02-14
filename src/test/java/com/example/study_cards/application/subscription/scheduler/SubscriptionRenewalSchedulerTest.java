@@ -99,6 +99,26 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
         }
 
         @Test
+        @DisplayName("연간 구독은 자동 갱신 대상에서 제외한다")
+        void checkAndRenew_yearlySubscription_skipsRenewal() {
+            // given
+            User mockUser = createMockUser();
+            Subscription subscription = createMockSubscription(mockUser, "billing_key_123", BillingCycle.YEARLY);
+
+            given(subscriptionDomainService.findRenewableSubscriptions(3))
+                    .willReturn(List.of(subscription));
+            given(subscriptionDomainService.findExpiredSubscriptions())
+                    .willReturn(Collections.emptyList());
+
+            // when
+            scheduler.checkAndRenewSubscriptions();
+
+            // then
+            verify(tossPaymentService, never()).billingPayment(any(), any(), any(), anyInt(), any());
+            verify(paymentDomainService, never()).createPayment(any(), any(), anyInt(), any());
+        }
+
+        @Test
         @DisplayName("구독 갱신 성공")
         void checkAndRenew_success() {
             // given
@@ -253,13 +273,17 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
     }
 
     private Subscription createMockSubscription(User user, String billingKey) {
+        return createMockSubscription(user, billingKey, BillingCycle.MONTHLY);
+    }
+
+    private Subscription createMockSubscription(User user, String billingKey, BillingCycle billingCycle) {
         Subscription subscription = mock(Subscription.class);
         given(subscription.getId()).willReturn(1L);
         given(subscription.getUser()).willReturn(user);
         given(subscription.getBillingKey()).willReturn(billingKey);
         given(subscription.getCustomerKey()).willReturn("customer_key_123");
         given(subscription.getPlan()).willReturn(SubscriptionPlan.PRO);
-        given(subscription.getBillingCycle()).willReturn(BillingCycle.MONTHLY);
+        given(subscription.getBillingCycle()).willReturn(billingCycle);
         given(subscription.getEndDate()).willReturn(LocalDateTime.now().plusDays(3));
         return subscription;
     }

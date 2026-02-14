@@ -224,6 +224,24 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
         }
 
         @Test
+        @DisplayName("연간 구독은 자동 갱신 해제하지 않고 빌링키만 제거한다")
+        void handleBillingKeyDeleted_yearlySubscription_onlyRemovesBillingKey() {
+            User user = createMockUser();
+            Subscription subscription = createMockSubscription(user, BillingCycle.YEARLY);
+            DataPayload data = createBillingKeyDeletedPayload("bk_123");
+
+            given(subscriptionDomainService.findSubscriptionByBillingKey("bk_123"))
+                    .willReturn(Optional.of(subscription));
+
+            paymentWebhookService.handleBillingKeyDeleted(data);
+
+            verify(subscriptionDomainService).updateBillingKey(subscription, null);
+            verify(subscriptionDomainService, never()).disableAutoRenewal(subscription);
+            verify(notificationService, never()).sendNotification(
+                    eq(user), eq(NotificationType.AUTO_RENEWAL_DISABLED), anyString(), anyString());
+        }
+
+        @Test
         @DisplayName("구독을 찾을 수 없으면 무시한다")
         void handleBillingKeyDeleted_subscriptionNotFound_ignores() {
             DataPayload data = createBillingKeyDeletedPayload("bk_123");
@@ -305,11 +323,15 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
     }
 
     private Subscription createMockSubscription(User user) {
+        return createMockSubscription(user, BillingCycle.MONTHLY);
+    }
+
+    private Subscription createMockSubscription(User user, BillingCycle billingCycle) {
         return Subscription.builder()
                 .user(user)
                 .plan(SubscriptionPlan.PRO)
                 .status(SubscriptionStatus.ACTIVE)
-                .billingCycle(BillingCycle.MONTHLY)
+                .billingCycle(billingCycle)
                 .startDate(java.time.LocalDateTime.now())
                 .endDate(java.time.LocalDateTime.now().plusMonths(1))
                 .billingKey("bk_123")

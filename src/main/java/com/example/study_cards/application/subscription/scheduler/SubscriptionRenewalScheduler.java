@@ -6,6 +6,7 @@ import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.payment.entity.Payment;
 import com.example.study_cards.domain.payment.entity.PaymentType;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
+import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
@@ -62,6 +63,12 @@ public class SubscriptionRenewalScheduler {
     }
 
     private void renewSubscription(Subscription subscription) {
+        if (subscription.getBillingCycle() != BillingCycle.MONTHLY) {
+            log.warn("Skipping non-monthly subscription renewal: subscriptionId={}, billingCycle={}",
+                    subscription.getId(), subscription.getBillingCycle());
+            return;
+        }
+
         if (subscription.getBillingKey() == null) {
             log.warn("Subscription has no billing key: subscriptionId={}", subscription.getId());
             return;

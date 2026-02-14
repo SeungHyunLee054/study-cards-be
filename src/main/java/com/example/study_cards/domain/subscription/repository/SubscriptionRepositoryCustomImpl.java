@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.subscription.repository;
 
 import com.example.study_cards.domain.subscription.entity.Subscription;
+import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.SubscriptionStatus;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
@@ -10,6 +11,7 @@ import java.util.List;
 import java.util.Optional;
 
 import static com.example.study_cards.domain.subscription.entity.QSubscription.subscription;
+import static com.example.study_cards.domain.subscription.entity.Subscription.AUTO_RENEWAL_DISABLED_MARKER;
 
 @RequiredArgsConstructor
 public class SubscriptionRepositoryCustomImpl implements SubscriptionRepositoryCustom {
@@ -59,7 +61,9 @@ public class SubscriptionRepositoryCustomImpl implements SubscriptionRepositoryC
                 .selectFrom(subscription)
                 .where(
                         subscription.status.eq(SubscriptionStatus.ACTIVE),
+                        subscription.billingCycle.eq(BillingCycle.MONTHLY),
                         subscription.billingKey.isNotNull(),
+                        subscription.cancelReason.isNull().or(subscription.cancelReason.ne(AUTO_RENEWAL_DISABLED_MARKER)),
                         subscription.endDate.between(now, threshold)
                 )
                 .fetch();
