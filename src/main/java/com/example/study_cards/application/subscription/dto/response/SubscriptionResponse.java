@@ -1,8 +1,8 @@
 package com.example.study_cards.application.subscription.dto.response;
 
-import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
+import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.SubscriptionStatus;
 
 import java.time.LocalDateTime;
@@ -22,11 +22,6 @@ public record SubscriptionResponse(
         int aiGenerationDailyLimit
 ) {
     public static SubscriptionResponse from(Subscription subscription) {
-        boolean autoRenewalEnabled =
-                subscription.getStatus() == SubscriptionStatus.ACTIVE
-                        && subscription.getBillingCycle() == BillingCycle.MONTHLY
-                        && subscription.getBillingKey() != null;
-
         return new SubscriptionResponse(
                 subscription.getId(),
                 subscription.getPlan(),
@@ -36,7 +31,7 @@ public record SubscriptionResponse(
                 subscription.getStartDate(),
                 subscription.getEndDate(),
                 subscription.isActive(),
-                autoRenewalEnabled,
+                subscription.isAutoRenewalEnabled(),
                 subscription.getPlan().isCanGenerateAiCards(),
                 subscription.getPlan().isCanUseAiRecommendations(),
                 subscription.getPlan().getAiGenerationDailyLimit()

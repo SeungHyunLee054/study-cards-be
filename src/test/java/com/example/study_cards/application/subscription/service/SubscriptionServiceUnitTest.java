@@ -1,6 +1,8 @@
 package com.example.study_cards.application.subscription.service;
 
+import com.example.study_cards.application.subscription.dto.request.ResumeSubscriptionRequest;
 import com.example.study_cards.application.subscription.dto.response.PlanResponse;
+import com.example.study_cards.application.subscription.dto.response.ResumeSubscriptionPrepareResponse;
 import com.example.study_cards.application.subscription.dto.response.SubscriptionResponse;
 import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
@@ -8,6 +10,8 @@ import com.example.study_cards.domain.subscription.exception.SubscriptionExcepti
 import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
+import com.example.study_cards.infra.payment.service.TossPaymentService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -23,7 +27,11 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class SubscriptionServiceUnitTest extends BaseUnitTest {
 
@@ -32,6 +40,9 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private SubscriptionRepository subscriptionRepository;
+
+    @Mock
+    private TossPaymentService tossPaymentService;
 
     @InjectMocks
     private SubscriptionService subscriptionService;
@@ -159,6 +170,135 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
                     .isInstanceOf(SubscriptionException.class)
                     .extracting(e -> ((SubscriptionException) e).getErrorCode())
                     .isEqualTo(SubscriptionErrorCode.SUBSCRIPTION_NOT_ACTIVE);
+        }
+    }
+
+    @Nested
+    @DisplayName("resumeSubscription")
+    class ResumeSubscriptionTest {
+
+        @Test
+        @DisplayName("월간 자동 갱신 해제 상태를 재개한다")
+        void resumeSubscription_success() {
+            // given
+            testSubscription.updateBillingKey("billing_key_123");
+            testSubscription.disableAutoRenewal();
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+
+            // when
+            subscriptionService.resumeSubscription(testUser);
+
+            // then
+            verify(subscriptionDomainService).enableAutoRenewal(testSubscription);
+        }
+
+        @Test
+        @DisplayName("이미 자동 갱신이 활성화되어 있으면 예외를 던진다")
+        void resumeSubscription_alreadyEnabled_throwsException() {
+            // given
+            testSubscription.updateBillingKey("billing_key_123");
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(testUser))
+                    .isInstanceOf(SubscriptionException.class)
+                    .extracting(e -> ((SubscriptionException) e).getErrorCode())
+                    .isEqualTo(SubscriptionErrorCode.AUTO_RENEWAL_ALREADY_ENABLED);
+
+            verify(subscriptionDomainService, never()).enableAutoRenewal(testSubscription);
+        }
+
+        @Test
+        @DisplayName("빌링키가 없으면 자동 갱신 재개 불가 예외를 던진다")
+        void resumeSubscription_withoutBillingKey_throwsException() {
+            // given
+            testSubscription.updateBillingKey(null);
+            testSubscription.disableAutoRenewal();
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(testUser))
+                    .isInstanceOf(SubscriptionException.class)
+                    .extracting(e -> ((SubscriptionException) e).getErrorCode())
+                    .isEqualTo(SubscriptionErrorCode.AUTO_RENEWAL_CANNOT_BE_RESUMED);
+
+            verify(subscriptionDomainService, never()).enableAutoRenewal(testSubscription);
+        }
+
+        @Test
+        @DisplayName("빌링키가 없으면 authKey로 재발급 후 자동 갱신을 재개한다")
+        void resumeSubscription_withoutBillingKey_reissuesBillingKeyAndResumes() {
+            // given
+            testSubscription.updateBillingKey(null);
+            testSubscription.disableAutoRenewal();
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+            given(tossPaymentService.issueBillingKey("auth_key_123", CUSTOMER_KEY))
+                    .willReturn(new TossBillingAuthResponse(
+                            "new_billing_key_123",
+                            CUSTOMER_KEY,
+                            "2024-01-01T10:00:00",
+                            "카드",
+                            null
+                    ));
+
+            // when
+            subscriptionService.resumeSubscription(testUser, new ResumeSubscriptionRequest("auth_key_123"));
+
+            // then
+            verify(subscriptionDomainService).updateBillingKey(testSubscription, "new_billing_key_123");
+            verify(subscriptionDomainService).enableAutoRenewal(testSubscription);
+        }
+
+        @Test
+        @DisplayName("빌링키가 없고 authKey도 없으면 자동 갱신 재개 불가 예외를 던진다")
+        void resumeSubscription_withoutBillingKeyAndAuthKey_throwsException() {
+            // given
+            testSubscription.updateBillingKey(null);
+            testSubscription.disableAutoRenewal();
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.resumeSubscription(testUser, new ResumeSubscriptionRequest(null)))
+                    .isInstanceOf(SubscriptionException.class)
+                    .extracting(e -> ((SubscriptionException) e).getErrorCode())
+                    .isEqualTo(SubscriptionErrorCode.AUTO_RENEWAL_CANNOT_BE_RESUMED);
+
+            verify(tossPaymentService, never()).issueBillingKey(anyString(), anyString());
+            verify(subscriptionDomainService, never()).updateBillingKey(any(), anyString());
+            verify(subscriptionDomainService, never()).enableAutoRenewal(testSubscription);
+        }
+    }
+
+    @Nested
+    @DisplayName("prepareResumeSubscription")
+    class PrepareResumeSubscriptionTest {
+
+        @Test
+        @DisplayName("자동결제 재개 준비 시 customerKey를 반환한다")
+        void prepareResumeSubscription_success() {
+            // given
+            testSubscription.disableAutoRenewal();
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+
+            // when
+            ResumeSubscriptionPrepareResponse result = subscriptionService.prepareResumeSubscription(testUser);
+
+            // then
+            assertThat(result.customerKey()).isEqualTo(CUSTOMER_KEY);
+        }
+
+        @Test
+        @DisplayName("자동결제가 이미 활성화되어 있으면 예외를 던진다")
+        void prepareResumeSubscription_alreadyEnabled_throwsException() {
+            // given
+            testSubscription.updateBillingKey("billing_key_123");
+            given(subscriptionDomainService.getSubscription(USER_ID)).willReturn(testSubscription);
+
+            // when & then
+            assertThatThrownBy(() -> subscriptionService.prepareResumeSubscription(testUser))
+                    .isInstanceOf(SubscriptionException.class)
+                    .extracting(e -> ((SubscriptionException) e).getErrorCode())
+                    .isEqualTo(SubscriptionErrorCode.AUTO_RENEWAL_ALREADY_ENABLED);
         }
     }
 }

@@ -137,4 +137,30 @@ class SubscriptionControllerTest extends BaseIntegrationTest {
                     .andExpect(status().isUnauthorized());
         }
     }
+
+    @Nested
+    @DisplayName("POST /api/subscriptions/resume")
+    class ResumeSubscriptionTest {
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void resumeSubscription_unauthorized_returns401() throws Exception {
+            mockMvc.perform(post("/api/subscriptions/resume")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/subscriptions/resume/prepare")
+    class PrepareResumeSubscriptionTest {
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void prepareResumeSubscription_unauthorized_returns401() throws Exception {
+            mockMvc.perform(post("/api/subscriptions/resume/prepare")
+                            .contentType(MediaType.APPLICATION_JSON))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
 }

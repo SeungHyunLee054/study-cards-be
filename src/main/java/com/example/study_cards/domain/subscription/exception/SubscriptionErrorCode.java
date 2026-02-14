@@ -14,7 +14,10 @@ public enum SubscriptionErrorCode implements ErrorCode {
     SUBSCRIPTION_NOT_ACTIVE(HttpStatus.BAD_REQUEST, "활성화된 구독이 아닙니다."),
     SUBSCRIPTION_ALREADY_CANCELED(HttpStatus.BAD_REQUEST, "이미 취소된 구독입니다."),
     AUTO_RENEWAL_ALREADY_DISABLED(HttpStatus.BAD_REQUEST, "이미 자동 갱신이 해제되었습니다."),
+    AUTO_RENEWAL_ALREADY_ENABLED(HttpStatus.BAD_REQUEST, "이미 자동 갱신이 활성화되어 있습니다."),
+    AUTO_RENEWAL_CANNOT_BE_RESUMED(HttpStatus.BAD_REQUEST, "자동 갱신을 재개할 수 없습니다. 카드를 다시 등록해주세요."),
     YEARLY_SUBSCRIPTION_CANNOT_BE_CANCELED(HttpStatus.BAD_REQUEST, "연간 선결제는 자동 갱신 해제 대상이 아닙니다."),
+    YEARLY_SUBSCRIPTION_CANNOT_BE_RESUMED(HttpStatus.BAD_REQUEST, "연간 선결제는 자동 갱신 재개 대상이 아닙니다."),
     SUBSCRIPTION_EXPIRED(HttpStatus.BAD_REQUEST, "만료된 구독입니다."),
     INVALID_PLAN_CHANGE(HttpStatus.BAD_REQUEST, "유효하지 않은 요금제 변경입니다."),
     FREE_PLAN_NOT_PURCHASABLE(HttpStatus.BAD_REQUEST, "무료 요금제는 구매할 수 없습니다.");

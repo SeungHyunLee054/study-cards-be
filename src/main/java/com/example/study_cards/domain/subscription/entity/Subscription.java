@@ -20,6 +20,8 @@ import java.time.LocalDateTime;
 })
 public class Subscription extends BaseEntity {
 
+    public static final String AUTO_RENEWAL_DISABLED_MARKER = "__AUTO_RENEWAL_DISABLED__";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -115,6 +117,27 @@ public class Subscription extends BaseEntity {
         this.billingKey = billingKey;
         this.cancelReason = null;
         this.status = SubscriptionStatus.ACTIVE;
+    }
+
+    public boolean isAutoRenewalDisabled() {
+        return AUTO_RENEWAL_DISABLED_MARKER.equals(this.cancelReason);
+    }
+
+    public boolean isAutoRenewalEnabled() {
+        return this.status == SubscriptionStatus.ACTIVE
+                && this.billingCycle == BillingCycle.MONTHLY
+                && this.billingKey != null
+                && !isAutoRenewalDisabled();
+    }
+
+    public void disableAutoRenewal() {
+        this.cancelReason = AUTO_RENEWAL_DISABLED_MARKER;
+    }
+
+    public void enableAutoRenewal() {
+        if (isAutoRenewalDisabled()) {
+            this.cancelReason = null;
+        }
     }
 
     public void updateBillingKey(String billingKey) {

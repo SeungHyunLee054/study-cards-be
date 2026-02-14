@@ -252,6 +252,36 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             assertThat(paymentWithPlan.getSubscription()).isEqualTo(result);
             verify(subscriptionRepository).save(testSubscription);
         }
+
+        @Test
+        @DisplayName("연간 결제는 빌링키를 저장하지 않는다")
+        void createSubscriptionFromPayment_yearlyPayment_ignoresBillingKey() {
+            // given
+            Payment yearlyPayment = Payment.builder()
+                    .user(testUser)
+                    .orderId("ORDER_TEST_YEARLY")
+                    .amount(99000)
+                    .status(PaymentStatus.COMPLETED)
+                    .type(PaymentType.INITIAL)
+                    .plan(SubscriptionPlan.PRO)
+                    .billingCycle(BillingCycle.YEARLY)
+                    .customerKey(CUSTOMER_KEY)
+                    .build();
+            ReflectionTestUtils.setField(yearlyPayment, "id", 2L);
+
+            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
+            given(subscriptionRepository.save(any(Subscription.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            Subscription result = subscriptionDomainService.createSubscriptionFromPayment(
+                    yearlyPayment,
+                    "yearly_billing_key_should_be_ignored"
+            );
+
+            // then
+            assertThat(result.getBillingCycle()).isEqualTo(BillingCycle.YEARLY);
+            assertThat(result.getBillingKey()).isNull();
+        }
     }
 
     @Nested
@@ -302,7 +332,49 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
             subscriptionDomainService.disableAutoRenewal(testSubscription);
 
             // then
-            assertThat(testSubscription.getBillingKey()).isNull();
+            assertThat(testSubscription.getBillingKey()).isEqualTo("billing_key_123");
+            assertThat(testSubscription.isAutoRenewalDisabled()).isTrue();
+            verify(subscriptionRepository).save(testSubscription);
+        }
+    }
+
+    @Nested
+    @DisplayName("enableAutoRenewal")
+    class EnableAutoRenewalTest {
+
+        @Test
+        @DisplayName("자동 갱신을 다시 활성화한다")
+        void enableAutoRenewal_success() {
+            // given
+            testSubscription.updateBillingKey("billing_key_123");
+            testSubscription.disableAutoRenewal();
+            given(subscriptionRepository.save(any(Subscription.class))).willReturn(testSubscription);
+
+            // when
+            subscriptionDomainService.enableAutoRenewal(testSubscription);
+
+            // then
+            assertThat(testSubscription.getBillingKey()).isEqualTo("billing_key_123");
+            assertThat(testSubscription.isAutoRenewalDisabled()).isFalse();
+            verify(subscriptionRepository).save(testSubscription);
+        }
+    }
+
+    @Nested
+    @DisplayName("updateBillingKey")
+    class UpdateBillingKeyTest {
+
+        @Test
+        @DisplayName("빌링키를 갱신한다")
+        void updateBillingKey_success() {
+            // given
+            given(subscriptionRepository.save(any(Subscription.class))).willReturn(testSubscription);
+
+            // when
+            subscriptionDomainService.updateBillingKey(testSubscription, "new_billing_key_123");
+
+            // then
+            assertThat(testSubscription.getBillingKey()).isEqualTo("new_billing_key_123");
             verify(subscriptionRepository).save(testSubscription);
         }
     }

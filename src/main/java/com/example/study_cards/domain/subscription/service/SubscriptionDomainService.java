@@ -72,13 +72,24 @@ public class SubscriptionDomainService {
     }
 
     public void disableAutoRenewal(Subscription subscription) {
-        subscription.updateBillingKey(null);
+        subscription.disableAutoRenewal();
+        subscriptionRepository.save(subscription);
+    }
+
+    public void enableAutoRenewal(Subscription subscription) {
+        subscription.enableAutoRenewal();
+        subscriptionRepository.save(subscription);
+    }
+
+    public void updateBillingKey(Subscription subscription, String billingKey) {
+        subscription.updateBillingKey(billingKey);
         subscriptionRepository.save(subscription);
     }
 
     public Subscription createSubscriptionFromPayment(Payment payment, String billingKey) {
         User user = payment.getUser();
         validatePurchasablePlan(payment.getPlan());
+        String effectiveBillingKey = payment.getBillingCycle() == BillingCycle.MONTHLY ? billingKey : null;
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime endDate = calculateEndDate(now, payment.getBillingCycle());
@@ -96,7 +107,7 @@ public class SubscriptionDomainService {
                     now,
                     endDate,
                     payment.getCustomerKey(),
-                    billingKey
+                    effectiveBillingKey
             );
 
             subscription = subscriptionRepository.save(subscription);
@@ -112,7 +123,7 @@ public class SubscriptionDomainService {
                 .startDate(now)
                 .endDate(endDate)
                 .customerKey(payment.getCustomerKey())
-                .billingKey(billingKey)
+                .billingKey(effectiveBillingKey)
                 .build();
 
         subscription = subscriptionRepository.save(subscription);

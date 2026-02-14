@@ -1,7 +1,9 @@
 package com.example.study_cards.application.subscription.controller;
 
 import com.example.study_cards.application.subscription.dto.request.CancelSubscriptionRequest;
+import com.example.study_cards.application.subscription.dto.request.ResumeSubscriptionRequest;
 import com.example.study_cards.application.subscription.dto.response.PlanResponse;
+import com.example.study_cards.application.subscription.dto.response.ResumeSubscriptionPrepareResponse;
 import com.example.study_cards.application.subscription.dto.response.SubscriptionResponse;
 import com.example.study_cards.application.subscription.service.SubscriptionService;
 import com.example.study_cards.domain.user.entity.User;
@@ -47,6 +49,26 @@ public class SubscriptionController {
                 user,
                 request != null ? request : new CancelSubscriptionRequest(null)
         );
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping({"/resume", "/reactivate"})
+    public ResponseEntity<SubscriptionResponse> resumeSubscription(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestBody(required = false) ResumeSubscriptionRequest request) {
+        User user = userDomainService.findById(userDetails.userId());
+        SubscriptionResponse response = subscriptionService.resumeSubscription(
+                user,
+                request != null ? request : new ResumeSubscriptionRequest(null)
+        );
+        return ResponseEntity.ok(response);
+    }
+
+    @PostMapping("/resume/prepare")
+    public ResponseEntity<ResumeSubscriptionPrepareResponse> prepareResumeSubscription(
+            @AuthenticationPrincipal CustomUserDetails userDetails) {
+        User user = userDomainService.findById(userDetails.userId());
+        ResumeSubscriptionPrepareResponse response = subscriptionService.prepareResumeSubscription(user);
         return ResponseEntity.ok(response);
     }
 }
