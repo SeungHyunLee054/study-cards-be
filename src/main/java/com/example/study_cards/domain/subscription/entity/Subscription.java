@@ -104,6 +104,19 @@ public class Subscription extends BaseEntity {
         this.status = SubscriptionStatus.ACTIVE;
     }
 
+    public void reactivate(SubscriptionPlan plan, BillingCycle billingCycle,
+                           LocalDateTime startDate, LocalDateTime endDate,
+                           String customerKey, String billingKey) {
+        this.plan = plan;
+        this.billingCycle = billingCycle;
+        this.startDate = startDate;
+        this.endDate = endDate;
+        this.customerKey = customerKey;
+        this.billingKey = billingKey;
+        this.cancelReason = null;
+        this.status = SubscriptionStatus.ACTIVE;
+    }
+
     public void updateBillingKey(String billingKey) {
         this.billingKey = billingKey;
     }

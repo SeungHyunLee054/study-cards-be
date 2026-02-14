@@ -7,6 +7,8 @@ import java.util.Optional;
 
 public interface SubscriptionRepository extends JpaRepository<Subscription, Long>, SubscriptionRepositoryCustom {
 
+    Optional<Subscription> findByUserId(Long userId);
+
     Optional<Subscription> findByCustomerKey(String customerKey);
 
     Optional<Subscription> findByBillingKey(String billingKey);

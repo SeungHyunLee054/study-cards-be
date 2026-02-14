@@ -278,7 +278,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("결제 정보로 구독을 생성한다")
         void createSubscriptionFromPayment_success() {
             // given
-            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(false);
+            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.empty());
             given(subscriptionRepository.save(any(Subscription.class))).willAnswer(invocation -> {
                 Subscription saved = invocation.getArgument(0);
                 ReflectionTestUtils.setField(saved, "id", SUBSCRIPTION_ID);
@@ -304,7 +304,7 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
         @DisplayName("이미 구독이 있으면 예외를 던진다")
         void createSubscriptionFromPayment_alreadyExists_throwsException() {
             // given
-            given(subscriptionRepository.existsActiveByUserId(USER_ID)).willReturn(true);
+            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
             // when & then
             assertThatThrownBy(() -> subscriptionDomainService.createSubscriptionFromPayment(
@@ -314,6 +314,28 @@ class SubscriptionDomainServiceTest extends BaseUnitTest {
                     .isInstanceOf(SubscriptionException.class)
                     .extracting(e -> ((SubscriptionException) e).getErrorCode())
                     .isEqualTo(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
+        }
+
+        @Test
+        @DisplayName("비활성 구독이 있으면 재활성화한다")
+        void createSubscriptionFromPayment_reactivatesInactiveSubscription() {
+            // given
+            testSubscription.cancel("기존 구독 취소");
+            given(subscriptionRepository.findByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(subscriptionRepository.save(any(Subscription.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+            // when
+            Subscription result = subscriptionDomainService.createSubscriptionFromPayment(
+                    paymentWithPlan,
+                    "billing_key_123"
+            );
+
+            // then
+            assertThat(result.getStatus()).isEqualTo(SubscriptionStatus.ACTIVE);
+            assertThat(result.getBillingCycle()).isEqualTo(BillingCycle.MONTHLY);
+            assertThat(result.getBillingKey()).isEqualTo("billing_key_123");
+            assertThat(paymentWithPlan.getSubscription()).isEqualTo(result);
+            verify(subscriptionRepository).save(testSubscription);
         }
     }
 

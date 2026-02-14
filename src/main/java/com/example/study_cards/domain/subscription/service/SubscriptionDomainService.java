@@ -112,15 +112,31 @@ public class SubscriptionDomainService {
 
     public Subscription createSubscriptionFromPayment(Payment payment, String billingKey) {
         User user = payment.getUser();
-
-        if (subscriptionRepository.existsActiveByUserId(user.getId())) {
-            throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
-        }
-
         validatePurchasablePlan(payment.getPlan());
 
         LocalDateTime now = LocalDateTime.now();
         LocalDateTime endDate = calculateEndDate(now, payment.getBillingCycle());
+
+        Optional<Subscription> existingSubscription = subscriptionRepository.findByUserId(user.getId());
+        if (existingSubscription.isPresent()) {
+            Subscription subscription = existingSubscription.get();
+            if (subscription.isActive()) {
+                throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_ALREADY_EXISTS);
+            }
+
+            subscription.reactivate(
+                    payment.getPlan(),
+                    payment.getBillingCycle(),
+                    now,
+                    endDate,
+                    payment.getCustomerKey(),
+                    billingKey
+            );
+
+            subscription = subscriptionRepository.save(subscription);
+            payment.linkSubscription(subscription);
+            return subscription;
+        }
 
         Subscription subscription = Subscription.builder()
                 .user(user)
