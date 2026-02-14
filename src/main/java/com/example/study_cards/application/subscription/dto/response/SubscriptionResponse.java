@@ -16,11 +16,17 @@ public record SubscriptionResponse(
         LocalDateTime startDate,
         LocalDateTime endDate,
         boolean isActive,
+        boolean autoRenewalEnabled,
         boolean canGenerateAiCards,
         boolean canUseAiRecommendations,
         int aiGenerationDailyLimit
 ) {
     public static SubscriptionResponse from(Subscription subscription) {
+        boolean autoRenewalEnabled =
+                subscription.getStatus() == SubscriptionStatus.ACTIVE
+                        && subscription.getBillingCycle() == BillingCycle.MONTHLY
+                        && subscription.getBillingKey() != null;
+
         return new SubscriptionResponse(
                 subscription.getId(),
                 subscription.getPlan(),
@@ -30,6 +36,7 @@ public record SubscriptionResponse(
                 subscription.getStartDate(),
                 subscription.getEndDate(),
                 subscription.isActive(),
+                autoRenewalEnabled,
                 subscription.getPlan().isCanGenerateAiCards(),
                 subscription.getPlan().isCanUseAiRecommendations(),
                 subscription.getPlan().getAiGenerationDailyLimit()

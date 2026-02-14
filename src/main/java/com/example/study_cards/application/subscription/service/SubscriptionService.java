@@ -3,6 +3,7 @@ package com.example.study_cards.application.subscription.service;
 import com.example.study_cards.application.subscription.dto.request.CancelSubscriptionRequest;
 import com.example.study_cards.application.subscription.dto.response.PlanResponse;
 import com.example.study_cards.application.subscription.dto.response.SubscriptionResponse;
+import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
@@ -43,13 +44,22 @@ public class SubscriptionService {
     }
 
     @Transactional
-    public void cancelSubscription(User user, CancelSubscriptionRequest request) {
+    public SubscriptionResponse cancelSubscription(User user, CancelSubscriptionRequest request) {
         Subscription subscription = subscriptionDomainService.getSubscription(user.getId());
 
         if (!subscription.isActive()) {
             throw new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_NOT_ACTIVE);
         }
 
-        subscriptionDomainService.cancelSubscription(subscription, request.reason());
+        if (subscription.getBillingCycle() != BillingCycle.MONTHLY) {
+            throw new SubscriptionException(SubscriptionErrorCode.YEARLY_SUBSCRIPTION_CANNOT_BE_CANCELED);
+        }
+
+        if (subscription.getBillingKey() == null) {
+            throw new SubscriptionException(SubscriptionErrorCode.AUTO_RENEWAL_ALREADY_DISABLED);
+        }
+
+        subscriptionDomainService.disableAutoRenewal(subscription);
+        return SubscriptionResponse.from(subscription);
     }
 }

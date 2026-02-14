@@ -39,11 +39,14 @@ public class SubscriptionController {
     }
 
     @PostMapping("/cancel")
-    public ResponseEntity<Void> cancelSubscription(
+    public ResponseEntity<SubscriptionResponse> cancelSubscription(
             @AuthenticationPrincipal CustomUserDetails userDetails,
             @RequestBody(required = false) CancelSubscriptionRequest request) {
         User user = userDomainService.findById(userDetails.userId());
-        subscriptionService.cancelSubscription(user, request != null ? request : new CancelSubscriptionRequest(null));
-        return ResponseEntity.noContent().build();
+        SubscriptionResponse response = subscriptionService.cancelSubscription(
+                user,
+                request != null ? request : new CancelSubscriptionRequest(null)
+        );
+        return ResponseEntity.ok(response);
     }
 }
