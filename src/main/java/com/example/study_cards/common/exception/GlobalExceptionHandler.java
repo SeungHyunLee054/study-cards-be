@@ -149,13 +149,13 @@ public class GlobalExceptionHandler {
     }
 
     @ExceptionHandler(NoResourceFoundException.class)
-    public ResponseEntity<CommonResponse> handleNoResourceFoundException(
+    public ResponseEntity<Void> handleNoResourceFoundException(
             NoResourceFoundException ex) {
         LogUtils.logWarn(ex);
 
         return ResponseEntity
                 .status(HttpStatus.NOT_FOUND)
-                .body(CommonResponse.of(HttpStatus.NOT_FOUND.value(), "요청한 리소스를 찾을 수 없습니다."));
+                .build();
     }
 
     @ExceptionHandler(Exception.class)
