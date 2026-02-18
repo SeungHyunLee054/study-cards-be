@@ -10,9 +10,7 @@ public record GenerationRequest(
 
         @Min(value = 1, message = "최소 1개 이상 생성해야 합니다.")
         @Max(value = 20, message = "한 번에 최대 20개까지 생성 가능합니다.")
-        int count,
-
-        String model
+        int count
 ) {
     public GenerationRequest {
         if (count == 0) {

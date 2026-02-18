@@ -8,12 +8,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.ai.chat.prompt.ChatOptions;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.mock;
 
@@ -35,13 +33,11 @@ class AiGenerationServiceUnitTest extends BaseUnitTest {
             // given
             String prompt = "Test prompt";
             String expectedResponse = "{\"question\": \"test\"}";
-            ReflectionTestUtils.setField(aiGenerationService, "defaultModel", "gemini-2.0-flash");
 
             ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
             ChatClient.CallResponseSpec responseSpec = mock(ChatClient.CallResponseSpec.class);
 
             given(chatClient.prompt(prompt)).willReturn(requestSpec);
-            given(requestSpec.options(any(ChatOptions.class))).willReturn(requestSpec);
             given(requestSpec.call()).willReturn(responseSpec);
             given(responseSpec.content()).willReturn(expectedResponse);
 
@@ -57,18 +53,17 @@ class AiGenerationServiceUnitTest extends BaseUnitTest {
         void generateContent_whenFailed_throwsException() {
             // given
             String prompt = "Test prompt";
-            ReflectionTestUtils.setField(aiGenerationService, "defaultModel", "gemini-2.0-flash");
 
             ChatClient.ChatClientRequestSpec requestSpec = mock(ChatClient.ChatClientRequestSpec.class);
 
             given(chatClient.prompt(prompt)).willReturn(requestSpec);
-            given(requestSpec.options(any(ChatOptions.class))).willReturn(requestSpec);
             given(requestSpec.call()).willThrow(new RuntimeException("API error"));
 
             // when & then
             assertThatThrownBy(() -> aiGenerationService.generateContent(prompt))
                     .isInstanceOf(GenerationException.class);
         }
+
     }
 
     @Nested
@@ -76,10 +71,27 @@ class AiGenerationServiceUnitTest extends BaseUnitTest {
     class GetDefaultModelTest {
 
         @Test
-        @DisplayName("모델명을 반환한다")
-        void getDefaultModel_returnsModel() {
+        @DisplayName("Provider가 openai면 openai 모델을 반환한다")
+        void getDefaultModel_openAi_returnsOpenAiModel() {
             // given
-            ReflectionTestUtils.setField(aiGenerationService, "defaultModel", "gemini-2.0-flash");
+            ReflectionTestUtils.setField(aiGenerationService, "provider", "openai");
+            ReflectionTestUtils.setField(aiGenerationService, "openAiModel", "gpt-5-mini");
+            ReflectionTestUtils.setField(aiGenerationService, "googleGenAiModel", "gemini-2.0-flash");
+
+            // when
+            String result = aiGenerationService.getDefaultModel();
+
+            // then
+            assertThat(result).isEqualTo("gpt-5-mini");
+        }
+
+        @Test
+        @DisplayName("Provider가 google-genai면 gemini 모델을 반환한다")
+        void getDefaultModel_google_returnsGeminiModel() {
+            // given
+            ReflectionTestUtils.setField(aiGenerationService, "provider", "google-genai");
+            ReflectionTestUtils.setField(aiGenerationService, "openAiModel", "gpt-5-mini");
+            ReflectionTestUtils.setField(aiGenerationService, "googleGenAiModel", "gemini-2.0-flash");
 
             // when
             String result = aiGenerationService.getDefaultModel();

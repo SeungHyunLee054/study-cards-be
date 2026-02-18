@@ -106,12 +106,12 @@ class GenerationServiceUnitTest extends BaseUnitTest {
         @DisplayName("AI를 사용하여 카드를 생성하고 저장한다")
         void generateCards_generatesAndSavesCards() {
             // given
-            GenerationRequest request = new GenerationRequest("TOEIC", 1, null);
+            GenerationRequest request = new GenerationRequest("TOEIC", 1);
 
             given(categoryDomainService.findByCode("TOEIC")).willReturn(toeicCategory);
             given(cardDomainService.findByCategory(toeicCategory)).willReturn(List.of(testCard));
             given(aiGenerationService.getDefaultModel()).willReturn("gpt-5-mini");
-            given(aiGenerationService.generateContent(anyString(), anyString())).willReturn(STUB_RESPONSE);
+            given(aiGenerationService.generateContent(anyString())).willReturn(STUB_RESPONSE);
 
             GeneratedCard savedCard = GeneratedCard.builder()
                     .model("gpt-5-mini")
@@ -141,7 +141,7 @@ class GenerationServiceUnitTest extends BaseUnitTest {
         @DisplayName("카테고리에 카드가 없으면 예외를 발생시킨다")
         void generateCards_withNoCards_throwsException() {
             // given
-            GenerationRequest request = new GenerationRequest("TOEIC", 1, null);
+            GenerationRequest request = new GenerationRequest("TOEIC", 1);
 
             given(categoryDomainService.findByCode("TOEIC")).willReturn(toeicCategory);
             given(cardDomainService.findByCategory(toeicCategory)).willReturn(new ArrayList<>());
@@ -157,17 +157,18 @@ class GenerationServiceUnitTest extends BaseUnitTest {
         }
 
         @Test
-        @DisplayName("요청에 모델이 지정되면 해당 모델을 사용한다")
-        void generateCards_withSpecifiedModel_usesSpecifiedModel() {
+        @DisplayName("요청 모델과 무관하게 고정 모델을 사용한다")
+        void generateCards_usesFixedModel() {
             // given
-            GenerationRequest request = new GenerationRequest("TOEIC", 1, "gemini-2.5-flash");
+            GenerationRequest request = new GenerationRequest("TOEIC", 1);
 
             given(categoryDomainService.findByCode("TOEIC")).willReturn(toeicCategory);
             given(cardDomainService.findByCategory(toeicCategory)).willReturn(List.of(testCard));
-            given(aiGenerationService.generateContent(anyString(), anyString())).willReturn(STUB_RESPONSE);
+            given(aiGenerationService.getDefaultModel()).willReturn("gemini-2.0-flash");
+            given(aiGenerationService.generateContent(anyString())).willReturn(STUB_RESPONSE);
 
             GeneratedCard savedCard = GeneratedCard.builder()
-                    .model("gemini-2.5-flash")
+                    .model("gemini-2.0-flash")
                     .sourceWord("abundant")
                     .prompt("Test prompt")
                     .question("The company has _____ resources.")
@@ -184,7 +185,7 @@ class GenerationServiceUnitTest extends BaseUnitTest {
             GenerationResultResponse result = generationService.generateCards(request);
 
             // then
-            assertThat(result.model()).isEqualTo("gemini-2.5-flash");
+            assertThat(result.model()).isEqualTo("gemini-2.0-flash");
         }
     }
 

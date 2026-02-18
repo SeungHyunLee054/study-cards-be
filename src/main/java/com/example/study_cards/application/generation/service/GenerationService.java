@@ -1,11 +1,14 @@
 package com.example.study_cards.application.generation.service;
 
+import com.example.study_cards.application.ai.prompt.AiPromptTemplateFactory;
 import com.example.study_cards.application.generation.dto.request.GenerationRequest;
 import com.example.study_cards.application.generation.dto.response.GeneratedCardResponse;
 import com.example.study_cards.application.generation.dto.response.GenerationResultResponse;
 import com.example.study_cards.application.generation.dto.response.GenerationStatsResponse;
 import com.example.study_cards.application.generation.dto.response.GenerationStatsResponse.ModelStats;
 import com.example.study_cards.application.generation.dto.response.GenerationStatsResponse.OverallStats;
+import com.example.study_cards.common.util.AiCategoryType;
+import com.example.study_cards.common.util.AiResponseUtils;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
@@ -42,7 +45,7 @@ public class GenerationService {
     @Transactional
     public GenerationResultResponse generateCards(GenerationRequest request) {
         Category category = categoryDomainService.findByCode(request.categoryCode());
-        String model = resolveModel(request.model());
+        String model = aiGenerationService.getDefaultModel();
 
         List<Card> existingCards = cardDomainService.findByCategory(category);
         if (existingCards.isEmpty()) {
@@ -53,8 +56,8 @@ public class GenerationService {
         List<GeneratedCard> generatedCards = new ArrayList<>();
 
         for (Card sourceCard : sourceCards) {
-            String prompt = buildPrompt(sourceCard, category);
-            String aiResponse = aiGenerationService.generateContent(prompt, model);
+            String prompt = AiPromptTemplateFactory.buildPrompt(sourceCard, category);
+            String aiResponse = aiGenerationService.generateContent(prompt);
             GeneratedCard generatedCard = parseAndCreateGeneratedCard(aiResponse, sourceCard, category, model, prompt);
             generatedCards.add(generatedCard);
         }
@@ -64,8 +67,8 @@ public class GenerationService {
                 .map(GeneratedCardResponse::from)
                 .toList();
 
-        log.info("AI 문제 생성 완료 - category: {}, count: {}, model: {}",
-                request.categoryCode(), savedCards.size(), model);
+        log.info("AI 문제 생성 완료 - category: {}, count: {}",
+                request.categoryCode(), savedCards.size());
 
         return GenerationResultResponse.of(responses, request.categoryCode(), model);
     }
@@ -108,169 +111,25 @@ public class GenerationService {
         return GenerationStatsResponse.of(modelStatsList, overallStats);
     }
 
-    private String resolveModel(String requestedModel) {
-        return requestedModel != null && !requestedModel.isBlank()
-                ? requestedModel
-                : aiGenerationService.getDefaultModel();
-    }
-
     private List<Card> selectRandomCards(List<Card> cards, int count) {
         List<Card> shuffled = new ArrayList<>(cards);
         Collections.shuffle(shuffled);
         return shuffled.subList(0, Math.min(count, shuffled.size()));
     }
 
-    private String buildPrompt(Card sourceCard, Category category) {
-        String categoryCode = category.getCode().toUpperCase();
-
-        if (categoryCode.startsWith("JLPT") || categoryCode.startsWith("JN_")) {
-            return buildJlptPrompt(sourceCard, categoryCode);
-        } else if (categoryCode.equals("TOEIC") || categoryCode.startsWith("EN_")) {
-            return buildToeicPrompt(sourceCard);
-        } else if (categoryCode.equals("CS") || categoryCode.startsWith("CS_")) {
-            return buildCsPrompt(sourceCard);
-        } else {
-            return buildGenericPrompt(sourceCard, category);
-        }
-    }
-
-    private boolean isQuizType(Category category) {
-        String code = category.getCode().toUpperCase();
-        return code.startsWith("JLPT") || code.startsWith("JN_") ||
-               code.equals("TOEIC") || code.startsWith("EN_");
-    }
-
-    private String buildToeicPrompt(Card sourceCard) {
-        return """
-            당신은 TOEIC 출제 전문가입니다.
-            아래 단어/문장을 사용하여 TOEIC Part 5 스타일의 문제를 생성하세요.
-
-            원본 질문: %s
-            원본 답변: %s
-
-            요구사항:
-            1. 실제 비즈니스/일상 상황의 예문을 작성하세요.
-            2. 4개의 선택지를 만드세요 (정답 1개 + 오답 3개).
-            3. 오답은 비슷한 형태의 단어로 구성하세요 (품사 변형, 유사어 등).
-            4. 난이도는 중급으로 맞추세요.
-
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
-            - options는 정확히 4개의 문자열 배열이어야 합니다.
-            - answer는 정답 알파벳(A, B, C, D 중 하나)이어야 합니다.
-            - 다음 형식을 정확히 지키세요.
-
-            {
-              "question": "예문 (빈칸 포함)",
-              "options": ["A", "B", "C", "D"],
-              "answer": "정답 알파벳",
-              "explanation": "간단한 해설"
-            }
-            """.formatted(sourceCard.getQuestion(), sourceCard.getAnswer());
-    }
-
-    private String buildJlptPrompt(Card sourceCard, String level) {
-        String jlptLevel = level.replace("JN_", "N").replace("JLPT_", "");
-        return """
-            당신은 JLPT 출제 전문가입니다.
-            아래 단어/문장을 사용하여 JLPT %s 스타일의 문제를 생성하세요.
-
-            원본 질문: %s
-            원본 답변: %s
-
-            요구사항:
-            1. 자연스러운 일본어 예문을 작성하세요.
-            2. 4개의 선택지를 만드세요 (정답 1개 + 오답 3개).
-            3. 오답은 문맥상 헷갈릴 수 있는 단어로 구성하세요.
-            4. 난이도는 %s 레벨에 맞게 조정하세요.
-            5. 해설은 반드시 한국어로 작성하세요.
-
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
-            - options는 정확히 4개의 문자열 배열이어야 합니다.
-            - answer는 정답 번호("1", "2", "3", "4" 중 하나)여야 합니다.
-            - 다음 형식을 정확히 지키세요.
-
-            {
-              "question": "예문 (빈칸 포함)",
-              "options": ["1", "2", "3", "4"],
-              "answer": "정답 번호",
-              "explanation": "간단한 해설 (한국어)"
-            }
-            """.formatted(jlptLevel, sourceCard.getQuestion(), sourceCard.getAnswer(), jlptLevel);
-    }
-
-    private String buildCsPrompt(Card sourceCard) {
-        return """
-            당신은 컴퓨터 공학(CS) 교육 전문가입니다.
-            아래 참고 질문/답변을 기반으로 새로운 학습 카드를 생성하세요.
-
-            참고 질문: %s
-            참고 답변: %s
-
-            요구사항:
-            1. 참고 내용과 관련되지만, 다른 관점의 새로운 질문을 작성하세요.
-            2. 질문과 답변은 반드시 컴퓨터 공학 개념(자료구조, 알고리즘, 운영체제, 네트워크, 데이터베이스 등)과 직접 관련되어야 합니다.
-            3. 한글로 작성하세요.
-            4. 답변은 명확하고 이해하기 쉽게, 강의하듯이 작성하세요.
-
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, answer 두 개만 사용하세요. (소문자)
-            - 다음 형식을 정확히 지키세요.
-
-            {
-              "question": "질문 내용",
-              "answer": "답변 내용"
-            }
-            """.formatted(sourceCard.getQuestion(), sourceCard.getAnswer());
-    }
-
-    private String buildGenericPrompt(Card sourceCard, Category category) {
-        return """
-            아래 학습 자료를 기반으로 4지선다 문제를 생성하세요.
-
-            카테고리: %s
-            원본 질문: %s
-            원본 답변: %s
-
-            요구사항:
-            1. 원본 내용을 기반으로 새로운 관점의 문제를 작성하세요.
-            2. 4개의 선택지를 만드세요 (정답 1개 + 오답 3개).
-            3. 오답은 그럴듯하지만 틀린 내용으로 구성하세요.
-            4. 한글로 작성하세요.
-
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
-            - options는 정확히 4개의 문자열 배열이어야 합니다.
-            - answer는 정답 알파벳(A, B, C, D 중 하나)이어야 합니다.
-            - 다음 형식을 정확히 지키세요.
-
-            {
-              "question": "문제",
-              "options": ["A", "B", "C", "D"],
-              "answer": "정답 알파벳",
-              "explanation": "간단한 해설"
-            }
-            """.formatted(category.getName(), sourceCard.getQuestion(), sourceCard.getAnswer());
-    }
-
     private GeneratedCard parseAndCreateGeneratedCard(String aiResponse, Card sourceCard,
                                                        Category category, String model, String prompt) {
         try {
-            String cleanedResponse = stripMarkdownCodeBlock(aiResponse);
+            String cleanedResponse = AiResponseUtils.extractJsonPayload(aiResponse);
             JsonNode json = objectMapper.readTree(cleanedResponse);
 
-            if (isQuizType(category)) {
+            if (AiCategoryType.fromCode(category.getCode()).isQuizType()) {
                 return parseQuizResponse(json, sourceCard, category, model, prompt);
             } else {
                 return parseQaResponse(json, sourceCard, category, model, prompt);
             }
 
-        } catch (JsonProcessingException e) {
+        } catch (JsonProcessingException | IllegalArgumentException e) {
             log.error("AI 응답 파싱 실패 - response: {}", aiResponse, e);
             throw new GenerationException(GenerationErrorCode.INVALID_AI_RESPONSE);
         }
@@ -340,25 +199,4 @@ public class GenerationService {
         return node.asText();
     }
 
-    private String stripMarkdownCodeBlock(String response) {
-        if (response == null || response.isBlank()) {
-            throw new GenerationException(GenerationErrorCode.INVALID_AI_RESPONSE);
-        }
-
-        String trimmed = response.trim();
-
-        // Check for ```json or ``` at the start
-        if (trimmed.startsWith("```json")) {
-            trimmed = trimmed.substring(7);
-        } else if (trimmed.startsWith("```")) {
-            trimmed = trimmed.substring(3);
-        }
-
-        // Check for ``` at the end
-        if (trimmed.endsWith("```")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 3);
-        }
-
-        return trimmed.trim();
-    }
 }
