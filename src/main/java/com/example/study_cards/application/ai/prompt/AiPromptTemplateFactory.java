@@ -166,6 +166,13 @@ public final class AiPromptTemplateFactory {
     }
 
     private static String buildAdminToeicPrompt(Card sourceCard) {
+        String outputFormat = adminQuizOutputFormat(
+                "answer는 정답 알파벳(A, B, C, D 중 하나)이어야 합니다.",
+                "예문 (빈칸 포함)",
+                "\"A\", \"B\", \"C\", \"D\"",
+                "정답 알파벳",
+                "간단한 해설"
+        );
         return """
             당신은 TOEIC 출제 전문가입니다.
             아래 단어/문장을 사용하여 TOEIC Part 5 스타일의 문제를 생성하세요.
@@ -179,24 +186,19 @@ public final class AiPromptTemplateFactory {
             3. 오답은 비슷한 형태의 단어로 구성하세요 (품사 변형, 유사어 등).
             4. 난이도는 중급으로 맞추세요.
 
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
-            - options는 정확히 4개의 문자열 배열이어야 합니다.
-            - answer는 정답 알파벳(A, B, C, D 중 하나)이어야 합니다.
-            - 다음 형식을 정확히 지키세요.
-
-            {
-              "question": "예문 (빈칸 포함)",
-              "options": ["A", "B", "C", "D"],
-              "answer": "정답 알파벳",
-              "explanation": "간단한 해설"
-            }
-            """.formatted(sourceCard.getQuestion(), sourceCard.getAnswer());
+            %s
+            """.formatted(sourceCard.getQuestion(), sourceCard.getAnswer(), outputFormat);
     }
 
     private static String buildAdminJlptPrompt(Card sourceCard, String categoryCode) {
         String jlptLevel = AiCategoryType.toJlptLevel(categoryCode);
+        String outputFormat = adminQuizOutputFormat(
+                "answer는 정답 번호(\"1\", \"2\", \"3\", \"4\" 중 하나)여야 합니다.",
+                "예문 (빈칸 포함)",
+                "\"1\", \"2\", \"3\", \"4\"",
+                "정답 번호",
+                "간단한 해설 (한국어)"
+        );
         return """
             당신은 JLPT 출제 전문가입니다.
             아래 단어/문장을 사용하여 JLPT %s 스타일의 문제를 생성하세요.
@@ -211,20 +213,8 @@ public final class AiPromptTemplateFactory {
             4. 난이도는 %s 레벨에 맞게 조정하세요.
             5. 해설은 반드시 한국어로 작성하세요.
 
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
-            - options는 정확히 4개의 문자열 배열이어야 합니다.
-            - answer는 정답 번호("1", "2", "3", "4" 중 하나)여야 합니다.
-            - 다음 형식을 정확히 지키세요.
-
-            {
-              "question": "예문 (빈칸 포함)",
-              "options": ["1", "2", "3", "4"],
-              "answer": "정답 번호",
-              "explanation": "간단한 해설 (한국어)"
-            }
-            """.formatted(jlptLevel, sourceCard.getQuestion(), sourceCard.getAnswer(), jlptLevel);
+            %s
+            """.formatted(jlptLevel, sourceCard.getQuestion(), sourceCard.getAnswer(), jlptLevel, outputFormat);
     }
 
     private static String buildAdminCsPrompt(Card sourceCard) {
@@ -254,6 +244,13 @@ public final class AiPromptTemplateFactory {
     }
 
     private static String buildAdminGenericPrompt(Card sourceCard, Category category) {
+        String outputFormat = adminQuizOutputFormat(
+                "answer는 정답 알파벳(A, B, C, D 중 하나)이어야 합니다.",
+                "문제",
+                "\"A\", \"B\", \"C\", \"D\"",
+                "정답 알파벳",
+                "간단한 해설"
+        );
         return """
             아래 학습 자료를 기반으로 4지선다 문제를 생성하세요.
 
@@ -267,20 +264,32 @@ public final class AiPromptTemplateFactory {
             3. 오답은 그럴듯하지만 틀린 내용으로 구성하세요.
             4. 한글로 작성하세요.
 
-            출력 형식:
-            - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
-            - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
-            - options는 정확히 4개의 문자열 배열이어야 합니다.
-            - answer는 정답 알파벳(A, B, C, D 중 하나)이어야 합니다.
-            - 다음 형식을 정확히 지키세요.
+            %s
+            """.formatted(category.getName(), sourceCard.getQuestion(), sourceCard.getAnswer(), outputFormat);
+    }
 
-            {
-              "question": "문제",
-              "options": ["A", "B", "C", "D"],
-              "answer": "정답 알파벳",
-              "explanation": "간단한 해설"
-            }
-            """.formatted(category.getName(), sourceCard.getQuestion(), sourceCard.getAnswer());
+    private static String adminQuizOutputFormat(
+            String answerRule,
+            String questionExample,
+            String optionExamples,
+            String answerExample,
+            String explanationExample
+    ) {
+        return """
+                출력 형식:
+                - JSON만 정확히 출력하고, 다른 설명 문장은 절대 쓰지 마세요.
+                - key 이름은 반드시 question, options, answer, explanation 네 개만 사용하세요. (소문자)
+                - options는 정확히 4개의 문자열 배열이어야 합니다.
+                - %s
+                - 다음 형식을 정확히 지키세요.
+
+                {
+                  "question": "%s",
+                  "options": [%s],
+                  "answer": "%s",
+                  "explanation": "%s"
+                }
+                """.formatted(answerRule, questionExample, optionExamples, answerExample, explanationExample);
     }
 
     private static String defaultDifficulty(String difficulty) {

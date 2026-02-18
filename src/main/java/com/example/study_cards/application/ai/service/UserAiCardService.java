@@ -71,8 +71,7 @@ public class UserAiCardService {
         try {
             aiResponse = aiGenerationService.generateContent(prompt);
         } catch (Exception e) {
-            releaseSlotIfAcquired(user, plan, slotAcquired);
-            saveFailureLog(user, request, e.getMessage());
+            handleFailure(user, request, plan, slotAcquired, e.getMessage());
             throw new AiException(AiErrorCode.AI_GENERATION_FAILED);
         }
 
@@ -81,12 +80,10 @@ public class UserAiCardService {
             cards = parseAndCreateUserCards(user, aiResponse, category);
             userCardRepository.saveAll(cards);
         } catch (AiException e) {
-            releaseSlotIfAcquired(user, plan, slotAcquired);
-            saveFailureLog(user, request, "응답 파싱 실패: " + e.getMessage());
+            handleFailure(user, request, plan, slotAcquired, "응답 파싱 실패: " + e.getMessage());
             throw e;
         } catch (Exception e) {
-            releaseSlotIfAcquired(user, plan, slotAcquired);
-            saveFailureLog(user, request, "카드 저장 실패: " + e.getMessage());
+            handleFailure(user, request, plan, slotAcquired, "카드 저장 실패: " + e.getMessage());
             throw new AiException(AiErrorCode.AI_GENERATION_FAILED);
         }
 
@@ -146,6 +143,17 @@ public class UserAiCardService {
         }
     }
 
+    private void handleFailure(
+            User user,
+            GenerateUserCardRequest request,
+            SubscriptionPlan plan,
+            boolean slotAcquired,
+            String errorMessage
+    ) {
+        releaseSlotIfAcquired(user, plan, slotAcquired);
+        saveFailureLog(user, request, errorMessage);
+    }
+
     private List<UserCard> parseAndCreateUserCards(User user, String aiResponse, Category category) {
         String json = extractJson(aiResponse);
         List<Map<String, String>> parsed = parseJsonArray(json);
@@ -203,7 +211,7 @@ public class UserAiCardService {
                 return mappedLeafCategory;
             }
 
-            log.info("[AI] 상위 카테고리 선택 감지됐지만 매핑 카테고리를 찾지 못해 요청 카테고리 유지 - requested: {}",
+            log.info("[AI] 상위 카테고리 선택 감지됐지만 leaf 매핑 카테고리를 찾지 못해 요청 거부 - requested: {}",
                     requestedCategory.getCode());
             throw new CategoryException(CategoryErrorCode.CATEGORY_NOT_LEAF);
         }
