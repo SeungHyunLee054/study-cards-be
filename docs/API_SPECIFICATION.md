@@ -2,7 +2,7 @@
 
 > Base URL: `/api`
 > 인증: JWT Bearer Token (Authorization 헤더)
-> Last Updated: `2026-02-14`
+> Last Updated: `2026-02-18`
 
 ---
 
@@ -79,9 +79,16 @@ Authorization: Bearer {accessToken}
 ### 에러 응답 구조
 ```json
 {
-  "code": "ERROR_CODE",
+  "status": 400,
   "message": "에러 메시지",
-  "timestamp": "2024-01-01T00:00:00"
+  "timestamp": "2024-01-01T00:00:00",
+  "errors": [
+    {
+      "field": "count",
+      "rejectedValue": "30",
+      "reason": "최대 20개까지 생성 가능합니다"
+    }
+  ]
 }
 ```
 
@@ -833,7 +840,7 @@ GET /api/study/cards
 **Query Parameters**
 | 파라미터 | 기본값 | 설명 |
 |---------|--------|------|
-| category | CS | 카테고리 코드 (상위 카테고리 지정 시 하위 카테고리 카드 포함) |
+| category | - | 카테고리 코드 (미지정 시 전체, 상위 카테고리 지정 시 하위 카테고리 카드 포함) |
 
 **Response** `200 OK`
 ```json
@@ -900,7 +907,7 @@ POST /api/study/answer
 GET /api/study/recommendations
 ```
 
-> PRO 플랜의 AI 추천 기능 포함
+> 모든 플랜에서 사용 가능 (알고리즘 기반 우선순위 추천)
 
 **Query Parameters**
 | 파라미터 | 기본값 | 설명 |
@@ -923,13 +930,65 @@ GET /api/study/recommendations
     }
   ],
   "totalCount": 5,
-  "aiExplanation": "AI 분석 메시지 (PRO 플랜만)"
+  "aiExplanation": "추천 카드 상위 5개를 순서대로 복습하세요."
 }
 ```
 
 ---
 
-### 7.4 카테고리별 정확도 조회
+### 7.4 AI 복습 추천 조회 (PRO)
+```
+GET /api/study/recommendations/ai
+```
+
+> PRO 플랜 전용
+> AI 실패/쿼터 초과 시 알고리즘 기반 결과로 폴백됩니다.
+
+**Query Parameters**
+| 파라미터 | 기본값 | 설명 |
+|---------|--------|------|
+| limit | 20 | 추천 카드 수 |
+
+**Response** `200 OK`
+```json
+{
+  "recommendations": [
+    {
+      "cardId": 1,
+      "userCardId": null,
+      "question": "질문 내용",
+      "questionSub": "Question",
+      "priorityScore": 900,
+      "nextReviewDate": "2024-01-01",
+      "efFactor": 1.8,
+      "lastCorrect": false
+    }
+  ],
+  "totalCount": 1,
+  "weakConcepts": [
+    {
+      "concept": "운영체제",
+      "reason": "정답률 50.0% (10/20)"
+    }
+  ],
+  "reviewStrategy": "운영체제 영역을 먼저 복습한 뒤 추천 카드를 학습하세요.",
+  "aiUsed": true,
+  "algorithmFallback": false,
+  "quota": {
+    "limit": 100,
+    "used": 1,
+    "remaining": 99,
+    "resetAt": "2026-03-01T00:00:00"
+  }
+}
+```
+
+**실패 응답**
+- `403 Forbidden`: FREE 플랜 (`AI_FEATURE_NOT_AVAILABLE`)
+
+---
+
+### 7.5 카테고리별 정확도 조회
 ```
 GET /api/study/category-accuracy
 ```
@@ -1569,7 +1628,7 @@ GET /api/payments/invoices
 ## 14. AI 카드 생성 (User AI)
 
 > 모든 API 인증 필요
-> 사용자가 텍스트를 입력하면 AI가 플래시카드를 자동 생성합니다.
+> 사용자가 텍스트/파일을 입력하면 AI가 플래시카드를 자동 생성합니다.
 
 ### 14.1 AI 카드 생성
 ```
@@ -1589,9 +1648,11 @@ POST /api/ai/generate-cards
 | 필드 | 타입 | 필수 | 유효성 |
 |-----|------|------|--------|
 | sourceText | String | O | 최대 5000자 |
-| categoryCode | String | O | 카테고리 코드 |
+| categoryCode | String | O | 카테고리 코드 (최하위 카테고리 권장) |
 | count | Integer | O | 1-20 |
 | difficulty | String | X | 난이도 |
+
+> 참고: 상위 카테고리 선택 또는 텍스트-카테고리 불일치가 감지되면 서버에서 `*_MISC` 계열 카테고리로 폴백될 수 있습니다.
 
 **Response** `201 Created`
 ```json
@@ -1614,7 +1675,51 @@ POST /api/ai/generate-cards
 
 ---
 
-### 14.2 AI 생성 한도 조회
+### 14.2 AI 카드 생성 (파일 업로드)
+```
+POST /api/ai/generate-cards/upload
+```
+
+**Content-Type**
+```
+multipart/form-data
+```
+
+**Form Data**
+| 필드 | 타입 | 필수 | 유효성/설명 |
+|-----|------|------|-------------|
+| file | File | O | `.pdf`, `.txt`, `.md`, `.markdown` |
+| categoryCode | String | O | 카테고리 코드 (최하위 카테고리 권장) |
+| count | Integer | X | 1-20 (기본값: 5) |
+| difficulty | String | X | 난이도 |
+
+**Response** `201 Created`
+```json
+{
+  "generatedCards": [
+    {
+      "id": 123,
+      "question": "REST API란?",
+      "questionSub": null,
+      "answer": "Representational State Transfer...",
+      "answerSub": null,
+      "categoryCode": "CS",
+      "aiGenerated": true
+    }
+  ],
+  "count": 5,
+  "remainingLimit": 25
+}
+```
+
+**실패 응답**
+- `400 Bad Request`: `UNSUPPORTED_FILE_TYPE`
+- `400 Bad Request`: `FILE_TEXT_EXTRACTION_FAILED`
+- `400 Bad Request`: `EMPTY_EXTRACTED_TEXT`
+
+---
+
+### 14.3 AI 생성 한도 조회
 ```
 GET /api/ai/generation-limit
 ```
@@ -1856,8 +1961,7 @@ POST /api/admin/generation/cards
 ```json
 {
   "categoryCode": "TOEIC",
-  "count": 5,
-  "model": "gemini-2.0-flash"
+  "count": 5
 }
 ```
 
@@ -1865,7 +1969,6 @@ POST /api/admin/generation/cards
 |-----|------|------|------|
 | categoryCode | String | O | 카테고리 코드 |
 | count | Integer | O | 생성할 문제 수 (1-20) |
-| model | String | X | AI 모델 (기본: gemini-2.0-flash) |
 
 **Response** `201 Created`
 ```json
@@ -2121,6 +2224,7 @@ Toss Payments에서 결제 상태 변경 시 호출
 | CATEGORY_NOT_FOUND | 404 | 카테고리를 찾을 수 없음 |
 | CATEGORY_CODE_ALREADY_EXISTS | 409 | 이미 존재하는 카테고리 코드 |
 | CATEGORY_HAS_CHILDREN | 400 | 하위 카테고리가 있어 삭제 불가 |
+| CATEGORY_NOT_LEAF | 400 | 최하위 카테고리만 선택 가능 |
 | INVALID_PARENT_CATEGORY | 400 | 유효하지 않은 상위 카테고리 |
 
 ### 북마크 관련
@@ -2173,6 +2277,9 @@ Toss Payments에서 결제 상태 변경 시 호출
 | GENERATION_LIMIT_EXCEEDED | 429 | AI 생성 횟수 제한 초과 |
 | AI_GENERATION_FAILED | 500 | AI 카드 생성 실패 |
 | INVALID_AI_RESPONSE | 500 | AI 응답 파싱 실패 |
+| UNSUPPORTED_FILE_TYPE | 400 | 지원하지 않는 파일 형식 |
+| FILE_TEXT_EXTRACTION_FAILED | 400 | 파일 텍스트 추출 실패 |
+| EMPTY_EXTRACTED_TEXT | 400 | 추출 텍스트가 비어 있음 |
 
 ### 관리자 AI 생성 관련
 | 코드 | HTTP 상태 | 설명 |

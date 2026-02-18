@@ -8,8 +8,8 @@ SM-2 알고리즘 기반 간격 반복 학습 플래시카드 서비스의 백�
 
 - **간격 반복 학습**: SM-2 알고리즘 기반 EF Factor, 복습 간격 자동 계산
 - **플래시카드 관리**: 공용 카드(Card) 및 사용자 정의 카드(UserCard) 지원
-- **AI 카드 생성**: AI 기반 플래시카드 자동 생성 (구독 플랜별 생성 한도 관리)
-- **AI 추천 학습**: AI 기반 개인화 학습 카드 추천 (PRO 플랜 전용)
+- **AI 카드 생성**: 텍스트/파일(PDF, TXT, MD) 기반 플래시카드 자동 생성 (구독 플랜별 생성 한도 관리)
+- **AI 복습 추천**: 취약 개념/복습 전략 생성 API 제공 (PRO 플랜 전용, 실패 시 알고리즘 폴백)
 - **북마크**: 공용 카드 및 사용자 카드 북마크 관리
 - **카테고리 관리**: 계층형 카테고리 구조 (parent-child)
 - **학습 통계 및 대시보드**: 학습 기록, 통계, 카테고리별 정확도, 대시보드 제공
@@ -26,10 +26,10 @@ SM-2 알고리즘 기반 간격 반복 학습 플래시카드 서비스의 백�
 | Language | Java 17 |
 | Framework | Spring Boot 3.5 |
 | Database | PostgreSQL |
-| Cache | Redis (캐시, JWT 블랙리스트, Rate Limiting, 분산 락) |
+| Cache | Redis (캐시, JWT 블랙리스트, Rate Limiting, AI 쿼터, 분산 락) |
 | Authentication | Spring Security + JWT + OAuth2 (Google, Kakao, Naver) |
 | ORM | Spring Data JPA + QueryDSL |
-| AI | Spring AI (Google Gemini) |
+| AI | Spring AI (Google Gemini, OpenAI) |
 | Payment | Toss Payments |
 | Push Notification | Firebase Cloud Messaging (FCM) |
 | Mail | Spring Mail (이메일 인증) |
@@ -65,7 +65,9 @@ SM-2 알고리즘 기반 간격 반복 학습 플래시카드 서비스의 백�
 | `KAKAO_CLIENT_SECRET` | Kakao OAuth2 Client Secret | O |
 | `NAVER_CLIENT_ID` | Naver OAuth2 Client ID | O |
 | `NAVER_CLIENT_SECRET` | Naver OAuth2 Client Secret | O |
-| `GEMINI_API_KEY` | Google Gemini API 키 | O |
+| `APP_AI_PROVIDER` | AI Provider (`google-genai` \| `openai`) | O |
+| `GEMINI_API_KEY` | Google Gemini API 키 (`google-genai` 사용 시) | 조건부 |
+| `OPENAI_API_KEY` | OpenAI API 키 (`openai` 사용 시) | 조건부 |
 | `TOSS_CLIENT_KEY` | Toss Payments Client Key | O |
 | `TOSS_SECRET_KEY` | Toss Payments Secret Key | O |
 | `TOSS_WEBHOOK_SECRET` | Toss Webhook 검증 키 | X |
@@ -114,12 +116,12 @@ Swagger UI: `/swagger-ui.html`
 | UserCard | 사용자 정의 카드 CRUD |
 | Category | 카테고리 관리 |
 | Bookmark | 카드 북마크 관리 |
-| Study | 학습 세션, SM-2 평가, 추천 카드, 카테고리별 정확도 |
+| Study | 학습 세션, SM-2 평가, 추천 카드, AI 복습 추천, 카테고리별 정확도 |
 | Stats | 학습 통계 조회 |
 | Dashboard | 대시보드 데이터 |
 | Subscription | 구독 플랜 관리 (FREE / PRO) |
 | Payment | Toss Payments 결제, 빌링키 자동 갱신, 결제 내역 |
-| AI | 사용자 AI 카드 생성, 생성 한도 조회 |
+| AI | 사용자 AI 카드 생성(텍스트/파일), 생성 한도 조회 |
 | Generation | 관리자 AI 문제 생성 |
 | Notification | 푸시 알림 설정 및 조회 |
 
@@ -158,7 +160,7 @@ com.example.study_cards/
 │   ├── user/              # 사용자 도메인
 │   └── usercard/          # 사용자 카드 도메인
 ├── infra/                 # 외부 시스템 연동
-│   ├── ai/                # Google Gemini 연동
+│   ├── ai/                # Spring AI 연동 (Gemini/OpenAI)
 │   ├── fcm/               # Firebase Cloud Messaging
 │   ├── mail/              # 이메일 발송
 │   ├── payment/           # Toss Payments 연동
