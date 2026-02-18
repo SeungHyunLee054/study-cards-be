@@ -17,6 +17,7 @@ public enum GenerationErrorCode implements ErrorCode {
     AI_GENERATION_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "AI 문제 생성에 실패했습니다."),
     AI_NOT_ENABLED(HttpStatus.SERVICE_UNAVAILABLE, "AI 서비스가 비활성화되어 있습니다."),
     INVALID_AI_RESPONSE(HttpStatus.INTERNAL_SERVER_ERROR, "AI 응답을 파싱할 수 없습니다."),
+    INVALID_SOURCE_CARD_SELECTION(HttpStatus.BAD_REQUEST, "선택한 원본 카드가 유효하지 않습니다."),
     NO_CARDS_TO_GENERATE(HttpStatus.BAD_REQUEST, "생성할 카드가 없습니다.");
 
     private final HttpStatus status;

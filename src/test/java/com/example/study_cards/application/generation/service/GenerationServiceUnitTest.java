@@ -33,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
 class GenerationServiceUnitTest extends BaseUnitTest {
@@ -186,6 +187,58 @@ class GenerationServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(result.model()).isEqualTo("gemini-2.0-flash");
+        }
+
+        @Test
+        @DisplayName("원본 카드를 지정하면 랜덤 추출 없이 해당 카드로 생성한다")
+        void generateCards_withSourceCardIds_usesSelectedCards() {
+            // given
+            GenerationRequest request = new GenerationRequest("TOEIC", 5, List.of(1L));
+
+            given(categoryDomainService.findByCode("TOEIC")).willReturn(toeicCategory);
+            given(cardDomainService.findByIdsInCategory(List.of(1L), toeicCategory)).willReturn(List.of(testCard));
+            given(aiGenerationService.getDefaultModel()).willReturn("gpt-5-mini");
+            given(aiGenerationService.generateContent(anyString())).willReturn(STUB_RESPONSE);
+
+            GeneratedCard savedCard = GeneratedCard.builder()
+                    .model("gpt-5-mini")
+                    .sourceWord("abundant")
+                    .prompt("Test prompt")
+                    .question("The company has _____ resources.")
+                    .questionSub("(A) abundant (B) abundance (C) abundantly (D) abound")
+                    .answer("A")
+                    .answerSub("형용사 자리이므로 abundant가 정답입니다.")
+                    .category(toeicCategory)
+                    .build();
+            ReflectionTestUtils.setField(savedCard, "id", 1L);
+            given(generatedCardDomainService.saveAll(any())).willReturn(List.of(savedCard));
+
+            // when
+            GenerationResultResponse result = generationService.generateCards(request);
+
+            // then
+            assertThat(result.totalGenerated()).isEqualTo(1);
+            verify(cardDomainService).findByIdsInCategory(List.of(1L), toeicCategory);
+            verify(cardDomainService, never()).findByCategory(any());
+        }
+
+        @Test
+        @DisplayName("원본 카드 지정 시 유효하지 않은 ID가 포함되면 예외를 발생시킨다")
+        void generateCards_withInvalidSourceCardIds_throwsException() {
+            // given
+            GenerationRequest request = new GenerationRequest("TOEIC", 5, List.of(1L, 2L));
+
+            given(categoryDomainService.findByCode("TOEIC")).willReturn(toeicCategory);
+            given(cardDomainService.findByIdsInCategory(List.of(1L, 2L), toeicCategory)).willReturn(List.of(testCard));
+
+            // when & then
+            assertThatThrownBy(() -> generationService.generateCards(request))
+                    .isInstanceOf(GenerationException.class)
+                    .satisfies(exception -> {
+                        GenerationException generationException = (GenerationException) exception;
+                        assertThat(generationException.getErrorCode())
+                                .isEqualTo(GenerationErrorCode.INVALID_SOURCE_CARD_SELECTION);
+                    });
         }
     }
 

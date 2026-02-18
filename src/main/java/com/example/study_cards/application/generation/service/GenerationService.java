@@ -47,12 +47,7 @@ public class GenerationService {
         Category category = categoryDomainService.findByCode(request.categoryCode());
         String model = aiGenerationService.getDefaultModel();
 
-        List<Card> existingCards = cardDomainService.findByCategory(category);
-        if (existingCards.isEmpty()) {
-            throw new GenerationException(GenerationErrorCode.NO_CARDS_TO_GENERATE);
-        }
-
-        List<Card> sourceCards = selectRandomCards(existingCards, request.count());
+        List<Card> sourceCards = resolveSourceCards(request, category);
         List<GeneratedCard> generatedCards = new ArrayList<>();
 
         for (Card sourceCard : sourceCards) {
@@ -67,8 +62,9 @@ public class GenerationService {
                 .map(GeneratedCardResponse::from)
                 .toList();
 
-        log.info("AI 문제 생성 완료 - category: {}, count: {}",
-                request.categoryCode(), savedCards.size());
+        String mode = hasSelectedSourceCards(request) ? "manual" : "random";
+        log.info("AI 문제 생성 완료 - category: {}, mode: {}, count: {}",
+                request.categoryCode(), mode, savedCards.size());
 
         return GenerationResultResponse.of(responses, request.categoryCode(), model);
     }
@@ -115,6 +111,29 @@ public class GenerationService {
         List<Card> shuffled = new ArrayList<>(cards);
         Collections.shuffle(shuffled);
         return shuffled.subList(0, Math.min(count, shuffled.size()));
+    }
+
+    private List<Card> resolveSourceCards(GenerationRequest request, Category category) {
+        if (!hasSelectedSourceCards(request)) {
+            List<Card> existingCards = cardDomainService.findByCategory(category);
+            if (existingCards.isEmpty()) {
+                throw new GenerationException(GenerationErrorCode.NO_CARDS_TO_GENERATE);
+            }
+            return selectRandomCards(existingCards, request.count());
+        }
+
+        List<Long> requestedIds = request.sourceCardIds().stream()
+                .distinct()
+                .toList();
+        List<Card> selectedCards = cardDomainService.findByIdsInCategory(requestedIds, category);
+        if (selectedCards.size() != requestedIds.size()) {
+            throw new GenerationException(GenerationErrorCode.INVALID_SOURCE_CARD_SELECTION);
+        }
+        return selectedCards;
+    }
+
+    private boolean hasSelectedSourceCards(GenerationRequest request) {
+        return request.sourceCardIds() != null && !request.sourceCardIds().isEmpty();
     }
 
     private GeneratedCard parseAndCreateGeneratedCard(String aiResponse, Card sourceCard,
