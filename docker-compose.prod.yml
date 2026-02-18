@@ -100,7 +100,9 @@ services:
       OAUTH2_REDIRECT_URI: ${OAUTH2_REDIRECT_URI:?OAuth2 redirect URI required}
 
       # AI (Gemini)
+      APP_AI_PROVIDER: ${APP_AI_PROVIDER:?AI provider required}
       GEMINI_API_KEY: ${GEMINI_API_KEY:?Gemini API key required}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
 
       # Payment (Toss)
       TOSS_CLIENT_KEY: ${TOSS_CLIENT_KEY:?Toss client key required}

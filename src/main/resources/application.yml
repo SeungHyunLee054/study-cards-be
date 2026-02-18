@@ -4,6 +4,16 @@ spring:
   profiles:
     default: dev
 
+  ai:
+    model:
+      chat: ${APP_AI_PROVIDER}
+      embedding: ${APP_AI_PROVIDER}
+      image: ${APP_AI_PROVIDER}
+      moderation: ${APP_AI_PROVIDER}
+      audio:
+        speech: ${APP_AI_PROVIDER}
+        transcription: ${APP_AI_PROVIDER}
+
   # 공통 JPA 설정
   jpa:
     open-in-view: false
@@ -74,6 +84,8 @@ management:
 
 # 공통 커스텀 설정
 app:
+  ai:
+    provider: ${APP_AI_PROVIDER}
   security:
     jwt:
       issuer: study-cards

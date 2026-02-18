@@ -31,7 +31,7 @@ springdoc:
   swagger-ui:
     enabled: false
   server:
-    url: http://localhost:8081
+    url: http://localhost:8080
 
 app:
   security:

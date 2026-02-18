@@ -5,6 +5,15 @@ spring:
   main:
     allow-bean-definition-overriding: true
 
+  ai:
+    model:
+      chat: google-genai
+      embedding: google-genai
+      image: google-genai
+      moderation: google-genai
+      audio:
+        speech: google-genai
+        transcription: google-genai
 
   mail:
     host: localhost
@@ -34,7 +43,7 @@ springdoc:
   swagger-ui:
     enabled: false
   server:
-    url: http://localhost:8081
+    url: http://localhost:8080
 
 spring.ai.google.genai:
   api-key: test-api-key-for-tests-only

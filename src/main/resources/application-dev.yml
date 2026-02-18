@@ -89,6 +89,13 @@ spring:
           options:
             model: gemini-2.0-flash
             temperature: 0.7
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      chat:
+        options:
+          model: gpt-5-mini
+          temperature: 0.7
+          max-tokens: 2048
 
 logging:
   level:
@@ -108,7 +115,7 @@ springdoc:
     enabled: true
     path: /swagger-ui.html
   server:
-    url: http://localhost:8081
+    url: http://localhost:8080
 
 app:
   fcm:
@@ -132,17 +139,6 @@ app:
 # ============================================
 # Spring AI 설정 (참고용 - 다른 provider 사용 시)
 # ============================================
-
-# OpenAI (GPT) 설정
-#spring:
-#  ai:
-#    openai:
-#      api-key: ${OPENAI_API_KEY:change-me}
-#      chat:
-#        options:
-#          model: gpt-5-mini
-#          temperature: 0.7
-#          max-tokens: 2048
 
 # Google Vertex AI (Gemini) 설정 - GCP 프로젝트 필요
 #spring:
