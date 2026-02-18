@@ -110,12 +110,10 @@ public class AuthService {
     }
 
     public void requestPasswordReset(PasswordResetRequest request) {
-        if (!userDomainService.existsByEmail(request.email())) {
-            return;
+        if (userDomainService.existsByEmail(request.email())) {
+            String code = passwordResetCodeService.generateAndSaveCode(request.email());
+            emailService.sendPasswordResetCode(request.email(), code);
         }
-
-        String code = passwordResetCodeService.generateAndSaveCode(request.email());
-        emailService.sendPasswordResetCode(request.email(), code);
     }
 
     @Transactional
@@ -133,18 +131,16 @@ public class AuthService {
     }
 
     public void requestEmailVerification(EmailVerificationRequest request) {
-        if (!userDomainService.existsByEmail(request.email())) {
-            return;
+        if (userDomainService.existsByEmail(request.email())) {
+            User user = userDomainService.findByEmail(request.email());
+
+            if (user.getEmailVerified()) {
+                return;
+            }
+
+            String code = emailVerificationCodeService.generateAndSaveCode(request.email());
+            emailService.sendVerificationCode(request.email(), code);
         }
-
-        User user = userDomainService.findByEmail(request.email());
-
-        if (user.getEmailVerified()) {
-            return;
-        }
-
-        String code = emailVerificationCodeService.generateAndSaveCode(request.email());
-        emailService.sendVerificationCode(request.email(), code);
     }
 
     @Transactional
