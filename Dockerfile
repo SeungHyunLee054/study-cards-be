@@ -19,7 +19,7 @@ RUN ./gradlew dependencies --no-daemon || true
 COPY src src
 
 # Build application (skip tests - already run in CI)
-RUN ./gradlew bootJar --no-daemon -x test -x asciidoctor -x copyDocs
+RUN ./gradlew bootJar --no-daemon -x test -x asciidoctor
 
 # Stage 2: Runtime
 FROM eclipse-temurin:17-jre-alpine
