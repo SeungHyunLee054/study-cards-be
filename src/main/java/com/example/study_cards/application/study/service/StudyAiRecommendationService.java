@@ -261,6 +261,7 @@ public class StudyAiRecommendationService {
                     .type(AiGenerationType.RECOMMENDATION)
                     .prompt(prompt)
                     .response(response)
+                    .model(aiGenerationService.getDefaultModel())
                     .cardsGenerated(recommendationCount)
                     .success(true)
                     .build());
@@ -275,6 +276,7 @@ public class StudyAiRecommendationService {
                     .user(user)
                     .type(AiGenerationType.WEAKNESS_ANALYSIS)
                     .prompt(prompt)
+                    .model(aiGenerationService.getDefaultModel())
                     .cardsGenerated(recommendationCount)
                     .success(false)
                     .errorMessage(errorMessage)
