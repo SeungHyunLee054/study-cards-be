@@ -32,6 +32,7 @@ import java.time.LocalDateTime;
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.*;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -391,9 +392,9 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .efFactor(2.5)
                     .build();
 
-            List<Long> repeatedMistakeIds = List.of(CARD_ID);
-            List<Long> overdueIds = List.of();
-            List<Long> recentWrongIds = List.of();
+            Set<Long> repeatedMistakeIds = Set.of(CARD_ID);
+            Set<Long> overdueIds = Set.of();
+            Set<Long> recentWrongIds = Set.of();
 
             // when
             int score = studyDomainService.calculatePriorityScore(record, repeatedMistakeIds, overdueIds, recentWrongIds);
@@ -414,9 +415,9 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .efFactor(2.5)
                     .build();
 
-            List<Long> repeatedMistakeIds = List.of();
-            List<Long> overdueIds = List.of(CARD_ID);
-            List<Long> recentWrongIds = List.of();
+            Set<Long> repeatedMistakeIds = Set.of();
+            Set<Long> overdueIds = Set.of(CARD_ID);
+            Set<Long> recentWrongIds = Set.of();
 
             // when
             int score = studyDomainService.calculatePriorityScore(record, repeatedMistakeIds, overdueIds, recentWrongIds);
@@ -437,9 +438,9 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .efFactor(2.5)
                     .build();
 
-            List<Long> repeatedMistakeIds = List.of();
-            List<Long> overdueIds = List.of();
-            List<Long> recentWrongIds = List.of(CARD_ID);
+            Set<Long> repeatedMistakeIds = Set.of();
+            Set<Long> overdueIds = Set.of();
+            Set<Long> recentWrongIds = Set.of(CARD_ID);
 
             // when
             int score = studyDomainService.calculatePriorityScore(record, repeatedMistakeIds, overdueIds, recentWrongIds);
@@ -460,7 +461,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .user(testUser).card(testCard).isCorrect(true)
                     .nextReviewDate(LocalDate.now()).efFactor(2.5).build();
 
-            List<Long> empty = List.of();
+            Set<Long> empty = Set.of();
 
             // when
             int lowEfScore = studyDomainService.calculatePriorityScore(lowEf, empty, empty, empty);
@@ -478,7 +479,7 @@ class StudyDomainServiceTest extends BaseUnitTest {
                     .user(testUser).card(testCard).isCorrect(false)
                     .nextReviewDate(LocalDate.now()).efFactor(1.3).build();
 
-            List<Long> ids = List.of(CARD_ID);
+            Set<Long> ids = Set.of(CARD_ID);
 
             // when
             int score = studyDomainService.calculatePriorityScore(record, ids, ids, ids);

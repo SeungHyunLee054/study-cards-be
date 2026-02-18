@@ -22,8 +22,10 @@ import org.springframework.stereotype.Service;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
 import static com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryCount;
@@ -33,8 +35,6 @@ import static com.example.study_cards.domain.study.repository.StudyRecordReposit
 @RequiredArgsConstructor
 @Service
 public class StudyDomainService {
-
-    private static final int DEFAULT_STUDY_LIMIT = 20;
 
     private final StudySessionRepository studySessionRepository;
     private final StudyRecordRepository studyRecordRepository;
@@ -98,7 +98,7 @@ public class StudyDomainService {
             return result.subList(0, limit);
         }
 
-        List<Long> studiedUserCardIds = studyRecordRepository.findStudiedUserCardIdsByUser(user);
+        Set<Long> studiedUserCardIds = new HashSet<>(studyRecordRepository.findStudiedUserCardIdsByUser(user));
         List<UserCard> newUserCards = (hasCategoryScope
                 ? userCardRepository.findByUserAndCategoriesOrderByEfFactorAsc(user, categories)
                 : userCardRepository.findByUserOrderByEfFactorAsc(user))
@@ -112,7 +112,7 @@ public class StudyDomainService {
             return result.subList(0, limit);
         }
 
-        List<Long> studiedCardIds = studyRecordRepository.findStudiedCardIdsByUser(user);
+        Set<Long> studiedCardIds = new HashSet<>(studyRecordRepository.findStudiedCardIdsByUser(user));
         List<Card> newCards = (hasCategoryScope
                 ? cardRepository.findByCategoriesOrderByEfFactorAsc(categories)
                 : cardRepository.findAllByOrderByEfFactorAsc())
@@ -127,48 +127,8 @@ public class StudyDomainService {
 
     public StudyRecord processAnswer(User user, Card card, StudySession session, Boolean isCorrect) {
         Optional<StudyRecord> existingRecord = studyRecordRepository.findByUserAndCard(user, card);
-
-        if (existingRecord.isPresent()) {
-            StudyRecord record = existingRecord.get();
-            record.updateEfFactor(isCorrect);
-            int newInterval = calculateInterval(record.getRepetitionCount(), record.getEfFactor(), isCorrect);
-            LocalDate newNextReviewDate = LocalDate.now().plusDays(newInterval);
-            record.updateForReview(isCorrect, newNextReviewDate, newInterval);
-
-            if (session != null) {
-                session.incrementTotalCards();
-                if (isCorrect) {
-                    session.incrementCorrectCount();
-                }
-            }
-
-            return record;
-        } else {
-            double initialEfFactor = card.getEfFactor();
-            double newEfFactor = SM2Constants.calculateNewEfFactor(initialEfFactor, isCorrect);
-
-            int initialInterval = SM2Constants.FIRST_INTERVAL;
-            LocalDate nextReviewDate = LocalDate.now().plusDays(initialInterval);
-
-            StudyRecord newRecord = StudyRecord.builder()
-                    .user(user)
-                    .card(card)
-                    .session(session)
-                    .isCorrect(isCorrect)
-                    .nextReviewDate(nextReviewDate)
-                    .interval(initialInterval)
-                    .efFactor(newEfFactor)
-                    .build();
-
-            if (session != null) {
-                session.incrementTotalCards();
-                if (isCorrect) {
-                    session.incrementCorrectCount();
-                }
-            }
-
-            return studyRecordRepository.save(newRecord);
-        }
+        return existingRecord.map(studyRecord -> updateExistingRecord(studyRecord, isCorrect, session))
+                .orElseGet(() -> createAndSaveCardRecord(user, card, session, isCorrect));
     }
 
     public int calculateInterval(int repetitionCount, double efFactor, boolean isCorrect) {
@@ -188,47 +148,63 @@ public class StudyDomainService {
 
     public StudyRecord processUserCardAnswer(User user, UserCard userCard, StudySession session, Boolean isCorrect) {
         Optional<StudyRecord> existingRecord = studyRecordRepository.findByUserAndUserCard(user, userCard);
+        return existingRecord.map(studyRecord -> updateExistingRecord(studyRecord, isCorrect, session))
+                .orElseGet(() -> createAndSaveUserCardRecord(user, userCard, session, isCorrect));
+    }
 
-        if (existingRecord.isPresent()) {
-            StudyRecord record = existingRecord.get();
-            record.updateEfFactor(isCorrect);
-            int newInterval = calculateInterval(record.getRepetitionCount(), record.getEfFactor(), isCorrect);
-            LocalDate newNextReviewDate = LocalDate.now().plusDays(newInterval);
-            record.updateForReview(isCorrect, newNextReviewDate, newInterval);
+    private StudyRecord updateExistingRecord(StudyRecord record, Boolean isCorrect, StudySession session) {
+        record.updateEfFactor(isCorrect);
+        int newInterval = calculateInterval(record.getRepetitionCount(), record.getEfFactor(), isCorrect);
+        LocalDate newNextReviewDate = LocalDate.now().plusDays(newInterval);
+        record.updateForReview(isCorrect, newNextReviewDate, newInterval);
+        incrementSessionProgress(session, isCorrect);
+        return record;
+    }
 
-            if (session != null) {
-                session.incrementTotalCards();
-                if (isCorrect) {
-                    session.incrementCorrectCount();
-                }
+    private StudyRecord createAndSaveCardRecord(User user, Card card, StudySession session, Boolean isCorrect) {
+        double newEfFactor = SM2Constants.calculateNewEfFactor(card.getEfFactor(), isCorrect);
+        int initialInterval = SM2Constants.FIRST_INTERVAL;
+        LocalDate nextReviewDate = LocalDate.now().plusDays(initialInterval);
+
+        StudyRecord newRecord = StudyRecord.builder()
+                .user(user)
+                .card(card)
+                .session(session)
+                .isCorrect(isCorrect)
+                .nextReviewDate(nextReviewDate)
+                .interval(initialInterval)
+                .efFactor(newEfFactor)
+                .build();
+
+        incrementSessionProgress(session, isCorrect);
+        return studyRecordRepository.save(newRecord);
+    }
+
+    private StudyRecord createAndSaveUserCardRecord(User user, UserCard userCard, StudySession session, Boolean isCorrect) {
+        double newEfFactor = SM2Constants.calculateNewEfFactor(userCard.getEfFactor(), isCorrect);
+        int initialInterval = SM2Constants.FIRST_INTERVAL;
+        LocalDate nextReviewDate = LocalDate.now().plusDays(initialInterval);
+
+        StudyRecord newRecord = StudyRecord.builder()
+                .user(user)
+                .userCard(userCard)
+                .session(session)
+                .isCorrect(isCorrect)
+                .nextReviewDate(nextReviewDate)
+                .interval(initialInterval)
+                .efFactor(newEfFactor)
+                .build();
+
+        incrementSessionProgress(session, isCorrect);
+        return studyRecordRepository.save(newRecord);
+    }
+
+    private void incrementSessionProgress(StudySession session, Boolean isCorrect) {
+        if (session != null) {
+            session.incrementTotalCards();
+            if (isCorrect) {
+                session.incrementCorrectCount();
             }
-
-            return record;
-        } else {
-            double initialEfFactor = userCard.getEfFactor();
-            double newEfFactor = SM2Constants.calculateNewEfFactor(initialEfFactor, isCorrect);
-
-            int initialInterval = SM2Constants.FIRST_INTERVAL;
-            LocalDate nextReviewDate = LocalDate.now().plusDays(initialInterval);
-
-            StudyRecord newRecord = StudyRecord.builder()
-                    .user(user)
-                    .userCard(userCard)
-                    .session(session)
-                    .isCorrect(isCorrect)
-                    .nextReviewDate(nextReviewDate)
-                    .interval(initialInterval)
-                    .efFactor(newEfFactor)
-                    .build();
-
-            if (session != null) {
-                session.incrementTotalCards();
-                if (isCorrect) {
-                    session.incrementCorrectCount();
-                }
-            }
-
-            return studyRecordRepository.save(newRecord);
         }
     }
 
@@ -304,15 +280,20 @@ public class StudyDomainService {
     private static final int SCORE_OVERDUE = 500;
     private static final int SCORE_RECENT_WRONG = 300;
     private static final int SCORE_EF_FACTOR_MAX = 120;
+    private static final int RECENT_WRONG_LIMIT = 20;
 
-    public int calculatePriorityScore(StudyRecord record, List<Long> repeatedMistakeCardIds,
-                                       List<Long> overdueCardIds, List<Long> recentWrongCardIds) {
+    public int calculatePriorityScore(
+            StudyRecord record,
+            Set<Long> repeatedMistakeCardIds,
+            Set<Long> overdueCardIds,
+            Set<Long> recentWrongCardIds
+    ) {
         int score = 0;
-        Long cardId = record.isForPublicCard()
-                ? record.getCard().getId()
-                : (record.isForUserCard() ? record.getUserCard().getId() : null);
+        Long cardId = extractCardId(record);
 
-        if (cardId == null) return 0;
+        if (cardId == null) {
+            return 0;
+        }
 
         if (repeatedMistakeCardIds.contains(cardId)) {
             score += SCORE_REPEATED_MISTAKE;
@@ -341,12 +322,12 @@ public class StudyDomainService {
         List<StudyRecord> dueRecords = studyRecordRepository.findDueRecordsByCategory(user, today, null);
         List<StudyRecord> dueUserCardRecords = studyRecordRepository.findDueUserCardRecords(user, today);
 
-        List<Long> repeatedMistakeIds = extractCardIds(
+        Set<Long> repeatedMistakeIds = extractCardIds(
                 studyRecordRepository.findRepeatedMistakeRecords(user, REPEATED_MISTAKE_THRESHOLD));
-        List<Long> overdueIds = extractCardIds(
+        Set<Long> overdueIds = extractCardIds(
                 studyRecordRepository.findOverdueRecords(user, today, OVERDUE_DAYS));
-        List<Long> recentWrongIds = extractCardIds(
-                studyRecordRepository.findRecentWrongRecords(user, 20));
+        Set<Long> recentWrongIds = extractCardIds(
+                studyRecordRepository.findRecentWrongRecords(user, RECENT_WRONG_LIMIT));
 
         List<StudyRecord> allDue = new java.util.ArrayList<>(dueRecords);
         allDue.addAll(dueUserCardRecords);
@@ -363,10 +344,20 @@ public class StudyDomainService {
         return studyRecordRepository.calculateCategoryAccuracy(user);
     }
 
-    private List<Long> extractCardIds(List<StudyRecord> records) {
+    private Set<Long> extractCardIds(List<StudyRecord> records) {
         return records.stream()
-                .map(r -> r.isForPublicCard() ? r.getCard().getId() : r.getUserCard().getId())
-                .distinct()
-                .toList();
+                .map(this::extractCardId)
+                .filter(java.util.Objects::nonNull)
+                .collect(java.util.stream.Collectors.toSet());
+    }
+
+    private Long extractCardId(StudyRecord record) {
+        if (record.isForPublicCard()) {
+            return record.getCard() != null ? record.getCard().getId() : null;
+        }
+        if (record.isForUserCard()) {
+            return record.getUserCard() != null ? record.getUserCard().getId() : null;
+        }
+        return null;
     }
 }

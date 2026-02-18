@@ -8,7 +8,9 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
 
-public interface StudyRecordRepository extends JpaRepository<StudyRecord, Long>, StudyRecordRepositoryCustom {
+public interface StudyRecordRepository extends JpaRepository<StudyRecord, Long>,
+        StudyRecordRepositoryCustom,
+        StudyRecordStatsRepositoryCustom {
 
     Optional<StudyRecord> findByUserAndCard(User user, Card card);
 
