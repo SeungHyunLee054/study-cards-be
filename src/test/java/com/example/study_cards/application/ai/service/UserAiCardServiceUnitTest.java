@@ -10,6 +10,7 @@ import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.repository.UserCardRepository;
@@ -28,6 +29,7 @@ import org.mockito.Spy;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -191,6 +193,32 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
                     .isEqualTo(AiErrorCode.GENERATION_LIMIT_EXCEEDED);
 
             verify(userCardRepository, never()).saveAll(anyList());
+        }
+
+        @Test
+        @DisplayName("관리자는 생성 슬롯 제한을 우회한다")
+        void generateCards_adminBypassesGenerationLimit() {
+            // given
+            User adminUser = createAdminUser();
+            given(subscriptionDomainService.getEffectivePlan(adminUser)).willReturn(SubscriptionPlan.PRO);
+            given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
+            given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
+            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
+                List<UserCard> cards = invocation.getArgument(0);
+                for (int i = 0; i < cards.size(); i++) {
+                    ReflectionTestUtils.setField(cards.get(i), "id", (long) (i + 1));
+                }
+                return cards;
+            });
+
+            // when
+            UserAiGenerationResponse response = userAiCardService.generateCards(adminUser, testRequest);
+
+            // then
+            assertThat(response.generatedCards()).hasSize(2);
+            assertThat(response.remainingLimit()).isEqualTo(Integer.MAX_VALUE);
+            verify(aiLimitService, never()).tryAcquireSlot(anyLong(), any());
+            verify(aiLimitService, never()).getRemainingCount(anyLong(), any());
         }
 
         @Test
@@ -377,5 +405,33 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             assertThat(response.remaining()).isEqualTo(20);
             assertThat(response.isLifetime()).isFalse();
         }
+
+        @Test
+        @DisplayName("관리자는 제한 정보를 무제한으로 반환한다")
+        void getGenerationLimit_adminUnlimited() {
+            // given
+            User adminUser = createAdminUser();
+
+            // when
+            AiLimitResponse response = userAiCardService.getGenerationLimit(adminUser);
+
+            // then
+            assertThat(response.limit()).isEqualTo(Integer.MAX_VALUE);
+            assertThat(response.used()).isZero();
+            assertThat(response.remaining()).isEqualTo(Integer.MAX_VALUE);
+            assertThat(response.isLifetime()).isFalse();
+            verify(subscriptionDomainService, never()).getEffectivePlan(adminUser);
+        }
+    }
+
+    private User createAdminUser() {
+        User adminUser = User.builder()
+                .email("admin@example.com")
+                .password("password123")
+                .nickname("관리자")
+                .roles(Set.of(Role.ROLE_ADMIN))
+                .build();
+        ReflectionTestUtils.setField(adminUser, "id", 999L);
+        return adminUser;
     }
 }

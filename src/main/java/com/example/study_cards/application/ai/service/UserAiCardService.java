@@ -18,6 +18,7 @@ import com.example.study_cards.domain.category.exception.CategoryException;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.repository.UserCardRepository;
@@ -41,6 +42,7 @@ import java.util.Map;
 @Transactional(readOnly = true)
 public class UserAiCardService {
 
+    private static final int UNLIMITED_COUNT = Integer.MAX_VALUE;
     private static final String EN_MISC_CODE = "EN_MISC";
     private static final String JN_MISC_CODE = "JN_MISC";
     private static final String MISC_GENERAL_CODE = "MISC_GENERAL";
@@ -57,15 +59,9 @@ public class UserAiCardService {
 
     @Transactional
     public UserAiGenerationResponse generateCards(User user, GenerateUserCardRequest request) {
+        boolean isAdmin = isAdmin(user);
         SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
-
-        if (!plan.isCanGenerateAiCards()) {
-            throw new AiException(AiErrorCode.AI_FEATURE_NOT_AVAILABLE);
-        }
-
-        if (!aiLimitService.tryAcquireSlot(user.getId(), plan)) {
-            throw new AiException(AiErrorCode.GENERATION_LIMIT_EXCEEDED);
-        }
+        boolean slotAcquired = tryAcquireSlotIfNeeded(user, plan, isAdmin);
 
         Category requestedCategory = categoryDomainService.findByCode(request.categoryCode());
         Category category = resolveEffectiveCategory(requestedCategory, request.sourceText());
@@ -75,7 +71,7 @@ public class UserAiCardService {
         try {
             aiResponse = aiGenerationService.generateContent(prompt);
         } catch (Exception e) {
-            aiLimitService.releaseSlot(user.getId(), plan);
+            releaseSlotIfAcquired(user, plan, slotAcquired);
             saveFailureLog(user, request, e.getMessage());
             throw new AiException(AiErrorCode.AI_GENERATION_FAILED);
         }
@@ -85,11 +81,11 @@ public class UserAiCardService {
             cards = parseAndCreateUserCards(user, aiResponse, category);
             userCardRepository.saveAll(cards);
         } catch (AiException e) {
-            aiLimitService.releaseSlot(user.getId(), plan);
+            releaseSlotIfAcquired(user, plan, slotAcquired);
             saveFailureLog(user, request, "응답 파싱 실패: " + e.getMessage());
             throw e;
         } catch (Exception e) {
-            aiLimitService.releaseSlot(user.getId(), plan);
+            releaseSlotIfAcquired(user, plan, slotAcquired);
             saveFailureLog(user, request, "카드 저장 실패: " + e.getMessage());
             throw new AiException(AiErrorCode.AI_GENERATION_FAILED);
         }
@@ -105,12 +101,16 @@ public class UserAiCardService {
                 .build();
         aiGenerationLogRepository.save(aiLog);
 
-        int remaining = aiLimitService.getRemainingCount(user.getId(), plan);
+        int remaining = isAdmin ? UNLIMITED_COUNT : aiLimitService.getRemainingCount(user.getId(), plan);
 
         return UserAiGenerationResponse.from(cards, remaining);
     }
 
     public AiLimitResponse getGenerationLimit(User user) {
+        if (isAdmin(user)) {
+            return new AiLimitResponse(UNLIMITED_COUNT, 0, UNLIMITED_COUNT, false);
+        }
+
         SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
         int limit = plan.getAiGenerationDailyLimit();
         int used = aiLimitService.getUsedCount(user.getId(), plan);
@@ -118,6 +118,32 @@ public class UserAiCardService {
         boolean isLifetime = (plan == SubscriptionPlan.FREE);
 
         return new AiLimitResponse(limit, used, remaining, isLifetime);
+    }
+
+    private boolean isAdmin(User user) {
+        return user.hasRole(Role.ROLE_ADMIN);
+    }
+
+    private boolean tryAcquireSlotIfNeeded(User user, SubscriptionPlan plan, boolean isAdmin) {
+        if (isAdmin) {
+            return false;
+        }
+
+        if (!plan.isCanGenerateAiCards()) {
+            throw new AiException(AiErrorCode.AI_FEATURE_NOT_AVAILABLE);
+        }
+
+        if (!aiLimitService.tryAcquireSlot(user.getId(), plan)) {
+            throw new AiException(AiErrorCode.GENERATION_LIMIT_EXCEEDED);
+        }
+
+        return true;
+    }
+
+    private void releaseSlotIfAcquired(User user, SubscriptionPlan plan, boolean slotAcquired) {
+        if (slotAcquired) {
+            aiLimitService.releaseSlot(user.getId(), plan);
+        }
     }
 
     private List<UserCard> parseAndCreateUserCards(User user, String aiResponse, Category category) {

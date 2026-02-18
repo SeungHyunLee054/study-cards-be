@@ -14,6 +14,7 @@ import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRec
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.ai.service.AiGenerationService;
 import com.example.study_cards.infra.redis.service.AiReviewQuotaService;
@@ -24,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
@@ -34,6 +36,8 @@ import java.util.List;
 @Transactional(readOnly = true)
 public class StudyAiRecommendationService {
 
+    private static final int UNLIMITED_COUNT = Integer.MAX_VALUE;
+    private static final LocalDateTime UNLIMITED_RESET_AT = LocalDateTime.of(2099, 12, 31, 23, 59, 59);
     private static final int MAX_WEAK_CONCEPTS = 5;
     private static final int MAX_PROMPT_CARD_COUNT = 8;
 
@@ -46,24 +50,26 @@ public class StudyAiRecommendationService {
 
     @Transactional
     public AiRecommendationResponse getAiRecommendations(User user, int limit) {
+        boolean isAdmin = isAdmin(user);
         SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
-        if (!plan.isCanUseAiRecommendations()) {
+        if (!isAdmin && !plan.isCanUseAiRecommendations()) {
             throw new AiException(AiErrorCode.AI_FEATURE_NOT_AVAILABLE);
         }
 
-        Subscription subscription = subscriptionDomainService.getSubscription(user.getId());
+        Subscription subscription = getSubscriptionIfNeeded(user, isAdmin);
+
         List<RecommendedCard> recommendations = toRecommendedCards(user, limit);
         List<CategoryAccuracy> accuracies = studyDomainService.calculateCategoryAccuracy(user);
         List<AiRecommendationResponse.WeakConcept> ruleWeakConcepts = buildRuleWeakConcepts(accuracies);
         String fallbackStrategy = buildFallbackStrategy(ruleWeakConcepts, recommendations);
 
         if (recommendations.isEmpty()) {
-            AiReviewQuotaService.ReviewQuota quota = aiReviewQuotaService.getQuota(user.getId(), subscription);
+            AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
             return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, false, quota);
         }
 
-        if (!aiReviewQuotaService.tryAcquireSlot(user.getId(), subscription)) {
-            AiReviewQuotaService.ReviewQuota quota = aiReviewQuotaService.getQuota(user.getId(), subscription);
+        if (!tryAcquireQuotaIfNeeded(user, subscription, isAdmin)) {
+            AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
             return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, true, quota);
         }
 
@@ -80,24 +86,19 @@ public class StudyAiRecommendationService {
                             : parsed.reviewStrategy();
 
             saveSuccessLog(user, prompt, aiResponse, recommendations.size());
-            AiReviewQuotaService.ReviewQuota quota = aiReviewQuotaService.getQuota(user.getId(), subscription);
+            AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
             return AiRecommendationResponse.of(
                     recommendations,
                     weakConcepts,
                     reviewStrategy,
                     true,
                     false,
-                    new AiRecommendationResponse.Quota(
-                            quota.limit(),
-                            quota.used(),
-                            quota.remaining(),
-                            quota.resetAt()
-                    )
+                    quota
             );
         } catch (Exception e) {
-            aiReviewQuotaService.releaseSlot(user.getId(), subscription);
+            releaseQuotaIfNeeded(user, subscription, isAdmin);
             saveFailureLog(user, prompt, e.getMessage(), recommendations.size());
-            AiReviewQuotaService.ReviewQuota quota = aiReviewQuotaService.getQuota(user.getId(), subscription);
+            AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
             return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, true, quota);
         }
     }
@@ -237,7 +238,7 @@ public class StudyAiRecommendationService {
             List<AiRecommendationResponse.WeakConcept> weakConcepts,
             String strategy,
             boolean algorithmFallback,
-            AiReviewQuotaService.ReviewQuota quota
+            AiRecommendationResponse.Quota quota
     ) {
         return AiRecommendationResponse.of(
                 recommendations,
@@ -245,12 +246,56 @@ public class StudyAiRecommendationService {
                 strategy,
                 false,
                 algorithmFallback,
-                new AiRecommendationResponse.Quota(
-                        quota.limit(),
-                        quota.used(),
-                        quota.remaining(),
-                        quota.resetAt()
-                )
+                quota
+        );
+    }
+
+    private AiRecommendationResponse.Quota toResponseQuota(AiReviewQuotaService.ReviewQuota quota) {
+        return new AiRecommendationResponse.Quota(
+                quota.limit(),
+                quota.used(),
+                quota.remaining(),
+                quota.resetAt()
+        );
+    }
+
+    private boolean isAdmin(User user) {
+        return user.hasRole(Role.ROLE_ADMIN);
+    }
+
+    private Subscription getSubscriptionIfNeeded(User user, boolean isAdmin) {
+        if (isAdmin) {
+            return null;
+        }
+        return subscriptionDomainService.getSubscription(user.getId());
+    }
+
+    private boolean tryAcquireQuotaIfNeeded(User user, Subscription subscription, boolean isAdmin) {
+        if (isAdmin) {
+            return true;
+        }
+        return aiReviewQuotaService.tryAcquireSlot(user.getId(), subscription);
+    }
+
+    private void releaseQuotaIfNeeded(User user, Subscription subscription, boolean isAdmin) {
+        if (!isAdmin) {
+            aiReviewQuotaService.releaseSlot(user.getId(), subscription);
+        }
+    }
+
+    private AiRecommendationResponse.Quota resolveQuota(User user, Subscription subscription, boolean isAdmin) {
+        if (isAdmin) {
+            return unlimitedQuota();
+        }
+        return toResponseQuota(aiReviewQuotaService.getQuota(user.getId(), subscription));
+    }
+
+    private AiRecommendationResponse.Quota unlimitedQuota() {
+        return new AiRecommendationResponse.Quota(
+                UNLIMITED_COUNT,
+                0,
+                UNLIMITED_COUNT,
+                UNLIMITED_RESET_AT
         );
     }
 

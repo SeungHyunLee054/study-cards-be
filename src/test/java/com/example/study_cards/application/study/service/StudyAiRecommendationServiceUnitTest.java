@@ -15,6 +15,7 @@ import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.entity.SubscriptionStatus;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
+import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.ai.service.AiGenerationService;
 import com.example.study_cards.infra.redis.service.AiReviewQuotaService;
@@ -31,12 +32,15 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 
 class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
@@ -152,6 +156,47 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             assertThat(response.recommendations()).hasSize(1);
             assertThat(response.quota().remaining()).isZero();
         }
+
+        @Test
+        @DisplayName("관리자는 플랜/쿼터 제한을 우회하고 AI 추천을 사용한다")
+        void getAiRecommendations_adminBypassesQuotaAndSubscription() {
+            // given
+            User adminUser = createAdminUser();
+
+            Card card = createCard();
+            StudyRecord record = StudyRecord.builder()
+                    .user(adminUser)
+                    .card(card)
+                    .isCorrect(false)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(1.8)
+                    .build();
+
+            given(subscriptionDomainService.getEffectivePlan(adminUser)).willReturn(SubscriptionPlan.FREE);
+            given(studyDomainService.findPrioritizedDueRecords(adminUser, 20))
+                    .willReturn(List.of(new ScoredRecord(record, 900)));
+            given(studyDomainService.calculateCategoryAccuracy(adminUser))
+                    .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(aiGenerationService.generateContent(any()))
+                    .willReturn("""
+                            {
+                              "weakConcepts":[{"concept":"운영체제","reason":"정답률이 낮습니다."}],
+                              "reviewStrategy":"운영체제 개념을 10분 복습한 뒤 추천 카드를 풀어보세요."
+                            }
+                            """);
+
+            // when
+            AiRecommendationResponse response = studyAiRecommendationService.getAiRecommendations(adminUser, 20);
+
+            // then
+            assertThat(response.aiUsed()).isTrue();
+            assertThat(response.algorithmFallback()).isFalse();
+            assertThat(response.quota().limit()).isEqualTo(Integer.MAX_VALUE);
+            assertThat(response.quota().remaining()).isEqualTo(Integer.MAX_VALUE);
+            verify(subscriptionDomainService, never()).getSubscription(adminUser.getId());
+            verify(aiReviewQuotaService, never()).tryAcquireSlot(anyLong(), any());
+            verify(aiReviewQuotaService, never()).getQuota(anyLong(), any());
+        }
     }
 
     private User createUser() {
@@ -162,6 +207,17 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(user, "id", 1L);
         return user;
+    }
+
+    private User createAdminUser() {
+        User adminUser = User.builder()
+                .email("admin@example.com")
+                .password("password")
+                .nickname("admin")
+                .roles(Set.of(Role.ROLE_ADMIN))
+                .build();
+        ReflectionTestUtils.setField(adminUser, "id", 999L);
+        return adminUser;
     }
 
     private Subscription createSubscription(User user) {
