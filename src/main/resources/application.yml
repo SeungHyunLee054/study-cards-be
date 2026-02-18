@@ -86,6 +86,10 @@ management:
 app:
   ai:
     provider: ${APP_AI_PROVIDER}
+    log-retention:
+      cleanup-cron: "0 30 4 * * *" # 매일 오전 4시 30분
+      recommendation-days: 30
+      user-card-days: 14
   security:
     jwt:
       issuer: study-cards

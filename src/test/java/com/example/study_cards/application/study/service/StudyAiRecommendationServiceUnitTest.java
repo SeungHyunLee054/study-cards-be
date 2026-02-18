@@ -197,6 +197,105 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             verify(aiReviewQuotaService, never()).tryAcquireSlot(anyLong(), any());
             verify(aiReviewQuotaService, never()).getQuota(anyLong(), any());
         }
+
+        @Test
+        @DisplayName("AI 응답 파싱 실패 시 알고리즘 폴백으로 응답한다")
+        void getAiRecommendations_invalidAiResponse_returnsFallback() {
+            // given
+            User user = createUser();
+            Subscription subscription = createSubscription(user);
+
+            Card card = createCard();
+            StudyRecord record = StudyRecord.builder()
+                    .user(user)
+                    .card(card)
+                    .isCorrect(false)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(1.8)
+                    .build();
+
+            given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
+            given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
+            given(studyDomainService.findPrioritizedDueRecords(user, 20))
+                    .willReturn(List.of(new ScoredRecord(record, 900)));
+            given(studyDomainService.calculateCategoryAccuracy(user))
+                    .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
+            given(aiReviewQuotaService.getQuota(anyLong(), any()))
+                    .willReturn(new AiReviewQuotaService.ReviewQuota(100, 2, 98, LocalDateTime.now().plusDays(20)));
+            given(aiGenerationService.generateContent(any())).willReturn("not-json-response");
+
+            // when
+            AiRecommendationResponse response = studyAiRecommendationService.getAiRecommendations(user, 20);
+
+            // then
+            assertThat(response.aiUsed()).isFalse();
+            assertThat(response.algorithmFallback()).isTrue();
+            assertThat(response.reviewStrategy()).isNotBlank();
+            verify(aiReviewQuotaService).releaseSlot(user.getId(), subscription);
+        }
+
+        @Test
+        @DisplayName("AI 호출 예외 발생 시 쿼터 슬롯을 해제하고 폴백 응답한다")
+        void getAiRecommendations_aiFailure_releasesQuotaAndReturnsFallback() {
+            // given
+            User user = createUser();
+            Subscription subscription = createSubscription(user);
+
+            Card card = createCard();
+            StudyRecord record = StudyRecord.builder()
+                    .user(user)
+                    .card(card)
+                    .isCorrect(false)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(1.8)
+                    .build();
+
+            given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
+            given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
+            given(studyDomainService.findPrioritizedDueRecords(user, 20))
+                    .willReturn(List.of(new ScoredRecord(record, 900)));
+            given(studyDomainService.calculateCategoryAccuracy(user))
+                    .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
+            given(aiReviewQuotaService.getQuota(anyLong(), any()))
+                    .willReturn(new AiReviewQuotaService.ReviewQuota(100, 3, 97, LocalDateTime.now().plusDays(20)));
+            given(aiGenerationService.generateContent(any())).willThrow(new RuntimeException("AI timeout"));
+
+            // when
+            AiRecommendationResponse response = studyAiRecommendationService.getAiRecommendations(user, 20);
+
+            // then
+            assertThat(response.aiUsed()).isFalse();
+            assertThat(response.algorithmFallback()).isTrue();
+            verify(aiReviewQuotaService).releaseSlot(user.getId(), subscription);
+        }
+
+        @Test
+        @DisplayName("추천 카드가 없으면 AI를 호출하지 않고 규칙 기반 폴백을 반환한다")
+        void getAiRecommendations_noRecommendations_returnsFallbackWithoutAiCall() {
+            // given
+            User user = createUser();
+            Subscription subscription = createSubscription(user);
+
+            given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
+            given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
+            given(studyDomainService.findPrioritizedDueRecords(user, 20)).willReturn(List.of());
+            given(studyDomainService.calculateCategoryAccuracy(user))
+                    .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 10L, 5L, 50.0)));
+            given(aiReviewQuotaService.getQuota(anyLong(), any()))
+                    .willReturn(new AiReviewQuotaService.ReviewQuota(100, 10, 90, LocalDateTime.now().plusDays(20)));
+
+            // when
+            AiRecommendationResponse response = studyAiRecommendationService.getAiRecommendations(user, 20);
+
+            // then
+            assertThat(response.aiUsed()).isFalse();
+            assertThat(response.algorithmFallback()).isFalse();
+            assertThat(response.recommendations()).isEmpty();
+            verify(aiReviewQuotaService, never()).tryAcquireSlot(anyLong(), any());
+            verify(aiGenerationService, never()).generateContent(any());
+        }
     }
 
     private User createUser() {

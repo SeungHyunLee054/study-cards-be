@@ -1,5 +1,6 @@
 package com.example.study_cards.application.study.service;
 
+import com.example.study_cards.application.study.dto.response.AiRecommendationHistoryResponse;
 import com.example.study_cards.application.study.dto.response.AiRecommendationResponse;
 import com.example.study_cards.application.study.dto.response.RecommendationResponse.RecommendedCard;
 import com.example.study_cards.common.util.AiResponseUtils;
@@ -22,6 +23,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -38,6 +41,8 @@ public class StudyAiRecommendationService {
 
     private static final int UNLIMITED_COUNT = Integer.MAX_VALUE;
     private static final LocalDateTime UNLIMITED_RESET_AT = LocalDateTime.of(2099, 12, 31, 23, 59, 59);
+    private static final List<AiGenerationType> AI_RECOMMENDATION_LOG_TYPES =
+            List.of(AiGenerationType.RECOMMENDATION, AiGenerationType.WEAKNESS_ANALYSIS);
     private static final int MAX_WEAK_CONCEPTS = 5;
     private static final int MAX_PROMPT_CARD_COUNT = 8;
 
@@ -101,6 +106,15 @@ public class StudyAiRecommendationService {
             AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
             return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, true, quota);
         }
+    }
+
+    public Page<AiRecommendationHistoryResponse> getAiRecommendationHistory(User user, Pageable pageable) {
+        return aiGenerationLogRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(
+                        user.getId(),
+                        AI_RECOMMENDATION_LOG_TYPES,
+                        pageable
+                )
+                .map(AiRecommendationHistoryResponse::from);
     }
 
     private List<RecommendedCard> toRecommendedCards(User user, int limit) {

@@ -6,6 +6,9 @@ import com.example.study_cards.application.auth.dto.response.TokenResult;
 import com.example.study_cards.application.auth.service.AuthService;
 import com.example.study_cards.application.card.dto.response.CardType;
 import com.example.study_cards.application.study.dto.request.StudyAnswerRequest;
+import com.example.study_cards.domain.ai.entity.AiGenerationLog;
+import com.example.study_cards.domain.ai.entity.AiGenerationType;
+import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.card.repository.CardRepository;
 import com.example.study_cards.domain.category.entity.Category;
@@ -63,6 +66,9 @@ class StudyControllerTest extends BaseIntegrationTest {
     @Autowired
     private StudySessionRepository studySessionRepository;
 
+    @Autowired
+    private AiGenerationLogRepository aiGenerationLogRepository;
+
     private String accessToken;
     private User user;
     private Category category;
@@ -70,6 +76,7 @@ class StudyControllerTest extends BaseIntegrationTest {
 
     @BeforeEach
     void setUp() {
+        aiGenerationLogRepository.deleteAll();
         studySessionRepository.deleteAll();
         cardRepository.deleteAll();
         categoryRepository.deleteAll();
@@ -452,6 +459,52 @@ class StudyControllerTest extends BaseIntegrationTest {
         @DisplayName("인증 없이 요청하면 401을 반환한다")
         void getAiRecommendations_unauthorized_returns401() throws Exception {
             mockMvc.perform(get("/api/study/recommendations/ai"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/study/recommendations/ai/history")
+    class GetAiRecommendationHistoryTest {
+
+        @Test
+        @DisplayName("AI 추천 내역을 조회한다")
+        void getAiRecommendationHistory_success() throws Exception {
+            // given
+            aiGenerationLogRepository.save(AiGenerationLog.builder()
+                    .user(user)
+                    .type(AiGenerationType.RECOMMENDATION)
+                    .prompt("추천 프롬프트")
+                    .response("{\"reviewStrategy\":\"기본 전략\"}")
+                    .model("gpt-5-mini")
+                    .cardsGenerated(5)
+                    .success(true)
+                    .build());
+
+            aiGenerationLogRepository.save(AiGenerationLog.builder()
+                    .user(user)
+                    .type(AiGenerationType.WEAKNESS_ANALYSIS)
+                    .prompt("분석 프롬프트")
+                    .model("gpt-5-mini")
+                    .cardsGenerated(5)
+                    .success(false)
+                    .errorMessage("파싱 실패")
+                    .build());
+
+            // when & then
+            mockMvc.perform(get("/api/study/recommendations/ai/history")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.content.length()").value(2))
+                    .andExpect(jsonPath("$.content[0].type").exists())
+                    .andExpect(jsonPath("$.content[0].success").exists());
+        }
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void getAiRecommendationHistory_unauthorized_returns401() throws Exception {
+            mockMvc.perform(get("/api/study/recommendations/ai/history"))
                     .andExpect(status().isUnauthorized());
         }
     }

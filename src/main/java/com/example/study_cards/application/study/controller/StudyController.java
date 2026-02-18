@@ -1,15 +1,21 @@
 package com.example.study_cards.application.study.controller;
 
 import com.example.study_cards.application.study.dto.request.StudyAnswerRequest;
-import com.example.study_cards.application.study.dto.response.*;
+import com.example.study_cards.application.study.dto.response.AiRecommendationHistoryResponse;
+import com.example.study_cards.application.study.dto.response.AiRecommendationResponse;
+import com.example.study_cards.application.study.dto.response.CategoryAccuracyResponse;
+import com.example.study_cards.application.study.dto.response.RecommendationResponse;
+import com.example.study_cards.application.study.dto.response.SessionResponse;
+import com.example.study_cards.application.study.dto.response.SessionStatsResponse;
+import com.example.study_cards.application.study.dto.response.StudyCardResponse;
+import com.example.study_cards.application.study.dto.response.StudyResultResponse;
 import com.example.study_cards.application.study.service.StudyAiRecommendationService;
 import com.example.study_cards.application.study.service.StudyRecommendationService;
 import com.example.study_cards.application.study.service.StudyService;
-import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.security.user.CustomUserDetails;
 import jakarta.validation.Valid;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -18,6 +24,8 @@ import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RequiredArgsConstructor
 @RestController
@@ -106,6 +114,15 @@ public class StudyController {
             @RequestParam(required = false, defaultValue = "20") int limit) {
         User user = userDomainService.findById(userDetails.userId());
         AiRecommendationResponse result = studyAiRecommendationService.getAiRecommendations(user, limit);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/recommendations/ai/history")
+    public ResponseEntity<Page<AiRecommendationHistoryResponse>> getAiRecommendationHistory(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
+        User user = userDomainService.findById(userDetails.userId());
+        Page<AiRecommendationHistoryResponse> result = studyAiRecommendationService.getAiRecommendationHistory(user, pageable);
         return ResponseEntity.ok(result);
     }
 
