@@ -24,9 +24,12 @@ public class AdminCardController {
     @GetMapping
     public ResponseEntity<Page<CardResponse>> getCards(
             @RequestParam(required = false) String category,
+            @RequestParam(required = false) String keyword,
             @PageableDefault(size = 20, sort = "createdAt", direction = Sort.Direction.DESC) Pageable pageable) {
         Page<CardResponse> cards;
-        if (category != null && !category.isBlank()) {
+        if (keyword != null && !keyword.isBlank()) {
+            cards = cardService.searchCards(null, keyword, category, pageable);
+        } else if (category != null && !category.isBlank()) {
             cards = cardService.getCardsByCategory(category, pageable);
         } else {
             cards = cardService.getCards(pageable);

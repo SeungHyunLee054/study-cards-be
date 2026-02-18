@@ -137,9 +137,21 @@ class AdminCardControllerTest extends BaseIntegrationTest {
                                     headerWithName("Authorization").description("Bearer 액세스 토큰 (ADMIN 권한 필요)")
                             ),
                             queryParameters(
-                                    parameterWithName("category").description("카테고리 코드").optional()
+                                    parameterWithName("category").description("카테고리 코드").optional(),
+                                    parameterWithName("keyword").description("질문/답변 검색어 (2자 이상)").optional()
                             )
                     ));
+        }
+
+        @Test
+        @DisplayName("관리자가 검색어로 카드 목록을 조회한다")
+        void getCards_admin_withKeyword_success() throws Exception {
+            mockMvc.perform(get("/api/admin/cards")
+                            .header("Authorization", "Bearer " + adminAccessToken)
+                            .param("keyword", "variable"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.content").isArray())
+                    .andExpect(jsonPath("$.content[0].id").value(card.getId()));
         }
 
         @Test
