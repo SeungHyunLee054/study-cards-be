@@ -6,6 +6,7 @@ import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.exception.UserCardErrorCode;
 import com.example.study_cards.domain.usercard.exception.UserCardException;
 import com.example.study_cards.domain.usercard.repository.UserCardRepository;
+import com.example.study_cards.domain.usercard.repository.UserCardRepositoryCustom.CategoryCount;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -54,6 +55,14 @@ public class UserCardDomainService {
         return userCardRepository.findByUser(user);
     }
 
+    public List<UserCard> findByUserOrderByEfFactorAsc(User user) {
+        return userCardRepository.findByUserOrderByEfFactorAsc(user);
+    }
+
+    public List<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories) {
+        return userCardRepository.findByUserAndCategoriesOrderByEfFactorAsc(user, categories);
+    }
+
     public UserCard updateUserCard(Long id, User user, String question, String questionSub,
                                    String answer, String answerSub, Category category) {
         Objects.requireNonNull(id, "id must not be null");
@@ -64,6 +73,10 @@ public class UserCardDomainService {
         UserCard userCard = findByIdAndValidateOwner(id, user);
         userCard.update(question, questionSub, answer, answerSub, category);
         return userCard;
+    }
+
+    public List<UserCard> saveAll(List<UserCard> userCards) {
+        return userCardRepository.saveAll(userCards);
     }
 
     public void deleteUserCard(Long id, User user) {
@@ -97,5 +110,9 @@ public class UserCardDomainService {
 
     public long countByUserAndCategories(User user, List<Category> categories) {
         return userCardRepository.countByUserAndCategories(user, categories);
+    }
+
+    public List<CategoryCount> countByUserGroupByCategory(User user) {
+        return userCardRepository.countByUserGroupByCategory(user);
     }
 }

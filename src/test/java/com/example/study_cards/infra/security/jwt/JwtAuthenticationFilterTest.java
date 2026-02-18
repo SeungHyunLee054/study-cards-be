@@ -2,8 +2,9 @@ package com.example.study_cards.infra.security.jwt;
 
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.domain.user.entity.UserStatus;
-import com.example.study_cards.domain.user.repository.UserRepository;
+import com.example.study_cards.domain.user.exception.UserErrorCode;
+import com.example.study_cards.domain.user.exception.UserException;
+import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.redis.service.TokenBlacklistService;
 import com.example.study_cards.infra.security.exception.JwtErrorCode;
 import com.example.study_cards.infra.security.exception.JwtException;
@@ -22,7 +23,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.context.SecurityContextHolder;
 
 import java.io.IOException;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -44,7 +44,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
     private JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
 
     @Mock
-    private UserRepository userRepository;
+    private UserDomainService userDomainService;
 
     @Mock
     private FilterChain filterChain;
@@ -66,7 +66,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
                 jwtTokenProvider,
                 tokenBlacklistService,
                 jwtAuthenticationEntryPoint,
-                userRepository);
+                userDomainService);
         request = new MockHttpServletRequest();
         response = new MockHttpServletResponse();
         testUser = User.builder()
@@ -88,7 +88,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
             request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
             given(tokenBlacklistService.isBlacklisted(VALID_TOKEN)).willReturn(false);
             given(jwtTokenProvider.getUserId(VALID_TOKEN)).willReturn(USER_ID);
-            given(userRepository.findByIdAndStatus(USER_ID, UserStatus.ACTIVE)).willReturn(Optional.of(testUser));
+            given(userDomainService.findById(USER_ID)).willReturn(testUser);
             given(jwtTokenProvider.getEmail(VALID_TOKEN)).willReturn(EMAIL);
             given(jwtTokenProvider.getRoles(VALID_TOKEN)).willReturn(ROLES);
 
@@ -173,7 +173,8 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
             request.addHeader("Authorization", "Bearer " + VALID_TOKEN);
             given(tokenBlacklistService.isBlacklisted(VALID_TOKEN)).willReturn(false);
             given(jwtTokenProvider.getUserId(VALID_TOKEN)).willReturn(USER_ID);
-            given(userRepository.findByIdAndStatus(USER_ID, UserStatus.ACTIVE)).willReturn(Optional.empty());
+            given(userDomainService.findById(USER_ID))
+                    .willThrow(new UserException(UserErrorCode.USER_NOT_FOUND));
 
             // when
             jwtAuthenticationFilter.doFilterInternal(request, response, filterChain);
@@ -196,7 +197,7 @@ class JwtAuthenticationFilterTest extends BaseUnitTest {
             request.addHeader("Authorization", "Bearer " + expectedToken);
             given(tokenBlacklistService.isBlacklisted(expectedToken)).willReturn(false);
             given(jwtTokenProvider.getUserId(expectedToken)).willReturn(USER_ID);
-            given(userRepository.findByIdAndStatus(USER_ID, UserStatus.ACTIVE)).willReturn(Optional.of(testUser));
+            given(userDomainService.findById(USER_ID)).willReturn(testUser);
             given(jwtTokenProvider.getEmail(expectedToken)).willReturn(EMAIL);
             given(jwtTokenProvider.getRoles(expectedToken)).willReturn(ROLES);
 

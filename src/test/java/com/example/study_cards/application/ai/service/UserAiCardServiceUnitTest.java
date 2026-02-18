@@ -5,7 +5,7 @@ import com.example.study_cards.application.ai.dto.response.AiLimitResponse;
 import com.example.study_cards.application.ai.dto.response.UserAiGenerationResponse;
 import com.example.study_cards.domain.ai.exception.AiErrorCode;
 import com.example.study_cards.domain.ai.exception.AiException;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
@@ -13,7 +13,7 @@ import com.example.study_cards.domain.subscription.service.SubscriptionDomainSer
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
-import com.example.study_cards.domain.usercard.repository.UserCardRepository;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import com.example.study_cards.infra.ai.service.AiGenerationService;
 import com.example.study_cards.infra.redis.service.AiLimitService;
 import com.example.study_cards.support.BaseUnitTest;
@@ -51,10 +51,10 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
     private AiGenerationService aiGenerationService;
 
     @Mock
-    private UserCardRepository userCardRepository;
+    private UserCardDomainService userCardDomainService;
 
     @Mock
-    private AiGenerationLogRepository aiGenerationLogRepository;
+    private AiGenerationLogDomainService aiGenerationLogDomainService;
 
     @Mock
     private CategoryDomainService categoryDomainService;
@@ -131,7 +131,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
+            given(userCardDomainService.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
                     ReflectionTestUtils.setField(cards.get(i), "id", (long) (i + 1));
@@ -150,8 +150,8 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             assertThat(response.generatedCards().get(0).question()).isEqualTo("REST API란 무엇인가?");
             assertThat(response.generatedCards().get(0).aiGenerated()).isTrue();
 
-            verify(userCardRepository).saveAll(anyList());
-            verify(aiGenerationLogRepository).save(any());
+            verify(userCardDomainService).saveAll(anyList());
+            verify(aiGenerationLogDomainService).save(any());
         }
 
         @Test
@@ -162,7 +162,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.FREE)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
+            given(userCardDomainService.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
                     ReflectionTestUtils.setField(cards.get(i), "id", (long) (i + 1));
@@ -192,7 +192,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
                     .extracting(e -> ((AiException) e).getErrorCode())
                     .isEqualTo(AiErrorCode.GENERATION_LIMIT_EXCEEDED);
 
-            verify(userCardRepository, never()).saveAll(anyList());
+            verify(userCardDomainService, never()).saveAll(anyList());
         }
 
         @Test
@@ -203,7 +203,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(subscriptionDomainService.getEffectivePlan(adminUser)).willReturn(SubscriptionPlan.PRO);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
+            given(userCardDomainService.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
                     ReflectionTestUtils.setField(cards.get(i), "id", (long) (i + 1));
@@ -240,7 +240,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             // 실패 시 슬롯 해제 확인
             verify(aiLimitService).releaseSlot(USER_ID, SubscriptionPlan.PRO);
             // 실패 로그가 저장되었는지 확인
-            verify(aiGenerationLogRepository).save(any());
+            verify(aiGenerationLogDomainService).save(any());
         }
 
         @Test
@@ -271,7 +271,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(wrappedResponse);
-            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
+            given(userCardDomainService.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
                     ReflectionTestUtils.setField(cards.get(i), "id", (long) (i + 1));
@@ -310,7 +310,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(categoryDomainService.findByCode("JN_N3")).willReturn(jlptCategory);
             given(categoryDomainService.findByCodeOrNull("JN_MISC")).willReturn(jlptFallbackCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
+            given(userCardDomainService.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
             given(aiLimitService.getRemainingCount(USER_ID, SubscriptionPlan.PRO)).willReturn(29);
 
             // when
@@ -318,7 +318,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
 
             // then
             ArgumentCaptor<List<UserCard>> captor = ArgumentCaptor.forClass(List.class);
-            verify(userCardRepository).saveAll(captor.capture());
+            verify(userCardDomainService).saveAll(captor.capture());
             assertThat(captor.getValue()).allSatisfy(card ->
                     assertThat(card.getCategory().getCode()).isEqualTo("JN_MISC"));
         }
@@ -354,7 +354,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(categoryDomainService.findByCodeOrNull("EN_MISC")).willReturn(englishMisc);
             given(categoryDomainService.isLeafCategory(englishMisc)).willReturn(true);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
+            given(userCardDomainService.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
             given(aiLimitService.getRemainingCount(USER_ID, SubscriptionPlan.PRO)).willReturn(29);
 
             // when
@@ -362,7 +362,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
 
             // then
             ArgumentCaptor<List<UserCard>> captor = ArgumentCaptor.forClass(List.class);
-            verify(userCardRepository).saveAll(captor.capture());
+            verify(userCardDomainService).saveAll(captor.capture());
             assertThat(captor.getValue()).allSatisfy(card ->
                     assertThat(card.getCategory().getCode()).isEqualTo("EN_MISC"));
         }

@@ -1,8 +1,8 @@
 package com.example.study_cards.infra.security.jwt;
 
 import com.example.study_cards.domain.user.entity.Role;
-import com.example.study_cards.domain.user.entity.UserStatus;
-import com.example.study_cards.domain.user.repository.UserRepository;
+import com.example.study_cards.domain.user.exception.UserException;
+import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.security.exception.JwtErrorCode;
 import com.example.study_cards.infra.security.exception.JwtException;
 import com.example.study_cards.infra.redis.service.TokenBlacklistService;
@@ -32,7 +32,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtTokenProvider jwtTokenProvider;
     private final TokenBlacklistService tokenBlacklistService;
     private final JwtAuthenticationEntryPoint jwtAuthenticationEntryPoint;
-    private final UserRepository userRepository;
+    private final UserDomainService userDomainService;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -49,8 +49,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 jwtTokenProvider.validateToken(token);
 
                 Long userId = jwtTokenProvider.getUserId(token);
-                userRepository.findByIdAndStatus(userId, UserStatus.ACTIVE)
-                        .orElseThrow(() -> new JwtException(JwtErrorCode.INVALID_TOKEN));
+                validateUser(userId);
                 String email = jwtTokenProvider.getEmail(token);
                 Set<Role> roles = jwtTokenProvider.getRoles(token);
 
@@ -69,6 +68,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     response,
                     new BadCredentialsException(e.getErrorCode().getMessage(), e)
             );
+        }
+    }
+
+    private void validateUser(Long userId) {
+        try {
+            userDomainService.findById(userId);
+        } catch (UserException e) {
+            throw new JwtException(JwtErrorCode.INVALID_TOKEN);
         }
     }
 

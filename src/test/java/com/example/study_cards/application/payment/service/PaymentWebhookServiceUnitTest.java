@@ -5,7 +5,6 @@ import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.payment.entity.Payment;
 import com.example.study_cards.domain.payment.entity.PaymentStatus;
 import com.example.study_cards.domain.payment.entity.PaymentType;
-import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
@@ -43,9 +42,6 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
     private PaymentDomainService paymentDomainService;
 
     @Mock
-    private PaymentRepository paymentRepository;
-
-    @Mock
     private TossPaymentService tossPaymentService;
 
     @Mock
@@ -67,7 +63,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Subscription subscription = createMockSubscription(user);
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByOrderIdForUpdateOptional("ORDER_123")).willReturn(Optional.of(payment));
                 given(tossPaymentService.getPayment("pk_123")).willReturn(createDonePaymentDetail());
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(true);
                 given(subscriptionDomainService.createSubscriptionFromPayment(payment, null)).willReturn(subscription);
@@ -84,7 +80,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createCompletedPayment();
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByOrderIdForUpdateOptional("ORDER_123")).willReturn(Optional.of(payment));
                 given(tossPaymentService.getPayment("pk_123")).willReturn(createDonePaymentDetail());
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(false);
 
@@ -100,7 +96,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createPendingPayment(user);
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByOrderIdForUpdateOptional("ORDER_123")).willReturn(Optional.of(payment));
                 given(tossPaymentService.getPayment("pk_123")).willReturn(createDonePaymentDetail());
                 given(paymentDomainService.tryCompletePayment(payment, "pk_123", "카드")).willReturn(true);
                 given(subscriptionDomainService.createSubscriptionFromPayment(payment, null))
@@ -116,7 +112,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
             void handleDone_paymentNotFound_ignores() {
                 DataPayload data = createDataPayload("DONE", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderIdForUpdate("ORDER_123")).willReturn(Optional.empty());
+                given(paymentDomainService.findByOrderIdForUpdateOptional("ORDER_123")).willReturn(Optional.empty());
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 
@@ -136,7 +132,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createCompletedPaymentWithSubscription(user, subscription);
                 DataPayload data = createCanceledDataPayload("pk_123", "ORDER_123", "고객 요청");
 
-                given(paymentRepository.findByPaymentKey("pk_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByPaymentKeyOptional("pk_123")).willReturn(Optional.of(payment));
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 
@@ -153,7 +149,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createCompletedPaymentWithoutSubscription(user);
                 DataPayload data = createCanceledDataPayload("pk_123", "ORDER_123", "고객 요청");
 
-                given(paymentRepository.findByPaymentKey("pk_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByPaymentKeyOptional("pk_123")).willReturn(Optional.of(payment));
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 
@@ -175,7 +171,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createPendingPayment(user);
                 DataPayload data = createDataPayload("ABORTED", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByOrderIdOptional("ORDER_123")).willReturn(Optional.of(payment));
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 
@@ -191,7 +187,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createPendingPayment(user);
                 DataPayload data = createDataPayload("EXPIRED", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByOrderIdOptional("ORDER_123")).willReturn(Optional.of(payment));
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 
@@ -206,7 +202,7 @@ class PaymentWebhookServiceUnitTest extends BaseUnitTest {
                 Payment payment = createCompletedPayment();
                 DataPayload data = createDataPayload("ABORTED", "ORDER_123", "pk_123", "카드");
 
-                given(paymentRepository.findByOrderId("ORDER_123")).willReturn(Optional.of(payment));
+                given(paymentDomainService.findByOrderIdOptional("ORDER_123")).willReturn(Optional.of(payment));
 
                 paymentWebhookService.handlePaymentStatusChanged(data);
 

@@ -8,7 +8,6 @@ import com.example.study_cards.domain.payment.entity.PaymentType;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
-import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
@@ -31,7 +30,6 @@ public class SubscriptionRenewalScheduler {
 
     private final SubscriptionDomainService subscriptionDomainService;
     private final PaymentDomainService paymentDomainService;
-    private final SubscriptionRepository subscriptionRepository;
     private final TossPaymentService tossPaymentService;
     private final NotificationService notificationService;
 
@@ -164,7 +162,7 @@ public class SubscriptionRenewalScheduler {
         LocalDateTime startOfDay = targetDate.atStartOfDay();
         LocalDateTime endOfDay = targetDate.atTime(LocalTime.MAX);
 
-        List<Subscription> expiringSubscriptions = subscriptionRepository.findExpiringOn(startOfDay, endOfDay);
+        List<Subscription> expiringSubscriptions = subscriptionDomainService.findExpiringOn(startOfDay, endOfDay);
         log.info("Found {} subscriptions expiring on {} (D-{})", expiringSubscriptions.size(), targetDate, daysText);
 
         for (Subscription subscription : expiringSubscriptions) {

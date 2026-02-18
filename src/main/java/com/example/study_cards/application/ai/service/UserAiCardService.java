@@ -11,7 +11,7 @@ import com.example.study_cards.domain.ai.entity.AiGenerationLog;
 import com.example.study_cards.domain.ai.entity.AiGenerationType;
 import com.example.study_cards.domain.ai.exception.AiErrorCode;
 import com.example.study_cards.domain.ai.exception.AiException;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.exception.CategoryErrorCode;
 import com.example.study_cards.domain.category.exception.CategoryException;
@@ -21,7 +21,7 @@ import com.example.study_cards.domain.subscription.service.SubscriptionDomainSer
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
-import com.example.study_cards.domain.usercard.repository.UserCardRepository;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import com.example.study_cards.infra.ai.service.AiGenerationService;
 import com.example.study_cards.infra.redis.service.AiLimitService;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -52,8 +52,8 @@ public class UserAiCardService {
     private final SubscriptionDomainService subscriptionDomainService;
     private final AiLimitService aiLimitService;
     private final AiGenerationService aiGenerationService;
-    private final UserCardRepository userCardRepository;
-    private final AiGenerationLogRepository aiGenerationLogRepository;
+    private final UserCardDomainService userCardDomainService;
+    private final AiGenerationLogDomainService aiGenerationLogDomainService;
     private final CategoryDomainService categoryDomainService;
     private final ObjectMapper objectMapper;
 
@@ -78,7 +78,7 @@ public class UserAiCardService {
         List<UserCard> cards;
         try {
             cards = parseAndCreateUserCards(user, aiResponse, category);
-            userCardRepository.saveAll(cards);
+            userCardDomainService.saveAll(cards);
         } catch (AiException e) {
             handleFailure(user, request, plan, slotAcquired, "응답 파싱 실패: " + e.getMessage());
             throw e;
@@ -96,7 +96,7 @@ public class UserAiCardService {
                 .cardsGenerated(cards.size())
                 .success(true)
                 .build();
-        aiGenerationLogRepository.save(aiLog);
+        aiGenerationLogDomainService.save(aiLog);
 
         int remaining = isAdmin ? UNLIMITED_COUNT : aiLimitService.getRemainingCount(user.getId(), plan);
 
@@ -289,7 +289,7 @@ public class UserAiCardService {
                     .success(false)
                     .errorMessage(errorMessage)
                     .build();
-            aiGenerationLogRepository.save(failLog);
+            aiGenerationLogDomainService.save(failLog);
         } catch (Exception e) {
             log.error("AI 실패 로그 저장 실패: {}", e.getMessage());
         }

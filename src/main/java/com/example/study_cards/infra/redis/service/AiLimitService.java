@@ -1,7 +1,7 @@
 package com.example.study_cards.infra.redis.service;
 
 import com.example.study_cards.domain.ai.entity.AiGenerationType;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -21,7 +21,7 @@ public class AiLimitService {
     private static final String AI_DAILY_PREFIX = "ai_generation:";
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final AiGenerationLogRepository aiGenerationLogRepository;
+    private final AiGenerationLogDomainService aiGenerationLogDomainService;
 
     public boolean canGenerate(Long userId, SubscriptionPlan plan) {
         int limit = plan.getAiGenerationDailyLimit();
@@ -32,7 +32,7 @@ public class AiLimitService {
     public int getUsedCount(Long userId, SubscriptionPlan plan) {
         if (plan == SubscriptionPlan.FREE) {
             // FREE: DB에서 평생 사용량 조회 (유실 방지)
-            return (int) aiGenerationLogRepository.countByUserIdAndTypeAndSuccessTrue(
+            return (int) aiGenerationLogDomainService.countByUserIdAndTypeAndSuccessTrue(
                     userId, AiGenerationType.USER_CARD);
         }
 

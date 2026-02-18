@@ -2,8 +2,7 @@ package com.example.study_cards.infra.security.oauth;
 
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.domain.user.entity.UserStatus;
-import com.example.study_cards.domain.user.repository.UserRepository;
+import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -39,7 +38,7 @@ import static org.mockito.Mockito.*;
 class CustomOAuth2UserServiceTest extends BaseUnitTest {
 
     @Mock
-    private UserRepository userRepository;
+    private UserDomainService userDomainService;
 
     @Spy
     @InjectMocks
@@ -101,8 +100,8 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
 
             doReturn(defaultOAuth2User).when(customOAuth2UserService).loadUser(any(OAuth2UserRequest.class));
 
-            given(userRepository.findByProviderAndProviderIdAndStatus(
-                    OAuthProvider.GOOGLE, "google_user_123", UserStatus.ACTIVE))
+            given(userDomainService.findByProviderAndProviderId(
+                    OAuthProvider.GOOGLE, "google_user_123"))
                     .willReturn(Optional.of(existingUser));
 
             // when - 직접 호출 대신 내부 로직 테스트
@@ -119,10 +118,10 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
         @DisplayName("신규 OAuth 사용자를 생성한다")
         void loadUser_newUser_createsUser() {
             // given
-            given(userRepository.findByProviderAndProviderIdAndStatus(
-                    OAuthProvider.GOOGLE, "google_user_123", UserStatus.ACTIVE))
+            given(userDomainService.findByProviderAndProviderId(
+                    OAuthProvider.GOOGLE, "google_user_123"))
                     .willReturn(Optional.empty());
-            given(userRepository.existsByEmail("test@gmail.com"))
+            given(userDomainService.existsAnyByEmail("test@gmail.com"))
                     .willReturn(false);
 
             User newUser = User.builder()
@@ -133,7 +132,8 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
                     .build();
             setId(newUser, 2L);
 
-            given(userRepository.save(any(User.class))).willReturn(newUser);
+            given(userDomainService.registerOAuthUser(any(), anyString(), anyString(), anyString()))
+                    .willReturn(newUser);
 
             doReturn(defaultOAuth2User).when(customOAuth2UserService).loadUser(any(OAuth2UserRequest.class));
 
@@ -150,15 +150,15 @@ class CustomOAuth2UserServiceTest extends BaseUnitTest {
         @DisplayName("이미 존재하는 이메일로 OAuth 가입 시도하면 예외가 발생한다")
         void loadUser_existingEmail_throwsException() {
             // given
-            given(userRepository.findByProviderAndProviderIdAndStatus(
-                    OAuthProvider.GOOGLE, "google_user_123", UserStatus.ACTIVE))
+            given(userDomainService.findByProviderAndProviderId(
+                    OAuthProvider.GOOGLE, "google_user_123"))
                     .willReturn(Optional.empty());
-            given(userRepository.existsByEmail("test@gmail.com"))
+            given(userDomainService.existsAnyByEmail("test@gmail.com"))
                     .willReturn(true);
 
             // when & then
             assertThatThrownBy(() -> {
-                if (userRepository.existsByEmail("test@gmail.com")) {
+                if (userDomainService.existsAnyByEmail("test@gmail.com")) {
                     throw new OAuth2AuthenticationException(
                             new OAuth2Error("email_exists", "이미 해당 이메일로 가입된 계정이 있습니다.", null));
                 }

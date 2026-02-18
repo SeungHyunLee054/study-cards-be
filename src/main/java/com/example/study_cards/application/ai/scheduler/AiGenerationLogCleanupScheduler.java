@@ -2,7 +2,7 @@ package com.example.study_cards.application.ai.scheduler;
 
 import com.example.study_cards.common.aop.DistributedLock;
 import com.example.study_cards.domain.ai.entity.AiGenerationType;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -22,7 +22,7 @@ public class AiGenerationLogCleanupScheduler {
             List.of(AiGenerationType.RECOMMENDATION, AiGenerationType.WEAKNESS_ANALYSIS);
     private static final long MIN_RETENTION_DAYS = 1L;
 
-    private final AiGenerationLogRepository aiGenerationLogRepository;
+    private final AiGenerationLogDomainService aiGenerationLogDomainService;
 
     @Value("${app.ai.log-retention.recommendation-days:90}")
     private long recommendationRetentionDays;
@@ -42,11 +42,11 @@ public class AiGenerationLogCleanupScheduler {
             LocalDateTime recommendationCutoff = now.minusDays(recommendationDays);
             LocalDateTime userCardCutoff = now.minusDays(userCardDays);
 
-            long recommendationDeleted = aiGenerationLogRepository.deleteByTypeInAndCreatedAtBefore(
+            long recommendationDeleted = aiGenerationLogDomainService.deleteByTypeInAndCreatedAtBefore(
                     RECOMMENDATION_LOG_TYPES,
                     recommendationCutoff
             );
-            long userCardDeleted = aiGenerationLogRepository.deleteByTypeAndCreatedAtBefore(
+            long userCardDeleted = aiGenerationLogDomainService.deleteByTypeAndCreatedAtBefore(
                     AiGenerationType.USER_CARD,
                     userCardCutoff
             );

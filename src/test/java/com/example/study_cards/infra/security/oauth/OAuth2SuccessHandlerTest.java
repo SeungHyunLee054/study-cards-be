@@ -2,7 +2,7 @@ package com.example.study_cards.infra.security.oauth;
 
 import com.example.study_cards.domain.user.entity.Role;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.domain.user.repository.UserRepository;
+import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.redis.service.RefreshTokenService;
 import com.example.study_cards.infra.redis.service.UserCacheService;
 import com.example.study_cards.infra.security.jwt.CookieProvider;
@@ -20,12 +20,10 @@ import org.mockito.Mock;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.RedirectStrategy;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import com.example.study_cards.domain.user.entity.OAuthProvider;
 
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -48,7 +46,7 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
     private CookieProvider cookieProvider;
 
     @Mock
-    private UserRepository userRepository;
+    private UserDomainService userDomainService;
 
     @Mock
     private HttpCookieOAuth2AuthorizationRequestRepository cookieAuthorizationRequestRepository;
@@ -107,7 +105,7 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
                     .willReturn("refresh_token_456");
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(900000L);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(1209600000L);
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(userDomainService.findByIdIncludingWithdrawn(1L)).willReturn(user);
 
             // when
             successHandler.onAuthenticationSuccess(request, response, authentication);
@@ -131,7 +129,7 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
                     .willReturn("refresh_token_xyz");
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(900000L);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(1209600000L);
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(userDomainService.findByIdIncludingWithdrawn(1L)).willReturn(user);
 
             // when
             successHandler.onAuthenticationSuccess(request, response, authentication);
@@ -156,7 +154,7 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
                     .willReturn("refresh_token");
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(900000L);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(1209600000L);
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(userDomainService.findByIdIncludingWithdrawn(1L)).willReturn(user);
 
             // when
             successHandler.onAuthenticationSuccess(request, response, authentication);
@@ -176,7 +174,7 @@ class OAuth2SuccessHandlerTest extends BaseUnitTest {
                     .willReturn("refresh_token");
             given(jwtTokenProvider.getAccessTokenExpirationMs()).willReturn(900000L);
             given(jwtTokenProvider.getRefreshTokenExpirationMs()).willReturn(1209600000L);
-            given(userRepository.findById(1L)).willReturn(Optional.of(user));
+            given(userDomainService.findByIdIncludingWithdrawn(1L)).willReturn(user);
 
             // when
             successHandler.onAuthenticationSuccess(request, response, authentication);

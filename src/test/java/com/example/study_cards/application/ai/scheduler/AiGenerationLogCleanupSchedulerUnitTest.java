@@ -1,7 +1,7 @@
 package com.example.study_cards.application.ai.scheduler;
 
 import com.example.study_cards.domain.ai.entity.AiGenerationType;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -22,7 +22,7 @@ import static org.mockito.Mockito.verify;
 class AiGenerationLogCleanupSchedulerUnitTest extends BaseUnitTest {
 
     @Mock
-    private AiGenerationLogRepository aiGenerationLogRepository;
+    private AiGenerationLogDomainService aiGenerationLogDomainService;
 
     @InjectMocks
     private AiGenerationLogCleanupScheduler scheduler;
@@ -37,8 +37,8 @@ class AiGenerationLogCleanupSchedulerUnitTest extends BaseUnitTest {
             // given
             ReflectionTestUtils.setField(scheduler, "recommendationRetentionDays", 90L);
             ReflectionTestUtils.setField(scheduler, "userCardRetentionDays", 30L);
-            given(aiGenerationLogRepository.deleteByTypeInAndCreatedAtBefore(any(), any())).willReturn(10L);
-            given(aiGenerationLogRepository.deleteByTypeAndCreatedAtBefore(any(), any())).willReturn(5L);
+            given(aiGenerationLogDomainService.deleteByTypeInAndCreatedAtBefore(any(), any())).willReturn(10L);
+            given(aiGenerationLogDomainService.deleteByTypeAndCreatedAtBefore(any(), any())).willReturn(5L);
 
             LocalDateTime before = LocalDateTime.now();
 
@@ -54,11 +54,11 @@ class AiGenerationLogCleanupSchedulerUnitTest extends BaseUnitTest {
             ArgumentCaptor<AiGenerationType> userCardTypeCaptor = ArgumentCaptor.forClass(AiGenerationType.class);
             ArgumentCaptor<LocalDateTime> userCardCutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
 
-            verify(aiGenerationLogRepository).deleteByTypeInAndCreatedAtBefore(
+            verify(aiGenerationLogDomainService).deleteByTypeInAndCreatedAtBefore(
                     recommendationTypesCaptor.capture(),
                     recommendationCutoffCaptor.capture()
             );
-            verify(aiGenerationLogRepository).deleteByTypeAndCreatedAtBefore(
+            verify(aiGenerationLogDomainService).deleteByTypeAndCreatedAtBefore(
                     userCardTypeCaptor.capture(),
                     userCardCutoffCaptor.capture()
             );
@@ -79,8 +79,8 @@ class AiGenerationLogCleanupSchedulerUnitTest extends BaseUnitTest {
             // given
             ReflectionTestUtils.setField(scheduler, "recommendationRetentionDays", 0L);
             ReflectionTestUtils.setField(scheduler, "userCardRetentionDays", -5L);
-            given(aiGenerationLogRepository.deleteByTypeInAndCreatedAtBefore(any(), any())).willReturn(1L);
-            given(aiGenerationLogRepository.deleteByTypeAndCreatedAtBefore(any(), any())).willReturn(1L);
+            given(aiGenerationLogDomainService.deleteByTypeInAndCreatedAtBefore(any(), any())).willReturn(1L);
+            given(aiGenerationLogDomainService.deleteByTypeAndCreatedAtBefore(any(), any())).willReturn(1L);
 
             LocalDateTime before = LocalDateTime.now();
 
@@ -92,8 +92,8 @@ class AiGenerationLogCleanupSchedulerUnitTest extends BaseUnitTest {
             ArgumentCaptor<LocalDateTime> recommendationCutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
             ArgumentCaptor<LocalDateTime> userCardCutoffCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
 
-            verify(aiGenerationLogRepository).deleteByTypeInAndCreatedAtBefore(any(), recommendationCutoffCaptor.capture());
-            verify(aiGenerationLogRepository).deleteByTypeAndCreatedAtBefore(any(), userCardCutoffCaptor.capture());
+            verify(aiGenerationLogDomainService).deleteByTypeInAndCreatedAtBefore(any(), recommendationCutoffCaptor.capture());
+            verify(aiGenerationLogDomainService).deleteByTypeAndCreatedAtBefore(any(), userCardCutoffCaptor.capture());
 
             assertThat(recommendationCutoffCaptor.getValue())
                     .isBetween(before.minusDays(1).minusSeconds(1), after.minusDays(1).plusSeconds(1));

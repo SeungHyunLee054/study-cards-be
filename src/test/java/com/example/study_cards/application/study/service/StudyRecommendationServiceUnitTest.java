@@ -4,10 +4,10 @@ import com.example.study_cards.application.study.dto.response.CategoryAccuracyRe
 import com.example.study_cards.application.study.dto.response.RecommendationResponse;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.study.model.CategoryAccuracy;
 import com.example.study_cards.domain.study.entity.StudyRecord;
-import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
-import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRecord;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService.ScoredRecord;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,7 +27,7 @@ import static org.mockito.BDDMockito.given;
 class StudyRecommendationServiceUnitTest extends BaseUnitTest {
 
     @Mock
-    private StudyDomainService studyDomainService;
+    private StudyRecordDomainService studyRecordDomainService;
 
     @InjectMocks
     private StudyRecommendationService studyRecommendationService;
@@ -74,7 +74,7 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
                     .user(testUser).card(testCard).isCorrect(false)
                     .nextReviewDate(LocalDate.now()).efFactor(2.0).build();
 
-            given(studyDomainService.findPrioritizedDueRecords(testUser, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(testUser, 20))
                     .willReturn(List.of(new ScoredRecord(record, 500)));
 
             // when
@@ -89,7 +89,7 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
         @DisplayName("복습할 카드가 없으면 빈 목록 반환")
         void getRecommendations_noCards_returnsEmpty() {
             // given
-            given(studyDomainService.findPrioritizedDueRecords(testUser, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(testUser, 20))
                     .willReturn(List.of());
 
             // when
@@ -110,7 +110,7 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
         @DisplayName("카테고리별 정답률을 반환한다")
         void getCategoryAccuracy_returnsAccuracyList() {
             // given
-            given(studyDomainService.calculateCategoryAccuracy(testUser))
+            given(studyRecordDomainService.calculateCategoryAccuracy(testUser))
                     .willReturn(List.of(
                             new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 15L, 75.0),
                             new CategoryAccuracy(2L, "NET", "네트워크", 10L, 4L, 40.0)
@@ -130,7 +130,7 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
         @DisplayName("학습 기록이 없으면 빈 목록 반환")
         void getCategoryAccuracy_noRecords_returnsEmpty() {
             // given
-            given(studyDomainService.calculateCategoryAccuracy(testUser))
+            given(studyRecordDomainService.calculateCategoryAccuracy(testUser))
                     .willReturn(List.of());
 
             // when

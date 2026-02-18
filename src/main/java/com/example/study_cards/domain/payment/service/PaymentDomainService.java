@@ -11,9 +11,12 @@ import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.Optional;
 import java.util.UUID;
 
 @RequiredArgsConstructor
@@ -58,6 +61,26 @@ public class PaymentDomainService {
     public Payment getPaymentByOrderIdForUpdate(String orderId) {
         return paymentRepository.findByOrderIdForUpdate(orderId)
                 .orElseThrow(() -> new PaymentException(PaymentErrorCode.PAYMENT_NOT_FOUND));
+    }
+
+    public Optional<Payment> findByOrderIdForUpdateOptional(String orderId) {
+        return paymentRepository.findByOrderIdForUpdate(orderId);
+    }
+
+    public Optional<Payment> findByPaymentKeyOptional(String paymentKey) {
+        return paymentRepository.findByPaymentKey(paymentKey);
+    }
+
+    public Optional<Payment> findByOrderIdOptional(String orderId) {
+        return paymentRepository.findByOrderId(orderId);
+    }
+
+    public Page<Payment> findCompletedByUserId(Long userId, Pageable pageable) {
+        return paymentRepository.findByUserIdAndStatusOrderByCreatedAtDesc(
+                userId,
+                PaymentStatus.COMPLETED,
+                pageable
+        );
     }
 
     public void completePayment(Payment payment, String paymentKey, String method) {

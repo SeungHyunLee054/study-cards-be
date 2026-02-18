@@ -7,17 +7,14 @@ import com.example.study_cards.application.payment.dto.response.CheckoutResponse
 import com.example.study_cards.application.payment.dto.response.PaymentHistoryResponse;
 import com.example.study_cards.application.subscription.dto.response.SubscriptionResponse;
 import com.example.study_cards.domain.payment.entity.Payment;
-import com.example.study_cards.domain.payment.entity.PaymentStatus;
 import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
 import com.example.study_cards.domain.payment.exception.PaymentException;
-import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
@@ -40,8 +37,6 @@ public class PaymentService {
 
     private final SubscriptionDomainService subscriptionDomainService;
     private final PaymentDomainService paymentDomainService;
-    private final PaymentRepository paymentRepository;
-    private final SubscriptionRepository subscriptionRepository;
     private final TossPaymentService tossPaymentService;
 
     @Transactional
@@ -180,13 +175,12 @@ public class PaymentService {
     }
 
     public Page<PaymentHistoryResponse> getPaymentHistory(User user, Pageable pageable) {
-        return paymentRepository.findByUserIdAndStatusOrderByCreatedAtDesc(
-                user.getId(), PaymentStatus.COMPLETED, pageable)
+        return paymentDomainService.findCompletedByUserId(user.getId(), pageable)
                 .map(PaymentHistoryResponse::from);
     }
 
     private SubscriptionResponse findExistingSubscription(Long userId) {
-        return subscriptionRepository.findActiveByUserId(userId)
+        return subscriptionDomainService.findActiveByUserId(userId)
                 .map(SubscriptionResponse::from)
                 .orElseThrow(() -> new PaymentException(PaymentErrorCode.PAYMENT_ALREADY_PROCESSED));
     }

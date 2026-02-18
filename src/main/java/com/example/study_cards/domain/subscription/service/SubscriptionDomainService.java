@@ -34,6 +34,10 @@ public class SubscriptionDomainService {
                 .orElseThrow(() -> new SubscriptionException(SubscriptionErrorCode.SUBSCRIPTION_NOT_FOUND));
     }
 
+    public Optional<Subscription> findActiveByUserId(Long userId) {
+        return subscriptionRepository.findActiveByUserId(userId);
+    }
+
     public boolean hasActiveSubscription(Long userId) {
         return subscriptionRepository.existsActiveByUserId(userId);
     }
@@ -65,6 +69,10 @@ public class SubscriptionDomainService {
 
     public List<Subscription> findExpiredSubscriptions() {
         return subscriptionRepository.findExpired(SubscriptionStatus.ACTIVE, LocalDateTime.now());
+    }
+
+    public List<Subscription> findExpiringOn(LocalDateTime startOfDay, LocalDateTime endOfDay) {
+        return subscriptionRepository.findExpiringOn(startOfDay, endOfDay);
     }
 
     public Optional<Subscription> findSubscriptionByBillingKey(String billingKey) {

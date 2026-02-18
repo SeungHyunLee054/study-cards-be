@@ -3,7 +3,6 @@ package com.example.study_cards.application.payment.service;
 import com.example.study_cards.application.notification.service.NotificationService;
 import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.payment.entity.Payment;
-import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
@@ -25,7 +24,6 @@ public class PaymentWebhookService {
 
     private final SubscriptionDomainService subscriptionDomainService;
     private final PaymentDomainService paymentDomainService;
-    private final PaymentRepository paymentRepository;
     private final TossPaymentService tossPaymentService;
     private final NotificationService notificationService;
 
@@ -76,7 +74,7 @@ public class PaymentWebhookService {
     }
 
     private void handlePaymentDone(DataPayload data) {
-        paymentRepository.findByOrderIdForUpdate(data.orderId())
+        paymentDomainService.findByOrderIdForUpdateOptional(data.orderId())
                 .ifPresentOrElse(
                         payment -> processPaymentDone(payment, data),
                         () -> log.warn("Payment not found for webhook DONE: orderId={}", data.orderId())
@@ -143,7 +141,7 @@ public class PaymentWebhookService {
     }
 
     private void handlePaymentCanceled(DataPayload data) {
-        paymentRepository.findByPaymentKey(data.paymentKey())
+        paymentDomainService.findByPaymentKeyOptional(data.paymentKey())
                 .ifPresentOrElse(
                         payment -> {
                             paymentDomainService.cancelPayment(payment, data.cancelReason());
@@ -170,7 +168,7 @@ public class PaymentWebhookService {
     }
 
     private void handlePaymentFailed(DataPayload data, String status) {
-        paymentRepository.findByOrderId(data.orderId())
+        paymentDomainService.findByOrderIdOptional(data.orderId())
                 .ifPresentOrElse(
                         payment -> {
                             if (!payment.isPending()) {

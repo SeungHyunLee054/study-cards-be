@@ -8,8 +8,8 @@ import com.example.study_cards.domain.notification.entity.Notification;
 import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.notification.exception.NotificationErrorCode;
 import com.example.study_cards.domain.notification.exception.NotificationException;
-import com.example.study_cards.domain.notification.repository.NotificationRepository;
-import com.example.study_cards.domain.study.service.StudyDomainService;
+import com.example.study_cards.domain.notification.service.NotificationDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.fcm.service.FcmService;
@@ -28,13 +28,13 @@ import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.LocalDate;
 import java.util.List;
-import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -46,13 +46,13 @@ class NotificationServiceUnitTest extends BaseUnitTest {
     private UserDomainService userDomainService;
 
     @Mock
-    private StudyDomainService studyDomainService;
+    private StudyRecordDomainService studyRecordDomainService;
 
     @Mock
     private FcmService fcmService;
 
     @Mock
-    private NotificationRepository notificationRepository;
+    private NotificationDomainService notificationDomainService;
 
     @InjectMocks
     private NotificationService notificationService;
@@ -202,8 +202,8 @@ class NotificationServiceUnitTest extends BaseUnitTest {
 
             given(userDomainService.findAllPushEnabledUsersWithToken())
                     .willReturn(List.of(testUser, user2));
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(5);
-            given(studyDomainService.countDueCards(eq(user2), any(LocalDate.class))).willReturn(0);
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(5);
+            given(studyRecordDomainService.countDueCards(eq(user2), any(LocalDate.class))).willReturn(0);
 
             // when
             notificationService.sendDailyReviewNotifications();
@@ -222,7 +222,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
 
             given(userDomainService.findAllPushEnabledUsersWithToken())
                     .willReturn(List.of(testUser));
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
 
             // when
             notificationService.sendDailyReviewNotifications();
@@ -242,7 +242,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             notificationService.sendDailyReviewNotifications();
 
             // then
-            verify(studyDomainService, never()).countDueCards(any(), any());
+            verify(studyRecordDomainService, never()).countDueCards(any(), any());
             verify(fcmService, never()).sendNotification(anyString(), anyString(), anyString());
         }
     }
@@ -257,14 +257,18 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             // given
             testUser.updateFcmToken(FCM_TOKEN);
             testUser.updatePushEnabled(true);
-            given(notificationRepository.save(any(Notification.class)))
-                    .willAnswer(invocation -> invocation.getArgument(0));
 
             // when
             notificationService.sendNotification(testUser, NotificationType.STREAK_7, "스트릭 달성!", "7일 연속 학습!");
 
             // then
-            verify(notificationRepository).save(any(Notification.class));
+            verify(notificationDomainService).create(
+                    eq(testUser),
+                    eq(NotificationType.STREAK_7),
+                    eq("스트릭 달성!"),
+                    eq("7일 연속 학습!"),
+                    isNull()
+            );
             verify(fcmService).sendNotification(eq(FCM_TOKEN), eq("스트릭 달성!"), eq("7일 연속 학습!"));
         }
 
@@ -274,14 +278,18 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             // given
             testUser.updateFcmToken(FCM_TOKEN);
             testUser.updatePushEnabled(false);
-            given(notificationRepository.save(any(Notification.class)))
-                    .willAnswer(invocation -> invocation.getArgument(0));
 
             // when
             notificationService.sendNotification(testUser, NotificationType.STREAK_7, "스트릭 달성!", "7일 연속 학습!");
 
             // then
-            verify(notificationRepository).save(any(Notification.class));
+            verify(notificationDomainService).create(
+                    eq(testUser),
+                    eq(NotificationType.STREAK_7),
+                    eq("스트릭 달성!"),
+                    eq("7일 연속 학습!"),
+                    isNull()
+            );
             verify(fcmService, never()).sendNotification(anyString(), anyString(), anyString());
         }
     }
@@ -304,7 +312,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(notification, "id", 1L);
 
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(notificationRepository.findByUserOrderByCreatedAtDesc(testUser, pageable))
+            given(notificationDomainService.findByUser(testUser, pageable))
                     .willReturn(new PageImpl<>(List.of(notification), pageable, 1));
 
             // when
@@ -325,7 +333,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
         void getUnreadCount_success() {
             // given
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(notificationRepository.countByUserAndIsReadFalse(testUser)).willReturn(5L);
+            given(notificationDomainService.countUnread(testUser)).willReturn(5L);
 
             // when
             long result = notificationService.getUnreadCount(USER_ID);
@@ -352,7 +360,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(notification, "id", 1L);
 
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(notificationRepository.findById(1L)).willReturn(Optional.of(notification));
+            given(notificationDomainService.findById(1L)).willReturn(notification);
 
             // when
             notificationService.markAsRead(USER_ID, 1L);
@@ -366,7 +374,8 @@ class NotificationServiceUnitTest extends BaseUnitTest {
         void markAsRead_notFound_throwsException() {
             // given
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(notificationRepository.findById(999L)).willReturn(Optional.empty());
+            given(notificationDomainService.findById(999L))
+                    .willThrow(new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
 
             // when & then
             assertThatThrownBy(() -> notificationService.markAsRead(USER_ID, 999L))
@@ -395,7 +404,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(notification, "id", 1L);
 
             given(userDomainService.findById(USER_ID)).willReturn(testUser);
-            given(notificationRepository.findById(1L)).willReturn(Optional.of(notification));
+            given(notificationDomainService.findById(1L)).willReturn(notification);
 
             // when & then
             assertThatThrownBy(() -> notificationService.markAsRead(USER_ID, 1L))
@@ -413,7 +422,7 @@ class NotificationServiceUnitTest extends BaseUnitTest {
         @DisplayName("중복 알림 여부를 확인한다")
         void existsNotification_returnsTrue() {
             // given
-            given(notificationRepository.existsByUserAndTypeAndReferenceId(
+            given(notificationDomainService.existsByUserAndTypeAndReferenceId(
                     testUser, NotificationType.CATEGORY_MASTERED, 1L)).willReturn(true);
 
             // when

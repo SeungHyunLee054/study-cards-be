@@ -8,8 +8,8 @@ import com.example.study_cards.domain.notification.entity.Notification;
 import com.example.study_cards.domain.notification.entity.NotificationType;
 import com.example.study_cards.domain.notification.exception.NotificationErrorCode;
 import com.example.study_cards.domain.notification.exception.NotificationException;
-import com.example.study_cards.domain.notification.repository.NotificationRepository;
-import com.example.study_cards.domain.study.service.StudyDomainService;
+import com.example.study_cards.domain.notification.service.NotificationDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.service.UserDomainService;
 import com.example.study_cards.infra.fcm.service.FcmService;
@@ -30,9 +30,9 @@ import java.util.List;
 public class NotificationService {
 
     private final UserDomainService userDomainService;
-    private final StudyDomainService studyDomainService;
+    private final StudyRecordDomainService studyRecordDomainService;
     private final FcmService fcmService;
-    private final NotificationRepository notificationRepository;
+    private final NotificationDomainService notificationDomainService;
 
     @Transactional
     public void registerFcmToken(Long userId, FcmTokenRequest request) {
@@ -69,7 +69,7 @@ public class NotificationService {
 
         int sentCount = 0;
         for (User user : targetUsers) {
-            int dueCount = studyDomainService.countDueCards(user, today);
+            int dueCount = studyRecordDomainService.countDueCards(user, today);
             if (dueCount > 0) {
                 String title = "오늘의 복습 알림";
                 String body = String.format("복습할 카드가 %d개 있습니다. 지금 학습을 시작해보세요!", dueCount);
@@ -88,14 +88,7 @@ public class NotificationService {
 
     @Transactional
     public void sendNotification(User user, NotificationType type, String title, String body, Long referenceId) {
-        Notification notification = Notification.builder()
-                .user(user)
-                .type(type)
-                .title(title)
-                .body(body)
-                .referenceId(referenceId)
-                .build();
-        notificationRepository.save(notification);
+        notificationDomainService.create(user, type, title, body, referenceId);
         log.info("알림 저장 - userId: {}, type: {}", user.getId(), type);
 
         if (user.getPushEnabled() && user.getFcmToken() != null && !user.getFcmToken().isBlank()) {
@@ -109,26 +102,25 @@ public class NotificationService {
 
     public Page<NotificationResponse> getNotifications(Long userId, Pageable pageable) {
         User user = userDomainService.findById(userId);
-        return notificationRepository.findByUserOrderByCreatedAtDesc(user, pageable)
+        return notificationDomainService.findByUser(user, pageable)
                 .map(NotificationResponse::from);
     }
 
     public Page<NotificationResponse> getUnreadNotifications(Long userId, Pageable pageable) {
         User user = userDomainService.findById(userId);
-        return notificationRepository.findByUserAndIsReadFalseOrderByCreatedAtDesc(user, pageable)
+        return notificationDomainService.findUnreadByUser(user, pageable)
                 .map(NotificationResponse::from);
     }
 
     public long getUnreadCount(Long userId) {
         User user = userDomainService.findById(userId);
-        return notificationRepository.countByUserAndIsReadFalse(user);
+        return notificationDomainService.countUnread(user);
     }
 
     @Transactional
     public void markAsRead(Long userId, Long notificationId) {
         User user = userDomainService.findById(userId);
-        Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new NotificationException(NotificationErrorCode.NOTIFICATION_NOT_FOUND));
+        Notification notification = notificationDomainService.findById(notificationId);
 
         if (!notification.getUser().getId().equals(user.getId())) {
             throw new NotificationException(NotificationErrorCode.NOTIFICATION_ACCESS_DENIED);
@@ -141,17 +133,17 @@ public class NotificationService {
     @Transactional
     public void markAllAsRead(Long userId) {
         User user = userDomainService.findById(userId);
-        notificationRepository.markAllAsReadByUser(user);
+        notificationDomainService.markAllAsReadByUser(user);
         log.info("전체 알림 읽음 처리 - userId: {}", userId);
     }
 
     public boolean existsNotification(User user, NotificationType type, Long referenceId) {
-        return notificationRepository.existsByUserAndTypeAndReferenceId(user, type, referenceId);
+        return notificationDomainService.existsByUserAndTypeAndReferenceId(user, type, referenceId);
     }
 
     @Transactional
     public void deleteNotificationsByTypeAndReference(NotificationType type, Long referenceId) {
-        notificationRepository.deleteByTypeAndReferenceId(type, referenceId);
+        notificationDomainService.deleteByTypeAndReferenceId(type, referenceId);
         log.info("알림 삭제 - type: {}, referenceId: {}", type, referenceId);
     }
 

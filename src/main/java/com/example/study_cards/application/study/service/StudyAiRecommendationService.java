@@ -8,10 +8,10 @@ import com.example.study_cards.domain.ai.entity.AiGenerationLog;
 import com.example.study_cards.domain.ai.entity.AiGenerationType;
 import com.example.study_cards.domain.ai.exception.AiErrorCode;
 import com.example.study_cards.domain.ai.exception.AiException;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
-import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
-import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRecord;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
+import com.example.study_cards.domain.study.model.CategoryAccuracy;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService.ScoredRecord;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
@@ -46,11 +46,11 @@ public class StudyAiRecommendationService {
     private static final int MAX_WEAK_CONCEPTS = 5;
     private static final int MAX_PROMPT_CARD_COUNT = 8;
 
-    private final StudyDomainService studyDomainService;
+    private final StudyRecordDomainService studyRecordDomainService;
     private final SubscriptionDomainService subscriptionDomainService;
     private final AiReviewQuotaService aiReviewQuotaService;
     private final AiGenerationService aiGenerationService;
-    private final AiGenerationLogRepository aiGenerationLogRepository;
+    private final AiGenerationLogDomainService aiGenerationLogDomainService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -64,7 +64,7 @@ public class StudyAiRecommendationService {
         Subscription subscription = getSubscriptionIfNeeded(user, isAdmin);
 
         List<RecommendedCard> recommendations = toRecommendedCards(user, limit);
-        List<CategoryAccuracy> accuracies = studyDomainService.calculateCategoryAccuracy(user);
+        List<CategoryAccuracy> accuracies = studyRecordDomainService.calculateCategoryAccuracy(user);
         List<AiRecommendationResponse.WeakConcept> ruleWeakConcepts = buildRuleWeakConcepts(accuracies);
         String fallbackStrategy = buildFallbackStrategy(ruleWeakConcepts, recommendations);
 
@@ -109,7 +109,7 @@ public class StudyAiRecommendationService {
     }
 
     public Page<AiRecommendationHistoryResponse> getAiRecommendationHistory(User user, Pageable pageable) {
-        return aiGenerationLogRepository.findByUserIdAndTypeInOrderByCreatedAtDesc(
+        return aiGenerationLogDomainService.findByUserIdAndTypeInOrderByCreatedAtDesc(
                         user.getId(),
                         AI_RECOMMENDATION_LOG_TYPES,
                         pageable
@@ -118,7 +118,7 @@ public class StudyAiRecommendationService {
     }
 
     private List<RecommendedCard> toRecommendedCards(User user, int limit) {
-        List<ScoredRecord> scoredRecords = studyDomainService.findPrioritizedDueRecords(user, limit);
+        List<ScoredRecord> scoredRecords = studyRecordDomainService.findPrioritizedDueRecords(user, limit);
         return scoredRecords.stream()
                 .map(sr -> RecommendedCard.from(sr.record(), sr.score()))
                 .toList();
@@ -315,7 +315,7 @@ public class StudyAiRecommendationService {
 
     private void saveSuccessLog(User user, String prompt, String response, int recommendationCount) {
         try {
-            aiGenerationLogRepository.save(AiGenerationLog.builder()
+            aiGenerationLogDomainService.save(AiGenerationLog.builder()
                     .user(user)
                     .type(AiGenerationType.RECOMMENDATION)
                     .prompt(prompt)
@@ -331,7 +331,7 @@ public class StudyAiRecommendationService {
 
     private void saveFailureLog(User user, String prompt, String errorMessage, int recommendationCount) {
         try {
-            aiGenerationLogRepository.save(AiGenerationLog.builder()
+            aiGenerationLogDomainService.save(AiGenerationLog.builder()
                     .user(user)
                     .type(AiGenerationType.WEAKNESS_ANALYSIS)
                     .prompt(prompt)

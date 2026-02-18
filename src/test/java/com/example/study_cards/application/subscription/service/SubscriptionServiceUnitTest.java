@@ -7,7 +7,6 @@ import com.example.study_cards.application.subscription.dto.response.Subscriptio
 import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
@@ -37,9 +36,6 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private SubscriptionDomainService subscriptionDomainService;
-
-    @Mock
-    private SubscriptionRepository subscriptionRepository;
 
     @Mock
     private TossPaymentService tossPaymentService;
@@ -134,7 +130,7 @@ class SubscriptionServiceUnitTest extends BaseUnitTest {
         @DisplayName("구독이 없으면 null을 반환한다")
         void getMySubscriptionOrNull_noSubscription() {
             // given
-            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.empty());
+            given(subscriptionDomainService.findActiveByUserId(USER_ID)).willReturn(Optional.empty());
 
             // when
             SubscriptionResponse result = subscriptionService.getMySubscriptionOrNull(testUser);

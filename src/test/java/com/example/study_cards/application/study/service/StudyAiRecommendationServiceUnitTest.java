@@ -3,13 +3,13 @@ package com.example.study_cards.application.study.service;
 import com.example.study_cards.application.study.dto.response.AiRecommendationResponse;
 import com.example.study_cards.domain.ai.exception.AiErrorCode;
 import com.example.study_cards.domain.ai.exception.AiException;
-import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
+import com.example.study_cards.domain.ai.service.AiGenerationLogDomainService;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.study.model.CategoryAccuracy;
 import com.example.study_cards.domain.study.entity.StudyRecord;
-import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
-import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRecord;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService.ScoredRecord;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
@@ -45,7 +45,7 @@ import static org.mockito.Mockito.verify;
 class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
     @Mock
-    private StudyDomainService studyDomainService;
+    private StudyRecordDomainService studyRecordDomainService;
     @Mock
     private SubscriptionDomainService subscriptionDomainService;
     @Mock
@@ -53,7 +53,7 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
     @Mock
     private AiGenerationService aiGenerationService;
     @Mock
-    private AiGenerationLogRepository aiGenerationLogRepository;
+    private AiGenerationLogDomainService aiGenerationLogDomainService;
     @Spy
     private ObjectMapper objectMapper = new ObjectMapper();
 
@@ -96,9 +96,9 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
             given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
             given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
-            given(studyDomainService.findPrioritizedDueRecords(user, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(user, 20))
                     .willReturn(List.of(new ScoredRecord(record, 900)));
-            given(studyDomainService.calculateCategoryAccuracy(user))
+            given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
@@ -139,9 +139,9 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
             given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
             given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
-            given(studyDomainService.findPrioritizedDueRecords(user, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(user, 20))
                     .willReturn(List.of(new ScoredRecord(record, 900)));
-            given(studyDomainService.calculateCategoryAccuracy(user))
+            given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(false);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
@@ -173,9 +173,9 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                     .build();
 
             given(subscriptionDomainService.getEffectivePlan(adminUser)).willReturn(SubscriptionPlan.FREE);
-            given(studyDomainService.findPrioritizedDueRecords(adminUser, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(adminUser, 20))
                     .willReturn(List.of(new ScoredRecord(record, 900)));
-            given(studyDomainService.calculateCategoryAccuracy(adminUser))
+            given(studyRecordDomainService.calculateCategoryAccuracy(adminUser))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
             given(aiGenerationService.generateContent(any()))
                     .willReturn("""
@@ -216,9 +216,9 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
             given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
             given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
-            given(studyDomainService.findPrioritizedDueRecords(user, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(user, 20))
                     .willReturn(List.of(new ScoredRecord(record, 900)));
-            given(studyDomainService.calculateCategoryAccuracy(user))
+            given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
@@ -253,9 +253,9 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
             given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
             given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
-            given(studyDomainService.findPrioritizedDueRecords(user, 20))
+            given(studyRecordDomainService.findPrioritizedDueRecords(user, 20))
                     .willReturn(List.of(new ScoredRecord(record, 900)));
-            given(studyDomainService.calculateCategoryAccuracy(user))
+            given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
@@ -280,8 +280,8 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
             given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
             given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
-            given(studyDomainService.findPrioritizedDueRecords(user, 20)).willReturn(List.of());
-            given(studyDomainService.calculateCategoryAccuracy(user))
+            given(studyRecordDomainService.findPrioritizedDueRecords(user, 20)).willReturn(List.of());
+            given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 10L, 5L, 50.0)));
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
                     .willReturn(new AiReviewQuotaService.ReviewQuota(100, 10, 90, LocalDateTime.now().plusDays(20)));

@@ -8,7 +8,6 @@ import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
 import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
-import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.payment.dto.response.TossConfirmResponse;
@@ -40,9 +39,6 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
 
     @Mock
     private PaymentDomainService paymentDomainService;
-
-    @Mock
-    private SubscriptionRepository subscriptionRepository;
 
     @Mock
     private TossPaymentService tossPaymentService;
@@ -211,7 +207,7 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
             User mockUser = createMockUser();
             Subscription subscription = createMockSubscription(mockUser, "billing_key");
 
-            given(subscriptionRepository.findExpiringOn(any(), any()))
+            given(subscriptionDomainService.findExpiringOn(any(), any()))
                     .willReturn(List.of(subscription));
             given(notificationService.existsNotification(any(), any(), anyLong()))
                     .willReturn(false);
@@ -236,7 +232,7 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
             User mockUser = createMockUser();
             Subscription subscription = createMockSubscription(mockUser, "billing_key");
 
-            given(subscriptionRepository.findExpiringOn(any(), any()))
+            given(subscriptionDomainService.findExpiringOn(any(), any()))
                     .willReturn(List.of(subscription));
             given(notificationService.existsNotification(any(), any(), anyLong()))
                     .willReturn(true);
@@ -253,7 +249,7 @@ class SubscriptionRenewalSchedulerTest extends BaseUnitTest {
         @DisplayName("만료 예정 구독이 없으면 알림을 보내지 않는다")
         void checkExpiring_noExpiring_noNotifications() {
             // given
-            given(subscriptionRepository.findExpiringOn(any(), any()))
+            given(subscriptionDomainService.findExpiringOn(any(), any()))
                     .willReturn(Collections.emptyList());
 
             // when

@@ -1,6 +1,6 @@
 package com.example.study_cards.application.study.dto.response;
 
-import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
+import com.example.study_cards.domain.study.model.CategoryAccuracy;
 
 public record CategoryAccuracyResponse(
         Long categoryId,

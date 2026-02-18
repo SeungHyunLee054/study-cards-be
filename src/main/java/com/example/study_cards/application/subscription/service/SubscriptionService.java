@@ -10,7 +10,6 @@ import com.example.study_cards.domain.subscription.entity.Subscription;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.payment.service.TossPaymentService;
@@ -27,7 +26,6 @@ import java.util.List;
 public class SubscriptionService {
 
     private final SubscriptionDomainService subscriptionDomainService;
-    private final SubscriptionRepository subscriptionRepository;
     private final TossPaymentService tossPaymentService;
 
     public List<PlanResponse> getPlans() {
@@ -42,7 +40,7 @@ public class SubscriptionService {
     }
 
     public SubscriptionResponse getMySubscriptionOrNull(User user) {
-        return subscriptionRepository.findActiveByUserId(user.getId())
+        return subscriptionDomainService.findActiveByUserId(user.getId())
                 .map(SubscriptionResponse::from)
                 .orElse(null);
     }

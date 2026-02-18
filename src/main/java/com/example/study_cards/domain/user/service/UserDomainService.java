@@ -1,5 +1,6 @@
 package com.example.study_cards.domain.user.service;
 
+import com.example.study_cards.domain.user.entity.OAuthProvider;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.user.entity.UserStatus;
 import com.example.study_cards.domain.user.exception.UserErrorCode;
@@ -12,6 +13,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @RequiredArgsConstructor
 @Service
@@ -61,6 +63,26 @@ public class UserDomainService {
 
     public boolean existsByEmail(String email) {
         return userRepository.existsByEmailAndStatus(email, UserStatus.ACTIVE);
+    }
+
+    public boolean existsAnyByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    public Optional<User> findByProviderAndProviderId(OAuthProvider provider, String providerId) {
+        return userRepository.findByProviderAndProviderIdAndStatus(provider, providerId, UserStatus.ACTIVE);
+    }
+
+    public User registerOAuthUser(OAuthProvider provider, String providerId, String email, String nickname) {
+        User user = User.builder()
+                .email(email)
+                .nickname(nickname)
+                .provider(provider)
+                .providerId(providerId)
+                .build();
+
+        user.verifyEmail();
+        return userRepository.save(user);
     }
 
     public void withdraw(User user) {

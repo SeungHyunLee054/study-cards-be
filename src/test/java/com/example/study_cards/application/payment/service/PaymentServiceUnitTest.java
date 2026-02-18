@@ -11,12 +11,10 @@ import com.example.study_cards.domain.payment.entity.PaymentStatus;
 import com.example.study_cards.domain.payment.entity.PaymentType;
 import com.example.study_cards.domain.payment.exception.PaymentErrorCode;
 import com.example.study_cards.domain.payment.exception.PaymentException;
-import com.example.study_cards.domain.payment.repository.PaymentRepository;
 import com.example.study_cards.domain.payment.service.PaymentDomainService;
 import com.example.study_cards.domain.subscription.entity.*;
 import com.example.study_cards.domain.subscription.exception.SubscriptionErrorCode;
 import com.example.study_cards.domain.subscription.exception.SubscriptionException;
-import com.example.study_cards.domain.subscription.repository.SubscriptionRepository;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.infra.payment.dto.response.TossBillingAuthResponse;
@@ -54,12 +52,6 @@ class PaymentServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private PaymentDomainService paymentDomainService;
-
-    @Mock
-    private PaymentRepository paymentRepository;
-
-    @Mock
-    private SubscriptionRepository subscriptionRepository;
 
     @Mock
     private TossPaymentService tossPaymentService;
@@ -334,7 +326,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .set("amount", 9900)
                     .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
-            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(subscriptionDomainService.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
             // when
             SubscriptionResponse result = paymentService.confirmPayment(testUser, request);
@@ -468,7 +460,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
                     .set("orderId", ORDER_ID)
                     .sample();
             given(paymentDomainService.getPaymentByOrderIdForUpdate(ORDER_ID)).willReturn(completedPayment);
-            given(subscriptionRepository.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
+            given(subscriptionDomainService.findActiveByUserId(USER_ID)).willReturn(Optional.of(testSubscription));
 
             // when
             SubscriptionResponse result = paymentService.confirmBilling(testUser, request);
@@ -562,8 +554,7 @@ class PaymentServiceUnitTest extends BaseUnitTest {
             Pageable pageable = PageRequest.of(0, 10);
             Page<Payment> paymentPage = new PageImpl<>(List.of(completedPayment), pageable, 1);
 
-            given(paymentRepository.findByUserIdAndStatusOrderByCreatedAtDesc(
-                    USER_ID, PaymentStatus.COMPLETED, pageable)).willReturn(paymentPage);
+            given(paymentDomainService.findCompletedByUserId(USER_ID, pageable)).willReturn(paymentPage);
 
             // when
             Page<PaymentHistoryResponse> result = paymentService.getPaymentHistory(testUser, pageable);
