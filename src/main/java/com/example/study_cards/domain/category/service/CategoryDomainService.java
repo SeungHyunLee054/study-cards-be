@@ -45,6 +45,13 @@ public class CategoryDomainService {
         return categoryRepository.findByCodeAndStatus(code, CategoryStatus.ACTIVE).orElse(null);
     }
 
+    public Category findByNameOrNull(String name) {
+        if (name == null || name.isBlank()) {
+            return null;
+        }
+        return categoryRepository.findByNameAndStatus(name, CategoryStatus.ACTIVE).orElse(null);
+    }
+
     public List<Category> findAll() {
         return categoryRepository.findAllWithParent();
     }
@@ -68,6 +75,19 @@ public class CategoryDomainService {
 
     public List<Category> findByParent(Category parent) {
         return categoryRepository.findByParentAndStatusOrderByDisplayOrder(parent, CategoryStatus.ACTIVE);
+    }
+
+    public boolean isLeafCategory(Category category) {
+        if (category == null) {
+            return false;
+        }
+        return categoryRepository.findByParentAndStatusOrderByDisplayOrder(category, CategoryStatus.ACTIVE).isEmpty();
+    }
+
+    public void validateLeafCategory(Category category) {
+        if (!isLeafCategory(category)) {
+            throw new CategoryException(CategoryErrorCode.CATEGORY_NOT_LEAF);
+        }
     }
 
     public Category createCategory(String code, String name, Category parent, Integer displayOrder) {

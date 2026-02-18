@@ -15,6 +15,8 @@ public interface CategoryRepository extends JpaRepository<Category, Long>, Categ
 
     Optional<Category> findByCodeAndStatus(String code, CategoryStatus status);
 
+    Optional<Category> findByNameAndStatus(String name, CategoryStatus status);
+
     Optional<Category> findByIdAndStatus(Long id, CategoryStatus status);
 
     boolean existsByCode(String code);

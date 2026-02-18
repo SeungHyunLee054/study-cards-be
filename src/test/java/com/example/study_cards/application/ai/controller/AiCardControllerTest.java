@@ -21,6 +21,7 @@ import org.springframework.boot.test.autoconfigure.restdocs.AutoConfigureRestDoc
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.http.MediaType;
 import org.springframework.restdocs.payload.JsonFieldType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -32,6 +33,7 @@ import static org.springframework.restdocs.mockmvc.MockMvcRestDocumentation.docu
 import static org.springframework.restdocs.operation.preprocess.Preprocessors.*;
 import static org.springframework.restdocs.payload.PayloadDocumentation.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -108,7 +110,6 @@ class AiCardControllerTest extends BaseIntegrationTest {
                     ]
                     """;
             given(aiGenerationService.generateContent(anyString())).willReturn(aiResponse);
-            given(aiGenerationService.getDefaultModel()).willReturn("gpt-4");
 
             GenerateUserCardRequest request = new GenerateUserCardRequest(
                     "운영체제는 컴퓨터 하드웨어와 소프트웨어 자원을 관리하는 시스템 소프트웨어입니다.",
@@ -184,6 +185,63 @@ class AiCardControllerTest extends BaseIntegrationTest {
                             .contentType(MediaType.APPLICATION_JSON)
                             .content(objectMapper.writeValueAsString(request)))
                     .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("POST /api/ai/generate-cards/upload")
+    class GenerateCardsByUploadTest {
+
+        @Test
+        @DisplayName("텍스트 파일 업로드로 AI 카드를 생성한다")
+        void generateCardsByUpload_success() throws Exception {
+            String aiResponse = """
+                    [
+                      {
+                        "question": "운영체제란 무엇인가?",
+                        "questionSub": null,
+                        "answer": "컴퓨터 하드웨어와 소프트웨어 자원을 관리하는 시스템 소프트웨어",
+                        "answerSub": null
+                      }
+                    ]
+                    """;
+            given(aiGenerationService.generateContent(anyString())).willReturn(aiResponse);
+
+            MockMultipartFile file = new MockMultipartFile(
+                    "file",
+                    "note.md",
+                    "text/markdown",
+                    "운영체제는 컴퓨터 자원을 관리하는 시스템 소프트웨어다.".getBytes()
+            );
+
+            mockMvc.perform(multipart("/api/ai/generate-cards/upload")
+                            .file(file)
+                            .param("categoryCode", "CS")
+                            .param("count", "1")
+                            .param("difficulty", "보통")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isCreated())
+                    .andExpect(jsonPath("$.generatedCards").isArray())
+                    .andExpect(jsonPath("$.generatedCards.length()").value(1))
+                    .andExpect(jsonPath("$.count").value(1));
+        }
+
+        @Test
+        @DisplayName("지원하지 않는 파일 형식이면 400을 반환한다")
+        void generateCardsByUpload_unsupportedFile_returns400() throws Exception {
+            MockMultipartFile file = new MockMultipartFile(
+                    "file",
+                    "note.exe",
+                    "application/octet-stream",
+                    "binary".getBytes()
+            );
+
+            mockMvc.perform(multipart("/api/ai/generate-cards/upload")
+                            .file(file)
+                            .param("categoryCode", "CS")
+                            .param("count", "1")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isBadRequest());
         }
     }
 

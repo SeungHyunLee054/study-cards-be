@@ -1,14 +1,20 @@
 package com.example.study_cards.application.ai.service;
 
+import com.example.study_cards.application.ai.prompt.AiInputCategoryMatcher;
+import com.example.study_cards.application.ai.prompt.AiPromptTemplateFactory;
 import com.example.study_cards.application.ai.dto.request.GenerateUserCardRequest;
 import com.example.study_cards.application.ai.dto.response.AiLimitResponse;
 import com.example.study_cards.application.ai.dto.response.UserAiGenerationResponse;
+import com.example.study_cards.common.util.AiCategoryType;
+import com.example.study_cards.common.util.AiResponseUtils;
 import com.example.study_cards.domain.ai.entity.AiGenerationLog;
 import com.example.study_cards.domain.ai.entity.AiGenerationType;
 import com.example.study_cards.domain.ai.exception.AiErrorCode;
 import com.example.study_cards.domain.ai.exception.AiException;
 import com.example.study_cards.domain.ai.repository.AiGenerationLogRepository;
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.exception.CategoryErrorCode;
+import com.example.study_cards.domain.category.exception.CategoryException;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
 import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
@@ -26,6 +32,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @Slf4j
@@ -33,6 +40,12 @@ import java.util.Map;
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
 public class UserAiCardService {
+
+    private static final String EN_MISC_CODE = "EN_MISC";
+    private static final String JN_MISC_CODE = "JN_MISC";
+    private static final String MISC_GENERAL_CODE = "MISC_GENERAL";
+    private static final String LEGACY_MISC_CODE = "ETC";
+    private static final String LEGACY_MISC_NAME = "기타";
 
     private final SubscriptionDomainService subscriptionDomainService;
     private final AiLimitService aiLimitService;
@@ -54,15 +67,16 @@ public class UserAiCardService {
             throw new AiException(AiErrorCode.GENERATION_LIMIT_EXCEEDED);
         }
 
-        Category category = categoryDomainService.findByCode(request.categoryCode());
-        String prompt = buildUserCardPrompt(request);
+        Category requestedCategory = categoryDomainService.findByCode(request.categoryCode());
+        Category category = resolveEffectiveCategory(requestedCategory, request.sourceText());
+        String prompt = AiPromptTemplateFactory.buildPrompt(request, category);
 
         String aiResponse;
         try {
             aiResponse = aiGenerationService.generateContent(prompt);
         } catch (Exception e) {
             aiLimitService.releaseSlot(user.getId(), plan);
-            saveFailureLog(user, request, prompt, e.getMessage());
+            saveFailureLog(user, request, e.getMessage());
             throw new AiException(AiErrorCode.AI_GENERATION_FAILED);
         }
 
@@ -72,11 +86,11 @@ public class UserAiCardService {
             userCardRepository.saveAll(cards);
         } catch (AiException e) {
             aiLimitService.releaseSlot(user.getId(), plan);
-            saveFailureLog(user, request, prompt, "응답 파싱 실패: " + e.getMessage());
+            saveFailureLog(user, request, "응답 파싱 실패: " + e.getMessage());
             throw e;
         } catch (Exception e) {
             aiLimitService.releaseSlot(user.getId(), plan);
-            saveFailureLog(user, request, prompt, "카드 저장 실패: " + e.getMessage());
+            saveFailureLog(user, request, "카드 저장 실패: " + e.getMessage());
             throw new AiException(AiErrorCode.AI_GENERATION_FAILED);
         }
 
@@ -104,37 +118,6 @@ public class UserAiCardService {
         boolean isLifetime = (plan == SubscriptionPlan.FREE);
 
         return new AiLimitResponse(limit, used, remaining, isLifetime);
-    }
-
-    private String buildUserCardPrompt(GenerateUserCardRequest request) {
-        String difficulty = request.difficulty() != null ? request.difficulty() : "보통";
-        return String.format("""
-                당신은 학습 전문가입니다.
-                아래 텍스트를 분석하여 %d개의 학습 카드를 생성하세요.
-
-                입력 텍스트:
-                %s
-
-                요구사항:
-                1. 핵심 개념을 질문-답변 형식으로 변환
-                2. 난이도: %s
-                3. 각 카드는 독립적으로 이해 가능해야 함
-                4. 한글로 작성
-
-                출력 형식 (JSON 배열만 출력, 다른 텍스트 없이):
-                [
-                  {
-                    "question": "질문",
-                    "questionSub": "부가 설명 (선택, 없으면 null)",
-                    "answer": "답변",
-                    "answerSub": "부가 정보 (선택, 없으면 null)"
-                  }
-                ]
-                """,
-                request.count(),
-                request.sourceText(),
-                difficulty
-        );
     }
 
     private List<UserCard> parseAndCreateUserCards(User user, String aiResponse, Category category) {
@@ -169,16 +152,11 @@ public class UserAiCardService {
     }
 
     private String extractJson(String response) {
-        String trimmed = response.trim();
-        if (trimmed.startsWith("```json")) {
-            trimmed = trimmed.substring(7);
-        } else if (trimmed.startsWith("```")) {
-            trimmed = trimmed.substring(3);
+        try {
+            return AiResponseUtils.extractJsonPayload(response);
+        } catch (IllegalArgumentException e) {
+            throw new AiException(AiErrorCode.INVALID_AI_RESPONSE);
         }
-        if (trimmed.endsWith("```")) {
-            trimmed = trimmed.substring(0, trimmed.length() - 3);
-        }
-        return trimmed.trim();
     }
 
     private List<Map<String, String>> parseJsonArray(String json) {
@@ -190,7 +168,83 @@ public class UserAiCardService {
         }
     }
 
-    private void saveFailureLog(User user, GenerateUserCardRequest request, String prompt, String errorMessage) {
+    private Category resolveEffectiveCategory(Category requestedCategory, String sourceText) {
+        if (!categoryDomainService.isLeafCategory(requestedCategory)) {
+            Category mappedLeafCategory = resolveMappedFallbackCategory(requestedCategory);
+            if (mappedLeafCategory != null) {
+                log.info("[AI] 상위 카테고리 선택 감지, leaf 기타 카테고리로 매핑 - requested: {}, mapped: {}",
+                        requestedCategory.getCode(), mappedLeafCategory.getCode());
+                return mappedLeafCategory;
+            }
+
+            log.info("[AI] 상위 카테고리 선택 감지됐지만 매핑 카테고리를 찾지 못해 요청 카테고리 유지 - requested: {}",
+                    requestedCategory.getCode());
+            throw new CategoryException(CategoryErrorCode.CATEGORY_NOT_LEAF);
+        }
+
+        AiCategoryType categoryType = AiCategoryType.fromCode(requestedCategory.getCode());
+        if (AiInputCategoryMatcher.isLikelyMatch(categoryType, sourceText)) {
+            return requestedCategory;
+        }
+
+        Category fallbackCategory = resolveMappedFallbackCategory(requestedCategory);
+        if (fallbackCategory == null) {
+            log.info("[AI] 카테고리 불일치 감지됐지만 기타 카테고리를 찾지 못해 요청 카테고리 유지 - requested: {}",
+                    requestedCategory.getCode());
+            return requestedCategory;
+        }
+
+        if (fallbackCategory.getId().equals(requestedCategory.getId())) {
+            return requestedCategory;
+        }
+
+        log.info("[AI] 카테고리-텍스트 불일치 감지, 기타 카테고리로 폴백 - requested: {}, fallback: {}",
+                requestedCategory.getCode(), fallbackCategory.getCode());
+        return fallbackCategory;
+    }
+
+    private Category resolveMappedFallbackCategory(Category requestedCategory) {
+        String mappedCode = determineFallbackCode(requestedCategory.getCode());
+
+        Category byCode = categoryDomainService.findByCodeOrNull(mappedCode);
+        if (byCode != null && categoryDomainService.isLeafCategory(byCode)) {
+            return byCode;
+        }
+
+        Category legacyCode = categoryDomainService.findByCodeOrNull(LEGACY_MISC_CODE);
+        if (legacyCode != null && categoryDomainService.isLeafCategory(legacyCode)) {
+            return legacyCode;
+        }
+
+        Category legacyName = categoryDomainService.findByNameOrNull(LEGACY_MISC_NAME);
+        if (legacyName != null && categoryDomainService.isLeafCategory(legacyName)) {
+            return legacyName;
+        }
+
+        return null;
+    }
+
+    private String determineFallbackCode(String requestedCategoryCode) {
+        if (requestedCategoryCode == null || requestedCategoryCode.isBlank()) {
+            return MISC_GENERAL_CODE;
+        }
+
+        String normalized = requestedCategoryCode.toUpperCase(Locale.ROOT);
+        if (normalized.equals("TOEIC")
+                || normalized.equals("TOEFL")
+                || normalized.equals("EN")
+                || normalized.startsWith("EN_")) {
+            return EN_MISC_CODE;
+        }
+        if (normalized.equals("JN")
+                || normalized.startsWith("JN_")
+                || normalized.startsWith("JLPT")) {
+            return JN_MISC_CODE;
+        }
+        return MISC_GENERAL_CODE;
+    }
+
+    private void saveFailureLog(User user, GenerateUserCardRequest request, String errorMessage) {
         try {
             AiGenerationLog failLog = AiGenerationLog.builder()
                     .user(user)

@@ -192,6 +192,7 @@ class UserCardServiceUnitTest extends BaseUnitTest {
             assertThat(result.question()).isEqualTo(QUESTION);
             verify(userCardDomainService).createUserCard(
                     eq(testUser), eq(QUESTION), eq(QUESTION_SUB), eq(ANSWER), eq(ANSWER_SUB), eq(testCategory));
+            verify(categoryDomainService).validateLeafCategory(testCategory);
         }
     }
 
@@ -225,6 +226,7 @@ class UserCardServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(result.question()).isEqualTo("수정된 질문");
             assertThat(result.answer()).isEqualTo("수정된 답변");
+            verify(categoryDomainService).validateLeafCategory(testCategory);
         }
     }
 

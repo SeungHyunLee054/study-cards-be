@@ -64,6 +64,7 @@ public class UserCardService {
     public UserCardResponse createUserCard(Long userId, UserCardCreateRequest request) {
         User user = userDomainService.findById(userId);
         Category category = categoryDomainService.findByCode(request.category());
+        categoryDomainService.validateLeafCategory(category);
         UserCard userCard = userCardDomainService.createUserCard(
                 user,
                 request.question(),
@@ -79,6 +80,7 @@ public class UserCardService {
     public UserCardResponse updateUserCard(Long userId, Long cardId, UserCardUpdateRequest request) {
         User user = userDomainService.findById(userId);
         Category category = categoryDomainService.findByCode(request.category());
+        categoryDomainService.validateLeafCategory(category);
         UserCard userCard = userCardDomainService.updateUserCard(
                 cardId,
                 user,

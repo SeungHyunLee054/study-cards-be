@@ -21,6 +21,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
@@ -32,6 +33,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 
@@ -63,6 +65,7 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
 
     private User testUser;
     private Category testCategory;
+    private Category jlptFallbackCategory;
     private GenerateUserCardRequest testRequest;
 
     private static final Long USER_ID = 1L;
@@ -98,6 +101,14 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
                 .build();
         ReflectionTestUtils.setField(testCategory, "id", 1L);
 
+        jlptFallbackCategory = Category.builder()
+                .code("JN_MISC")
+                .name("일본어 기타")
+                .build();
+        ReflectionTestUtils.setField(jlptFallbackCategory, "id", 2L);
+
+        lenient().when(categoryDomainService.isLeafCategory(any(Category.class))).thenReturn(true);
+
         testRequest = fixtureMonkey.giveMeBuilder(GenerateUserCardRequest.class)
                 .set("sourceText", "REST API는 웹 서비스를 위한 아키텍처 스타일입니다.")
                 .set("categoryCode", "CS")
@@ -118,7 +129,6 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(aiGenerationService.getDefaultModel()).willReturn("gemini-2.0-flash");
             given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
@@ -150,7 +160,6 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.FREE)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
-            given(aiGenerationService.getDefaultModel()).willReturn("gemini-2.0-flash");
             given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
@@ -193,7 +202,6 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString()))
                     .willThrow(new RuntimeException("API 호출 실패"));
-            given(aiGenerationService.getDefaultModel()).willReturn("gemini-2.0-flash");
 
             // when & then
             assertThatThrownBy(() -> userAiCardService.generateCards(testUser, testRequest))
@@ -215,7 +223,6 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn("invalid json response");
-            given(aiGenerationService.getDefaultModel()).willReturn("gemini-2.0-flash");
 
             // when & then
             assertThatThrownBy(() -> userAiCardService.generateCards(testUser, testRequest))
@@ -236,7 +243,6 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
             given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(aiGenerationService.generateContent(anyString())).willReturn(wrappedResponse);
-            given(aiGenerationService.getDefaultModel()).willReturn("gemini-2.0-flash");
             given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> {
                 List<UserCard> cards = invocation.getArgument(0);
                 for (int i = 0; i < cards.size(); i++) {
@@ -251,6 +257,86 @@ class UserAiCardServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(response.generatedCards()).hasSize(2);
+        }
+
+        @Test
+        @DisplayName("카테고리와 입력 텍스트가 불일치하면 언어별 기타 카테고리로 폴백한다")
+        @SuppressWarnings("unchecked")
+        void generateCards_categoryMismatch_fallbackToLanguageMisc() {
+            // given
+            Category jlptCategory = Category.builder()
+                    .code("JN_N3")
+                    .name("일본어 > JLPT > N3")
+                    .build();
+            ReflectionTestUtils.setField(jlptCategory, "id", 3L);
+
+            GenerateUserCardRequest mismatchRequest = fixtureMonkey.giveMeBuilder(GenerateUserCardRequest.class)
+                    .set("sourceText", "운영체제 스케줄링과 프로세스 상태 전이에 대해 정리해줘.")
+                    .set("categoryCode", "JN_N3")
+                    .set("count", 2)
+                    .set("difficulty", "보통")
+                    .sample();
+
+            given(subscriptionDomainService.getEffectivePlan(testUser)).willReturn(SubscriptionPlan.PRO);
+            given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
+            given(categoryDomainService.findByCode("JN_N3")).willReturn(jlptCategory);
+            given(categoryDomainService.findByCodeOrNull("JN_MISC")).willReturn(jlptFallbackCategory);
+            given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
+            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
+            given(aiLimitService.getRemainingCount(USER_ID, SubscriptionPlan.PRO)).willReturn(29);
+
+            // when
+            userAiCardService.generateCards(testUser, mismatchRequest);
+
+            // then
+            ArgumentCaptor<List<UserCard>> captor = ArgumentCaptor.forClass(List.class);
+            verify(userCardRepository).saveAll(captor.capture());
+            assertThat(captor.getValue()).allSatisfy(card ->
+                    assertThat(card.getCategory().getCode()).isEqualTo("JN_MISC"));
+        }
+
+        @Test
+        @DisplayName("상위 카테고리를 선택하면 leaf 기타 카테고리로 매핑한다")
+        @SuppressWarnings("unchecked")
+        void generateCards_nonLeafCategory_mapsToLeafMisc() {
+            // given
+            Category englishRoot = Category.builder()
+                    .code("EN")
+                    .name("영어")
+                    .build();
+            ReflectionTestUtils.setField(englishRoot, "id", 10L);
+
+            Category englishMisc = Category.builder()
+                    .code("EN_MISC")
+                    .name("영어 기타")
+                    .build();
+            ReflectionTestUtils.setField(englishMisc, "id", 11L);
+
+            GenerateUserCardRequest nonLeafRequest = fixtureMonkey.giveMeBuilder(GenerateUserCardRequest.class)
+                    .set("sourceText", "Review this contract clause and choose the best word.")
+                    .set("categoryCode", "EN")
+                    .set("count", 2)
+                    .set("difficulty", "보통")
+                    .sample();
+
+            given(subscriptionDomainService.getEffectivePlan(testUser)).willReturn(SubscriptionPlan.PRO);
+            given(aiLimitService.tryAcquireSlot(USER_ID, SubscriptionPlan.PRO)).willReturn(true);
+            given(categoryDomainService.findByCode("EN")).willReturn(englishRoot);
+            given(categoryDomainService.isLeafCategory(englishRoot)).willReturn(false);
+            given(categoryDomainService.findByCodeOrNull("EN_MISC")).willReturn(englishMisc);
+            given(categoryDomainService.isLeafCategory(englishMisc)).willReturn(true);
+            given(aiGenerationService.generateContent(anyString())).willReturn(AI_RESPONSE);
+            given(userCardRepository.saveAll(anyList())).willAnswer(invocation -> invocation.getArgument(0));
+            given(aiLimitService.getRemainingCount(USER_ID, SubscriptionPlan.PRO)).willReturn(29);
+
+            // when
+            userAiCardService.generateCards(testUser, nonLeafRequest);
+
+            // then
+            ArgumentCaptor<List<UserCard>> captor = ArgumentCaptor.forClass(List.class);
+            verify(userCardRepository).saveAll(captor.capture());
+            assertThat(captor.getValue()).allSatisfy(card ->
+                    assertThat(card.getCategory().getCode()).isEqualTo("EN_MISC"));
         }
     }
 

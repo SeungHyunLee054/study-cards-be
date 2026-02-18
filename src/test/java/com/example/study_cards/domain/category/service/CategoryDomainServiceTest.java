@@ -221,6 +221,41 @@ class CategoryDomainServiceTest extends BaseUnitTest {
     }
 
     @Nested
+    @DisplayName("validateLeafCategory")
+    class ValidateLeafCategoryTest {
+
+        @Test
+        @DisplayName("최하위 카테고리면 통과한다")
+        void validateLeafCategory_withLeaf_success() {
+            // given
+            given(categoryRepository.findByParentAndStatusOrderByDisplayOrder(childCategory, CategoryStatus.ACTIVE))
+                    .willReturn(List.of());
+
+            // when
+            categoryDomainService.validateLeafCategory(childCategory);
+
+            // then
+            verify(categoryRepository).findByParentAndStatusOrderByDisplayOrder(childCategory, CategoryStatus.ACTIVE);
+        }
+
+        @Test
+        @DisplayName("하위 카테고리가 있으면 예외를 발생시킨다")
+        void validateLeafCategory_withNonLeaf_throwsException() {
+            // given
+            given(categoryRepository.findByParentAndStatusOrderByDisplayOrder(rootCategory, CategoryStatus.ACTIVE))
+                    .willReturn(List.of(childCategory));
+
+            // when & then
+            assertThatThrownBy(() -> categoryDomainService.validateLeafCategory(rootCategory))
+                    .isInstanceOf(CategoryException.class)
+                    .satisfies(exception -> {
+                        CategoryException categoryException = (CategoryException) exception;
+                        assertThat(categoryException.getErrorCode()).isEqualTo(CategoryErrorCode.CATEGORY_NOT_LEAF);
+                    });
+        }
+    }
+
+    @Nested
     @DisplayName("createCategory")
     class CreateCategoryTest {
 
