@@ -1,6 +1,7 @@
 package com.example.study_cards.domain.usercard.repository;
 
 import com.example.study_cards.domain.category.entity.Category;
+import com.example.study_cards.domain.category.entity.CategoryStatus;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.querydsl.core.types.dsl.BooleanExpression;
@@ -180,5 +181,36 @@ public class UserCardRepositoryCustomImpl implements UserCardRepositoryCustom {
                 .where(userCard.user.eq(user), userCard.category.in(categories))
                 .fetchOne();
         return count != null ? count : 0L;
+    }
+
+    @Override
+    public List<CategoryCount> countByUserGroupByCategory(User user) {
+        return queryFactory
+                .select(userCard.category.id, userCard.category.code, userCard.count())
+                .from(userCard)
+                .join(userCard.category)
+                .where(
+                        userCard.user.eq(user),
+                        userCard.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .groupBy(userCard.category.id, userCard.category.code)
+                .fetch()
+                .stream()
+                .map(tuple -> new CategoryCount(
+                        tuple.get(userCard.category.id),
+                        tuple.get(userCard.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
+                ))
+                .toList();
+    }
+
+    private Long toNullableLong(Object value) {
+        if (value == null) {
+            return 0L;
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return 0L;
     }
 }

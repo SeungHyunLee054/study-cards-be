@@ -47,8 +47,22 @@ public class CardDomainService {
         return cardRepository.findByCategoryAndStatus(category, CardStatus.ACTIVE);
     }
 
+    public List<Card> findByIdsInCategory(List<Long> ids, Category category) {
+        if (ids == null || ids.isEmpty()) {
+            return List.of();
+        }
+        return cardRepository.findByIdInAndCategoryAndStatus(ids, category, CardStatus.ACTIVE);
+    }
+
     public List<Card> findCardsForStudy() {
         return cardRepository.findAllByOrderByEfFactorAsc();
+    }
+
+    public List<Card> findCardsForStudyByCategories(List<Category> categories) {
+        if (categories == null || categories.isEmpty()) {
+            return List.of();
+        }
+        return cardRepository.findByCategoriesOrderByEfFactorAsc(categories);
     }
 
     public Card updateCard(Long id, String question, String questionSub, String answer, String answerSub, Category category) {

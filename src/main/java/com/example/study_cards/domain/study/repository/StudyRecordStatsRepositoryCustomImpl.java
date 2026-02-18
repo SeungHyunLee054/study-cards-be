@@ -85,6 +85,28 @@ public class StudyRecordStatsRepositoryCustomImpl implements StudyRecordStatsRep
     }
 
     @Override
+    public List<CategoryCount> countStudiedUserCardsByCategory(User user) {
+        return queryFactory
+                .select(studyRecord.userCard.category.id, studyRecord.userCard.category.code, studyRecord.userCard.countDistinct())
+                .from(studyRecord)
+                .join(studyRecord.userCard, userCard)
+                .join(userCard.category)
+                .where(
+                        studyRecord.user.eq(user),
+                        activeJoinedUserCardCondition()
+                )
+                .groupBy(studyRecord.userCard.category.id, studyRecord.userCard.category.code)
+                .fetch()
+                .stream()
+                .map(tuple -> new CategoryCount(
+                        tuple.get(studyRecord.userCard.category.id),
+                        tuple.get(studyRecord.userCard.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
+                ))
+                .toList();
+    }
+
+    @Override
     public List<CategoryCount> countLearningByCategory(User user) {
         return queryFactory
                 .select(studyRecord.card.category.id, studyRecord.card.category.code, studyRecord.count())
@@ -102,6 +124,29 @@ public class StudyRecordStatsRepositoryCustomImpl implements StudyRecordStatsRep
                 .map(tuple -> new CategoryCount(
                         tuple.get(studyRecord.card.category.id),
                         tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
+                ))
+                .toList();
+    }
+
+    @Override
+    public List<CategoryCount> countLearningUserCardsByCategory(User user) {
+        return queryFactory
+                .select(studyRecord.userCard.category.id, studyRecord.userCard.category.code, studyRecord.count())
+                .from(studyRecord)
+                .join(studyRecord.userCard, userCard)
+                .join(userCard.category)
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.repetitionCount.between(1, 2),
+                        activeJoinedUserCardCondition()
+                )
+                .groupBy(studyRecord.userCard.category.id, studyRecord.userCard.category.code)
+                .fetch()
+                .stream()
+                .map(tuple -> new CategoryCount(
+                        tuple.get(studyRecord.userCard.category.id),
+                        tuple.get(studyRecord.userCard.category.code),
                         toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
@@ -126,6 +171,30 @@ public class StudyRecordStatsRepositoryCustomImpl implements StudyRecordStatsRep
                 .map(tuple -> new CategoryCount(
                         tuple.get(studyRecord.card.category.id),
                         tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
+                ))
+                .toList();
+    }
+
+    @Override
+    public List<CategoryCount> countDueUserCardsByCategory(User user, LocalDate date) {
+        return queryFactory
+                .select(studyRecord.userCard.category.id, studyRecord.userCard.category.code, studyRecord.count())
+                .from(studyRecord)
+                .join(studyRecord.userCard, userCard)
+                .join(userCard.category)
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.nextReviewDate.loe(date),
+                        studyRecord.repetitionCount.gt(2),
+                        activeJoinedUserCardCondition()
+                )
+                .groupBy(studyRecord.userCard.category.id, studyRecord.userCard.category.code)
+                .fetch()
+                .stream()
+                .map(tuple -> new CategoryCount(
+                        tuple.get(studyRecord.userCard.category.id),
+                        tuple.get(studyRecord.userCard.category.code),
                         toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
@@ -205,6 +274,29 @@ public class StudyRecordStatsRepositoryCustomImpl implements StudyRecordStatsRep
                 .map(tuple -> new CategoryCount(
                         tuple.get(studyRecord.card.category.id),
                         tuple.get(studyRecord.card.category.code),
+                        toNullableLong(tuple.get(2, Object.class))
+                ))
+                .toList();
+    }
+
+    @Override
+    public List<CategoryCount> countMasteredUserCardsByCategory(User user) {
+        return queryFactory
+                .select(studyRecord.userCard.category.id, studyRecord.userCard.category.code, studyRecord.userCard.countDistinct())
+                .from(studyRecord)
+                .join(studyRecord.userCard, userCard)
+                .join(userCard.category)
+                .where(
+                        studyRecord.user.eq(user),
+                        studyRecord.repetitionCount.goe(SM2Constants.MASTERY_THRESHOLD),
+                        activeJoinedUserCardCondition()
+                )
+                .groupBy(studyRecord.userCard.category.id, studyRecord.userCard.category.code)
+                .fetch()
+                .stream()
+                .map(tuple -> new CategoryCount(
+                        tuple.get(studyRecord.userCard.category.id),
+                        tuple.get(studyRecord.userCard.category.code),
                         toNullableLong(tuple.get(2, Object.class))
                 ))
                 .toList();
@@ -371,6 +463,10 @@ public class StudyRecordStatsRepositoryCustomImpl implements StudyRecordStatsRep
     private BooleanExpression activeJoinedCardCondition() {
         return card.status.eq(CardStatus.ACTIVE)
                 .and(card.category.status.eq(CategoryStatus.ACTIVE));
+    }
+
+    private BooleanExpression activeJoinedUserCardCondition() {
+        return userCard.category.status.eq(CategoryStatus.ACTIVE);
     }
 
     private BooleanExpression activePublicCardCondition() {

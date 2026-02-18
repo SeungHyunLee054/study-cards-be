@@ -10,6 +10,8 @@ import java.util.List;
 
 public interface UserCardRepositoryCustom {
 
+    record CategoryCount(Long categoryId, String categoryCode, Long count) {}
+
     List<UserCard> findByUserOrderByEfFactorAsc(User user);
 
     List<UserCard> findByUserAndCategoriesOrderByEfFactorAsc(User user, List<Category> categories);
@@ -25,6 +27,8 @@ public interface UserCardRepositoryCustom {
     long countByUser(User user);
 
     long countByUserAndCategories(User user, List<Category> categories);
+
+    List<CategoryCount> countByUserGroupByCategory(User user);
 
     Page<UserCard> searchByKeyword(User user, String keyword, List<Category> categories, Pageable pageable);
 }

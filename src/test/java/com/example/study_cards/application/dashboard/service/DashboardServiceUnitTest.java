@@ -1,15 +1,16 @@
 package com.example.study_cards.application.dashboard.service;
 
 import com.example.study_cards.application.dashboard.dto.response.*;
-import com.example.study_cards.domain.card.repository.CardRepositoryCustom;
+import com.example.study_cards.application.study.service.StudyCategoryAggregationService;
 import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
 import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryCount;
 import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.DailyActivity;
 import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.TotalAndCorrect;
-import com.example.study_cards.domain.study.service.StudyDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -22,6 +23,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -32,13 +34,19 @@ import static org.mockito.Mockito.lenient;
 class DashboardServiceUnitTest extends BaseUnitTest {
 
     @Mock
-    private StudyDomainService studyDomainService;
+    private StudyRecordDomainService studyRecordDomainService;
+
+    @Mock
+    private StudyCategoryAggregationService studyCategoryAggregationService;
 
     @Mock
     private CardDomainService cardDomainService;
 
     @Mock
     private CategoryDomainService categoryDomainService;
+
+    @Mock
+    private UserCardDomainService userCardDomainService;
 
     @InjectMocks
     private DashboardService dashboardService;
@@ -103,7 +111,7 @@ class DashboardServiceUnitTest extends BaseUnitTest {
         void getDashboard_userSummary_isCorrect() {
             // given
             setupBasicMocks();
-            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(100);
+            given(studyRecordDomainService.countTotalStudiedCards(testUser)).willReturn(100);
 
             // when
             DashboardResponse result = dashboardService.getDashboard(testUser);
@@ -121,10 +129,12 @@ class DashboardServiceUnitTest extends BaseUnitTest {
         void getDashboard_todayStudyInfo_isCorrect() {
             // given
             setupBasicMocks();
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(10);
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(10);
             given(cardDomainService.count()).willReturn(100L);
-            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(50);
-            given(studyDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
+            given(userCardDomainService.countByUser(testUser)).willReturn(0L);
+            given(studyRecordDomainService.countTotalStudiedCards(testUser)).willReturn(50);
+            given(studyRecordDomainService.countTotalStudiedUserCards(testUser)).willReturn(0);
+            given(studyRecordDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
                     .willReturn(new TotalAndCorrect(20L, 18L));
 
             // when
@@ -142,8 +152,8 @@ class DashboardServiceUnitTest extends BaseUnitTest {
         void getDashboard_withDueCards_returnsReviewRecommendation() {
             // given
             setupBasicMocks();
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(5);
-            given(studyDomainService.countDueByCategory(eq(testUser), any(LocalDate.class)))
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(5);
+            given(studyRecordDomainService.countDueByCategoryWithUserCards(eq(testUser), any(LocalDate.class)))
                     .willReturn(List.of(new CategoryCount(1L, "CS", 5L)));
 
             // when
@@ -159,11 +169,13 @@ class DashboardServiceUnitTest extends BaseUnitTest {
         void getDashboard_withStreakAndNoStudy_returnsStreakKeepRecommendation() {
             // given
             setupBasicMocks();
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
-            given(studyDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyRecordDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
                     .willReturn(new TotalAndCorrect(0L, 0L));
             given(cardDomainService.count()).willReturn(100L);
-            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(50);
+            given(userCardDomainService.countByUser(testUser)).willReturn(0L);
+            given(studyRecordDomainService.countTotalStudiedCards(testUser)).willReturn(50);
+            given(studyRecordDomainService.countTotalStudiedUserCards(testUser)).willReturn(0);
 
             // when
             DashboardResponse result = dashboardService.getDashboard(testUser);
@@ -178,11 +190,13 @@ class DashboardServiceUnitTest extends BaseUnitTest {
             // given
             ReflectionTestUtils.setField(testUser, "streak", 0);
             setupBasicMocks();
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
-            given(studyDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyRecordDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
                     .willReturn(new TotalAndCorrect(5L, 5L));
             given(cardDomainService.count()).willReturn(100L);
-            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(50);
+            given(userCardDomainService.countByUser(testUser)).willReturn(0L);
+            given(studyRecordDomainService.countTotalStudiedCards(testUser)).willReturn(50);
+            given(studyRecordDomainService.countTotalStudiedUserCards(testUser)).willReturn(0);
 
             // when
             DashboardResponse result = dashboardService.getDashboard(testUser);
@@ -197,11 +211,13 @@ class DashboardServiceUnitTest extends BaseUnitTest {
             // given
             ReflectionTestUtils.setField(testUser, "streak", 0);
             setupBasicMocks();
-            given(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
-            given(studyDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
+            given(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).willReturn(0);
+            given(studyRecordDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
                     .willReturn(new TotalAndCorrect(5L, 5L));
             given(cardDomainService.count()).willReturn(100L);
-            given(studyDomainService.countTotalStudiedCards(testUser)).willReturn(100);
+            given(userCardDomainService.countByUser(testUser)).willReturn(0L);
+            given(studyRecordDomainService.countTotalStudiedCards(testUser)).willReturn(100);
+            given(studyRecordDomainService.countTotalStudiedUserCards(testUser)).willReturn(0);
 
             // when
             DashboardResponse result = dashboardService.getDashboard(testUser);
@@ -216,7 +232,7 @@ class DashboardServiceUnitTest extends BaseUnitTest {
             // given
             setupBasicMocks();
             LocalDate today = LocalDate.now();
-            given(studyDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
+            given(studyRecordDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
                     .willReturn(List.of(
                             new DailyActivity(today, 10L, 8L),
                             new DailyActivity(today.minusDays(1), 15L, 12L)
@@ -246,13 +262,13 @@ class DashboardServiceUnitTest extends BaseUnitTest {
                     createCategory("KR", 5),
                     createCategory("ES", 6)
             ));
-            given(cardDomainService.countAllByCategory()).willReturn(List.of(
-                    new CardRepositoryCustom.CategoryCount(1L, "CS", 100L),
-                    new CardRepositoryCustom.CategoryCount(2L, "EN", 90L),
-                    new CardRepositoryCustom.CategoryCount(3L, "JP", 80L),
-                    new CardRepositoryCustom.CategoryCount(4L, "CN", 70L),
-                    new CardRepositoryCustom.CategoryCount(5L, "KR", 60L),
-                    new CardRepositoryCustom.CategoryCount(6L, "ES", 50L)
+            given(studyCategoryAggregationService.countTotalCardsByCategoryWithUserCards(testUser)).willReturn(Map.of(
+                    "CS", 105L,
+                    "EN", 90L,
+                    "JP", 80L,
+                    "CN", 70L,
+                    "KR", 60L,
+                    "ES", 50L
             ));
 
             // when
@@ -263,21 +279,23 @@ class DashboardServiceUnitTest extends BaseUnitTest {
         }
 
         private void setupBasicMocks() {
-            lenient().when(studyDomainService.countTotalStudiedCards(testUser)).thenReturn(50);
-            lenient().when(studyDomainService.countDueCards(eq(testUser), any(LocalDate.class))).thenReturn(0);
+            lenient().when(studyRecordDomainService.countTotalStudiedCards(testUser)).thenReturn(50);
+            lenient().when(studyRecordDomainService.countTotalStudiedUserCards(testUser)).thenReturn(0);
+            lenient().when(studyRecordDomainService.countDueCards(eq(testUser), any(LocalDate.class))).thenReturn(0);
             lenient().when(cardDomainService.count()).thenReturn(100L);
-            lenient().when(studyDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
+            lenient().when(userCardDomainService.countByUser(testUser)).thenReturn(0L);
+            lenient().when(studyRecordDomainService.countTodayStudy(eq(testUser), any(LocalDate.class)))
                     .thenReturn(new TotalAndCorrect(10L, 8L));
             lenient().when(categoryDomainService.findAll()).thenReturn(List.of(testCategory));
-            lenient().when(cardDomainService.countAllByCategory())
-                    .thenReturn(List.of(new CardRepositoryCustom.CategoryCount(1L, "CS", 100L)));
-            lenient().when(studyDomainService.countStudiedByCategory(testUser))
+            lenient().when(studyCategoryAggregationService.countTotalCardsByCategoryWithUserCards(testUser))
+                    .thenReturn(Map.of("CS", 100L));
+            lenient().when(studyRecordDomainService.countStudiedByCategoryWithUserCards(testUser))
                     .thenReturn(List.of(new CategoryCount(1L, "CS", 50L)));
-            lenient().when(studyDomainService.countMasteredByCategory(testUser))
+            lenient().when(studyRecordDomainService.countMasteredByCategoryWithUserCards(testUser))
                     .thenReturn(List.of(new CategoryCount(1L, "CS", 20L)));
-            lenient().when(studyDomainService.countDueByCategory(eq(testUser), any(LocalDate.class)))
+            lenient().when(studyRecordDomainService.countDueByCategoryWithUserCards(eq(testUser), any(LocalDate.class)))
                     .thenReturn(List.of());
-            lenient().when(studyDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
+            lenient().when(studyRecordDomainService.findDailyActivity(eq(testUser), any(LocalDateTime.class)))
                     .thenReturn(List.of());
         }
 

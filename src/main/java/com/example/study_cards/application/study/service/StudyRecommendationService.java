@@ -3,8 +3,8 @@ package com.example.study_cards.application.study.service;
 import com.example.study_cards.application.study.dto.response.CategoryAccuracyResponse;
 import com.example.study_cards.application.study.dto.response.RecommendationResponse;
 import com.example.study_cards.application.study.dto.response.RecommendationResponse.RecommendedCard;
-import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRecord;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService.ScoredRecord;
 import com.example.study_cards.domain.user.entity.User;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,10 +19,10 @@ public class StudyRecommendationService {
 
     private static final int DEFAULT_RECOMMENDATION_LIMIT = 20;
 
-    private final StudyDomainService studyDomainService;
+    private final StudyRecordDomainService studyRecordDomainService;
 
     public RecommendationResponse getRecommendations(User user, int limit) {
-        List<ScoredRecord> scoredRecords = studyDomainService.findPrioritizedDueRecords(user, limit);
+        List<ScoredRecord> scoredRecords = studyRecordDomainService.findPrioritizedDueRecords(user, limit);
 
         List<RecommendedCard> recommendations = scoredRecords.stream()
                 .map(sr -> RecommendedCard.from(sr.record(), sr.score()))
@@ -36,7 +36,7 @@ public class StudyRecommendationService {
     }
 
     public List<CategoryAccuracyResponse> getCategoryAccuracy(User user) {
-        return studyDomainService.calculateCategoryAccuracy(user).stream()
+        return studyRecordDomainService.calculateCategoryAccuracy(user).stream()
                 .map(CategoryAccuracyResponse::from)
                 .toList();
     }

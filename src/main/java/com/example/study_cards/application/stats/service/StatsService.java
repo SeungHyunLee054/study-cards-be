@@ -4,11 +4,13 @@ import com.example.study_cards.application.stats.dto.response.DailyActivity;
 import com.example.study_cards.application.stats.dto.response.DeckStats;
 import com.example.study_cards.application.stats.dto.response.OverviewStats;
 import com.example.study_cards.application.stats.dto.response.StatsResponse;
+import com.example.study_cards.application.study.service.StudyCategoryAggregationService;
 import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,9 +24,11 @@ import java.util.*;
 @Transactional(readOnly = true)
 public class StatsService {
 
-    private final StudyDomainService studyDomainService;
+    private final StudyRecordDomainService studyRecordDomainService;
+    private final StudyCategoryAggregationService studyCategoryAggregationService;
     private final CardDomainService cardDomainService;
     private final CategoryDomainService categoryDomainService;
+    private final UserCardDomainService userCardDomainService;
 
     public StatsResponse getStats(User user) {
         LocalDate today = LocalDate.now();
@@ -37,10 +41,11 @@ public class StatsService {
     }
 
     private OverviewStats calculateOverview(User user, LocalDate today) {
-        int dueToday = studyDomainService.countDueCards(user, today);
-        int totalStudied = studyDomainService.countTotalStudiedCards(user);
-        long totalCards = cardDomainService.count();
-        int newCards = (int) totalCards - totalStudied;
+        int dueToday = studyRecordDomainService.countDueCards(user, today);
+        int totalStudied = studyRecordDomainService.countTotalStudiedCards(user)
+                + studyRecordDomainService.countTotalStudiedUserCards(user);
+        long totalCards = cardDomainService.count() + userCardDomainService.countByUser(user);
+        int newCards = (int) Math.max(0, totalCards - totalStudied);
         int streak = user.getStreak();
         double accuracyRate = calculateAccuracyRate(user);
 
@@ -48,7 +53,7 @@ public class StatsService {
     }
 
     private double calculateAccuracyRate(User user) {
-        var result = studyDomainService.countTotalAndCorrect(user);
+        var result = studyRecordDomainService.countTotalAndCorrect(user);
         if (result.totalCount() == 0) {
             return 0.0;
         }
@@ -59,32 +64,29 @@ public class StatsService {
         List<Category> allCategories = categoryDomainService.findLeafCategories();
 
         // 카테고리별 전체 카드 수
-        Map<String, Long> totalByCategory = new HashMap<>();
-        for (var row : cardDomainService.countAllByCategory()) {
-            totalByCategory.put(row.categoryCode(), row.count());
-        }
+        Map<String, Long> totalByCategory = studyCategoryAggregationService.countTotalCardsByCategoryWithUserCards(user);
 
         // 카테고리별 학습한 카드 수
         Map<String, Long> studiedByCategory = new HashMap<>();
-        for (var row : studyDomainService.countStudiedByCategory(user)) {
+        for (var row : studyRecordDomainService.countStudiedByCategoryWithUserCards(user)) {
             studiedByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 학습 중인 카드 수
         Map<String, Long> learningByCategory = new HashMap<>();
-        for (var row : studyDomainService.countLearningByCategory(user)) {
+        for (var row : studyRecordDomainService.countLearningByCategoryWithUserCards(user)) {
             learningByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 복습 카드 수
         Map<String, Long> reviewByCategory = new HashMap<>();
-        for (var row : studyDomainService.countDueByCategory(user, today)) {
+        for (var row : studyRecordDomainService.countDueByCategoryWithUserCards(user, today)) {
             reviewByCategory.put(row.categoryCode(), row.count());
         }
 
         // 카테고리별 마스터 카드 수
         Map<String, Long> masteredByCategory = new HashMap<>();
-        for (var row : studyDomainService.countMasteredByCategory(user)) {
+        for (var row : studyRecordDomainService.countMasteredByCategoryWithUserCards(user)) {
             masteredByCategory.put(row.categoryCode(), row.count());
         }
 
@@ -113,7 +115,7 @@ public class StatsService {
 
     private List<DailyActivity> calculateRecentActivity(User user) {
         LocalDateTime since = LocalDateTime.now().minusDays(7);
-        var results = studyDomainService.findDailyActivity(user, since);
+        var results = studyRecordDomainService.findDailyActivity(user, since);
 
         return results.stream()
                 .map(row -> new DailyActivity(
@@ -123,4 +125,5 @@ public class StatsService {
                 ))
                 .toList();
     }
+
 }

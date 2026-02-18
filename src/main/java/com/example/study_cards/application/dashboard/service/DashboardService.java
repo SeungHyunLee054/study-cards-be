@@ -1,11 +1,13 @@
 package com.example.study_cards.application.dashboard.service;
 
 import com.example.study_cards.application.dashboard.dto.response.*;
+import com.example.study_cards.application.study.service.StudyCategoryAggregationService;
 import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.category.service.CategoryDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
 import com.example.study_cards.domain.user.entity.User;
+import com.example.study_cards.domain.usercard.service.UserCardDomainService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -21,9 +23,11 @@ import static com.example.study_cards.domain.study.repository.StudyRecordReposit
 @Transactional(readOnly = true)
 public class DashboardService {
 
-    private final StudyDomainService studyDomainService;
+    private final StudyRecordDomainService studyRecordDomainService;
+    private final StudyCategoryAggregationService studyCategoryAggregationService;
     private final CardDomainService cardDomainService;
     private final CategoryDomainService categoryDomainService;
+    private final UserCardDomainService userCardDomainService;
 
     public DashboardResponse getDashboard(User user) {
         LocalDate today = LocalDate.now();
@@ -38,18 +42,25 @@ public class DashboardService {
     }
 
     private UserSummary buildUserSummary(User user) {
-        int totalStudied = studyDomainService.countTotalStudiedCards(user);
+        int totalStudied = studyRecordDomainService.countTotalStudiedCards(user);
         return UserSummary.from(user, totalStudied);
     }
 
     private TodayStudyInfo buildTodayStudyInfo(User user, LocalDate today) {
-        int dueCards = studyDomainService.countDueCards(user, today);
+        int dueCards = studyRecordDomainService.countDueCards(user, today);
 
-        long totalCards = cardDomainService.count();
-        int totalStudied = studyDomainService.countTotalStudiedCards(user);
-        int newCardsAvailable = (int) totalCards - totalStudied;
+        long totalPublicCards = cardDomainService.count();
+        long totalUserCards = userCardDomainService.countByUser(user);
+        int totalStudiedPublicCards = studyRecordDomainService.countTotalStudiedCards(user);
+        int totalStudiedUserCards = studyRecordDomainService.countTotalStudiedUserCards(user);
+        int newCardsAvailable = (int) Math.max(
+                0,
+                (totalPublicCards + totalUserCards)
+                        - (long) totalStudiedPublicCards
+                        - totalStudiedUserCards
+        );
 
-        var todayStudyCount = studyDomainService.countTodayStudy(user, today);
+        var todayStudyCount = studyRecordDomainService.countTodayStudy(user, today);
         int studiedToday = todayStudyCount.totalCount().intValue();
         double todayAccuracy = studiedToday > 0
                 ? Math.round((double) todayStudyCount.correctCount() / studiedToday * 1000.0) / 10.0
@@ -61,18 +72,15 @@ public class DashboardService {
     private List<CategoryProgress> buildCategoryProgress(User user, LocalDate today) {
         List<Category> allCategories = categoryDomainService.findAll();
 
-        Map<String, Long> totalByCategory = new HashMap<>();
-        for (var row : cardDomainService.countAllByCategory()) {
-            totalByCategory.put(row.categoryCode(), row.count());
-        }
+        Map<String, Long> totalByCategory = studyCategoryAggregationService.countTotalCardsByCategoryWithUserCards(user);
 
         Map<String, Long> studiedByCategory = new HashMap<>();
-        for (var row : studyDomainService.countStudiedByCategory(user)) {
+        for (var row : studyRecordDomainService.countStudiedByCategoryWithUserCards(user)) {
             studiedByCategory.put(row.categoryCode(), row.count());
         }
 
         Map<String, Long> masteredByCategory = new HashMap<>();
-        for (var row : studyDomainService.countMasteredByCategory(user)) {
+        for (var row : studyRecordDomainService.countMasteredByCategoryWithUserCards(user)) {
             masteredByCategory.put(row.categoryCode(), row.count());
         }
 
@@ -97,7 +105,7 @@ public class DashboardService {
 
     private List<RecentActivitySummary> buildRecentActivity(User user) {
         LocalDateTime since = LocalDateTime.now().minusDays(7);
-        List<DailyActivity> activities = studyDomainService.findDailyActivity(user, since);
+        List<DailyActivity> activities = studyRecordDomainService.findDailyActivity(user, since);
 
         return activities.stream()
                 .map(activity -> RecentActivitySummary.of(
@@ -127,7 +135,7 @@ public class DashboardService {
     }
 
     private String findCategoryWithMostDueCards(User user, LocalDate today) {
-        List<CategoryCount> dueByCategory = studyDomainService.countDueByCategory(user, today);
+        List<CategoryCount> dueByCategory = studyRecordDomainService.countDueByCategoryWithUserCards(user, today);
 
         return dueByCategory.stream()
                 .max(Comparator.comparingLong(CategoryCount::count))
@@ -142,4 +150,5 @@ public class DashboardService {
                 .map(CategoryProgress::categoryCode)
                 .orElse(null);
     }
+
 }

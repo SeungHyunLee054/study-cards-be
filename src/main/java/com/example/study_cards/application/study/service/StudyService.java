@@ -1,12 +1,12 @@
 package com.example.study_cards.application.study.service;
 
+import com.example.study_cards.application.card.dto.response.CardType;
 import com.example.study_cards.application.notification.service.NotificationService;
 import com.example.study_cards.application.study.dto.request.StudyAnswerRequest;
 import com.example.study_cards.application.study.dto.response.SessionResponse;
 import com.example.study_cards.application.study.dto.response.SessionStatsResponse;
 import com.example.study_cards.application.study.dto.response.StudyCardResponse;
 import com.example.study_cards.application.study.dto.response.StudyResultResponse;
-import com.example.study_cards.application.card.dto.response.CardType;
 import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.card.service.CardDomainService;
 import com.example.study_cards.domain.category.entity.Category;
@@ -17,8 +17,8 @@ import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
-import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService.StudyCardItem;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
+import com.example.study_cards.domain.study.service.StudySessionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.service.UserCardDomainService;
@@ -30,14 +30,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @RequiredArgsConstructor
 @Service
 @Transactional(readOnly = true)
 public class StudyService {
 
-    private final StudyDomainService studyDomainService;
+    private final StudySessionDomainService studySessionDomainService;
+    private final StudyRecordDomainService studyRecordDomainService;
     private final CardDomainService cardDomainService;
     private final UserCardDomainService userCardDomainService;
     private final CategoryDomainService categoryDomainService;
@@ -49,17 +52,17 @@ public class StudyService {
                 ? null
                 : categoryDomainService.findByCode(normalizedCategoryCode);
         List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
-        List<StudyCardItem> cards = studyDomainService.findTodayAllStudyCards(user, categoryScope, pageable.getPageSize());
+        List<StudyCardItem> cards = findTodayAllStudyCards(user, categoryScope, pageable.getPageSize());
 
         int start = (int) pageable.getOffset();
         int end = Math.min(start + pageable.getPageSize(), cards.size());
 
         List<StudyCardResponse> content = start < cards.size()
                 ? cards.subList(start, end).stream()
-                        .map(item -> item.isPublicCard()
-                                ? StudyCardResponse.from(item.card())
-                                : StudyCardResponse.fromUserCard(item.userCard()))
-                        .toList()
+                .map(item -> item.isPublicCard()
+                        ? StudyCardResponse.from(item.card())
+                        : StudyCardResponse.fromUserCard(item.userCard()))
+                .toList()
                 : List.of();
 
         return new PageImpl<>(content, pageable, cards.size());
@@ -67,19 +70,19 @@ public class StudyService {
 
     @Transactional
     public StudyResultResponse submitAnswer(User user, StudyAnswerRequest request) {
-        StudySession session = studyDomainService.findActiveSession(user)
-                .orElseGet(() -> studyDomainService.createSession(user));
+        StudySession session = studySessionDomainService.findActiveSession(user)
+                .orElseGet(() -> studySessionDomainService.createSession(user));
 
         StudyRecord record;
         Category category;
 
         if (request.cardType() == CardType.CUSTOM) {
             UserCard userCard = userCardDomainService.findById(request.cardId());
-            record = studyDomainService.processUserCardAnswer(user, userCard, session, request.isCorrect());
+            record = studyRecordDomainService.processUserCardAnswer(user, userCard, session, request.isCorrect());
             category = userCard.getCategory();
         } else {
             Card card = cardDomainService.findById(request.cardId());
-            record = studyDomainService.processAnswer(user, card, session, request.isCorrect());
+            record = studyRecordDomainService.processAnswer(user, card, session, request.isCorrect());
             category = card.getCategory();
         }
 
@@ -126,25 +129,33 @@ public class StudyService {
             return;
         }
 
-        if (studyDomainService.isCategoryFullyMastered(user, category)) {
-            boolean alreadyNotified = notificationService.existsNotification(
-                    user, NotificationType.CATEGORY_MASTERED, category.getId());
+        long totalCardsInCategory = cardDomainService.countByCategories(List.of(category));
+        if (totalCardsInCategory == 0) {
+            return;
+        }
 
-            if (!alreadyNotified) {
-                notificationService.sendNotification(
-                        user,
-                        NotificationType.CATEGORY_MASTERED,
-                        "카테고리 마스터!",
-                        category.getName() + " 카테고리를 완전히 마스터했습니다!",
-                        category.getId()
-                );
-            }
+        long masteredCardsInCategory = studyRecordDomainService.countMasteredCardsInCategory(user, category);
+        if (masteredCardsInCategory < totalCardsInCategory) {
+            return;
+        }
+
+        boolean alreadyNotified = notificationService.existsNotification(
+                user, NotificationType.CATEGORY_MASTERED, category.getId());
+
+        if (!alreadyNotified) {
+            notificationService.sendNotification(
+                    user,
+                    NotificationType.CATEGORY_MASTERED,
+                    "카테고리 마스터!",
+                    category.getName() + " 카테고리를 완전히 마스터했습니다!",
+                    category.getId()
+            );
         }
     }
 
     @Transactional
     public SessionResponse endCurrentSession(User user) {
-        StudySession session = studyDomainService.findActiveSession(user)
+        StudySession session = studySessionDomainService.findActiveSession(user)
                 .orElseThrow(() -> new StudyException(StudyErrorCode.NO_ACTIVE_SESSION));
 
         session.endSession();
@@ -153,31 +164,96 @@ public class StudyService {
     }
 
     public SessionResponse getCurrentSession(User user) {
-        StudySession session = studyDomainService.findActiveSession(user)
+        StudySession session = studySessionDomainService.findActiveSession(user)
                 .orElseThrow(() -> new StudyException(StudyErrorCode.NO_ACTIVE_SESSION));
 
         return SessionResponse.from(session);
     }
 
     public SessionResponse getSession(User user, Long sessionId) {
-        StudySession session = studyDomainService.findSessionById(sessionId);
-        studyDomainService.validateSessionOwnership(session, user);
+        StudySession session = studySessionDomainService.findSessionById(sessionId);
+        studySessionDomainService.validateSessionOwnership(session, user);
 
         return SessionResponse.from(session);
     }
 
     public Page<SessionResponse> getSessionHistory(User user, Pageable pageable) {
-        Page<StudySession> sessions = studyDomainService.findSessionHistory(user, pageable);
-
+        Page<StudySession> sessions = studySessionDomainService.findSessionHistory(user, pageable);
         return sessions.map(SessionResponse::from);
     }
 
     public SessionStatsResponse getSessionStats(User user, Long sessionId) {
-        StudySession session = studyDomainService.findSessionById(sessionId);
-        studyDomainService.validateSessionOwnership(session, user);
+        StudySession session = studySessionDomainService.findSessionById(sessionId);
+        studySessionDomainService.validateSessionOwnership(session, user);
 
-        List<StudyRecord> records = studyDomainService.findRecordsBySession(session);
-
+        List<StudyRecord> records = studyRecordDomainService.findRecordsBySession(session);
         return SessionStatsResponse.from(session, records);
     }
+
+    private List<StudyCardItem> findTodayAllStudyCards(User user, List<Category> categories, int limit) {
+        LocalDate today = LocalDate.now();
+        boolean hasCategoryScope = categories != null && !categories.isEmpty();
+
+        List<StudyRecord> dueUserCardRecords = hasCategoryScope
+                ? studyRecordDomainService.findDueUserCardRecordsByCategories(user, today, categories)
+                : studyRecordDomainService.findDueUserCardRecords(user, today);
+        List<StudyRecord> dueCardRecords = hasCategoryScope
+                ? studyRecordDomainService.findDueRecordsByCategories(user, today, categories)
+                : studyRecordDomainService.findDueRecords(user, today);
+
+        List<StudyCardItem> result = new java.util.ArrayList<>();
+        dueUserCardRecords.stream()
+                .map(StudyRecord::getUserCard)
+                .map(StudyCardItem::ofUserCard)
+                .forEach(result::add);
+        dueCardRecords.stream()
+                .map(StudyRecord::getCard)
+                .map(StudyCardItem::ofCard)
+                .forEach(result::add);
+
+        if (result.size() >= limit) {
+            return result.subList(0, limit);
+        }
+
+        Set<Long> studiedUserCardIds = new HashSet<>(studyRecordDomainService.findStudiedUserCardIdsByUser(user));
+        List<UserCard> newUserCards = (hasCategoryScope
+                ? userCardDomainService.findByUserAndCategoriesOrderByEfFactorAsc(user, categories)
+                : userCardDomainService.findByUserOrderByEfFactorAsc(user))
+                .stream()
+                .filter(uc -> !studiedUserCardIds.contains(uc.getId()))
+                .limit(limit - result.size())
+                .toList();
+        newUserCards.stream().map(StudyCardItem::ofUserCard).forEach(result::add);
+
+        if (result.size() >= limit) {
+            return result.subList(0, limit);
+        }
+
+        Set<Long> studiedCardIds = new HashSet<>(studyRecordDomainService.findStudiedCardIdsByUser(user));
+        List<Card> newCards = (hasCategoryScope
+                ? cardDomainService.findCardsForStudyByCategories(categories)
+                : cardDomainService.findCardsForStudy())
+                .stream()
+                .filter(card -> !studiedCardIds.contains(card.getId()))
+                .limit(limit - result.size())
+                .toList();
+        newCards.stream().map(StudyCardItem::ofCard).forEach(result::add);
+
+        return result.size() > limit ? result.subList(0, limit) : result;
+    }
+
+    private record StudyCardItem(Long id, Card card, UserCard userCard) {
+        private static StudyCardItem ofCard(Card card) {
+            return new StudyCardItem(card.getId(), card, null);
+        }
+
+        private static StudyCardItem ofUserCard(UserCard userCard) {
+            return new StudyCardItem(userCard.getId(), null, userCard);
+        }
+
+        private boolean isPublicCard() {
+            return card != null;
+        }
+    }
 }
+

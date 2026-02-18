@@ -15,8 +15,8 @@ import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.entity.StudySession;
 import com.example.study_cards.domain.study.exception.StudyErrorCode;
 import com.example.study_cards.domain.study.exception.StudyException;
-import com.example.study_cards.domain.study.service.StudyDomainService;
-import com.example.study_cards.domain.study.service.StudyDomainService.StudyCardItem;
+import com.example.study_cards.domain.study.service.StudyRecordDomainService;
+import com.example.study_cards.domain.study.service.StudySessionDomainService;
 import com.example.study_cards.domain.user.entity.User;
 import com.example.study_cards.domain.usercard.entity.UserCard;
 import com.example.study_cards.domain.usercard.service.UserCardDomainService;
@@ -51,7 +51,10 @@ import static org.mockito.Mockito.verify;
 class StudyServiceUnitTest extends BaseUnitTest {
 
     @Mock
-    private StudyDomainService studyDomainService;
+    private StudySessionDomainService studySessionDomainService;
+
+    @Mock
+    private StudyRecordDomainService studyRecordDomainService;
 
     @Mock
     private CardDomainService cardDomainService;
@@ -177,8 +180,15 @@ class StudyServiceUnitTest extends BaseUnitTest {
             // given
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
-            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(List.of(testCategory)), anyInt()))
-                    .willReturn(List.of(StudyCardItem.ofCard(testCard)));
+            given(studyRecordDomainService.findDueUserCardRecordsByCategories(eq(testUser), any(LocalDate.class), eq(List.of(testCategory))))
+                    .willReturn(List.of());
+            given(studyRecordDomainService.findDueRecordsByCategories(eq(testUser), any(LocalDate.class), eq(List.of(testCategory))))
+                    .willReturn(List.of(testRecord));
+            given(studyRecordDomainService.findStudiedUserCardIdsByUser(testUser)).willReturn(List.of());
+            given(userCardDomainService.findByUserAndCategoriesOrderByEfFactorAsc(testUser, List.of(testCategory)))
+                    .willReturn(List.of());
+            given(studyRecordDomainService.findStudiedCardIdsByUser(testUser)).willReturn(List.of(CARD_ID));
+            given(cardDomainService.findCardsForStudyByCategories(List.of(testCategory))).willReturn(List.of(testCard));
 
             // when
             Page<StudyCardResponse> result = studyService.getTodayCards(testUser, "CS", pageable);
@@ -194,8 +204,14 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("카테고리 없이 모든 학습 카드를 페이지네이션하여 조회한다")
         void getTodayCards_withoutCategoryCode_returnsAllCards() {
             // given
-            given(studyDomainService.findTodayAllStudyCards(eq(testUser), org.mockito.ArgumentMatchers.<List<Category>>isNull(), anyInt()))
-                    .willReturn(List.of(StudyCardItem.ofCard(testCard)));
+            given(studyRecordDomainService.findDueUserCardRecords(eq(testUser), any(LocalDate.class)))
+                    .willReturn(List.of());
+            given(studyRecordDomainService.findDueRecords(eq(testUser), any(LocalDate.class)))
+                    .willReturn(List.of(testRecord));
+            given(studyRecordDomainService.findStudiedUserCardIdsByUser(testUser)).willReturn(List.of());
+            given(userCardDomainService.findByUserOrderByEfFactorAsc(testUser)).willReturn(List.of());
+            given(studyRecordDomainService.findStudiedCardIdsByUser(testUser)).willReturn(List.of(CARD_ID));
+            given(cardDomainService.findCardsForStudy()).willReturn(List.of(testCard));
 
             // when
             Page<StudyCardResponse> result = studyService.getTodayCards(testUser, null, pageable);
@@ -210,11 +226,22 @@ class StudyServiceUnitTest extends BaseUnitTest {
             // given
             given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
-            given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(List.of(testCategory)), anyInt()))
-                    .willReturn(List.of(
-                            StudyCardItem.ofUserCard(testUserCard),
-                            StudyCardItem.ofCard(testCard)
-                    ));
+            StudyRecord userCardDueRecord = StudyRecord.builder()
+                    .user(testUser)
+                    .userCard(testUserCard)
+                    .isCorrect(true)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(2.5)
+                    .build();
+            given(studyRecordDomainService.findDueUserCardRecordsByCategories(eq(testUser), any(LocalDate.class), eq(List.of(testCategory))))
+                    .willReturn(List.of(userCardDueRecord));
+            given(studyRecordDomainService.findDueRecordsByCategories(eq(testUser), any(LocalDate.class), eq(List.of(testCategory))))
+                    .willReturn(List.of(testRecord));
+            given(studyRecordDomainService.findStudiedUserCardIdsByUser(testUser)).willReturn(List.of(USER_CARD_ID));
+            given(userCardDomainService.findByUserAndCategoriesOrderByEfFactorAsc(testUser, List.of(testCategory)))
+                    .willReturn(List.of(testUserCard));
+            given(studyRecordDomainService.findStudiedCardIdsByUser(testUser)).willReturn(List.of(CARD_ID));
+            given(cardDomainService.findCardsForStudyByCategories(List.of(testCategory))).willReturn(List.of(testCard));
 
             // when
             Page<StudyCardResponse> result = studyService.getTodayCards(testUser, "CS", pageable);
@@ -240,8 +267,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
                     .set("isCorrect", true)
                     .sample();
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
-            given(studyDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true)))
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studyRecordDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true)))
                     .willReturn(testRecord);
 
             // when
@@ -276,8 +303,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
                     .set("isCorrect", true)
                     .sample();
             given(userCardDomainService.findById(USER_CARD_ID)).willReturn(testUserCard);
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
-            given(studyDomainService.processUserCardAnswer(eq(testUser), eq(testUserCard), eq(testSession), eq(true)))
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studyRecordDomainService.processUserCardAnswer(eq(testUser), eq(testUserCard), eq(testSession), eq(true)))
                     .willReturn(userCardRecord);
 
             // when
@@ -299,16 +326,16 @@ class StudyServiceUnitTest extends BaseUnitTest {
                     .set("isCorrect", true)
                     .sample();
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
-            given(studyDomainService.createSession(testUser)).willReturn(testSession);
-            given(studyDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true)))
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
+            given(studySessionDomainService.createSession(testUser)).willReturn(testSession);
+            given(studyRecordDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true)))
                     .willReturn(testRecord);
 
             // when
             StudyResultResponse result = studyService.submitAnswer(testUser, request);
 
             // then
-            verify(studyDomainService).createSession(testUser);
+            verify(studySessionDomainService).createSession(testUser);
             assertThat(result.cardId()).isEqualTo(CARD_ID);
         }
 
@@ -333,8 +360,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
             ReflectionTestUtils.setField(incorrectRecord, "id", 2L);
 
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
-            given(studyDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(false)))
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studyRecordDomainService.processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(false)))
                     .willReturn(incorrectRecord);
 
             // when
@@ -351,15 +378,15 @@ class StudyServiceUnitTest extends BaseUnitTest {
             // given
             StudyAnswerRequest request = new StudyAnswerRequest(CARD_ID, CardType.PUBLIC, true);
             given(cardDomainService.findById(CARD_ID)).willReturn(testCard);
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
-            given(studyDomainService.processAnswer(any(), any(), any(), any())).willReturn(testRecord);
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studyRecordDomainService.processAnswer(any(), any(), any(), any())).willReturn(testRecord);
 
             // when
             studyService.submitAnswer(testUser, request);
 
             // then
             verify(cardDomainService).findById(CARD_ID);
-            verify(studyDomainService).processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true));
+            verify(studyRecordDomainService).processAnswer(eq(testUser), eq(testCard), eq(testSession), eq(true));
         }
 
     }
@@ -372,7 +399,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("현재 활성 세션을 종료한다")
         void endCurrentSession_success() {
             // given
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
 
             // when
             SessionResponse result = studyService.endCurrentSession(testUser);
@@ -386,7 +413,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("활성 세션이 없으면 예외를 던진다")
         void endCurrentSession_noActiveSession_throwsException() {
             // given
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> studyService.endCurrentSession(testUser))
@@ -404,7 +431,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("현재 활성 세션을 조회한다")
         void getCurrentSession_success() {
             // given
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.of(testSession));
 
             // when
             SessionResponse result = studyService.getCurrentSession(testUser);
@@ -417,7 +444,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("활성 세션이 없으면 예외를 던진다")
         void getCurrentSession_noActiveSession_throwsException() {
             // given
-            given(studyDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
+            given(studySessionDomainService.findActiveSession(testUser)).willReturn(Optional.empty());
 
             // when & then
             assertThatThrownBy(() -> studyService.getCurrentSession(testUser))
@@ -435,8 +462,8 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("특정 세션을 조회한다")
         void getSession_success() {
             // given
-            given(studyDomainService.findSessionById(SESSION_ID)).willReturn(testSession);
-            doNothing().when(studyDomainService).validateSessionOwnership(testSession, testUser);
+            given(studySessionDomainService.findSessionById(SESSION_ID)).willReturn(testSession);
+            doNothing().when(studySessionDomainService).validateSessionOwnership(testSession, testUser);
 
             // when
             SessionResponse result = studyService.getSession(testUser, SESSION_ID);
@@ -449,9 +476,9 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("다른 사용자의 세션 접근 시 예외를 던진다")
         void getSession_accessDenied_throwsException() {
             // given
-            given(studyDomainService.findSessionById(SESSION_ID)).willReturn(testSession);
+            given(studySessionDomainService.findSessionById(SESSION_ID)).willReturn(testSession);
             doThrow(new StudyException(StudyErrorCode.SESSION_ACCESS_DENIED))
-                    .when(studyDomainService).validateSessionOwnership(testSession, testUser);
+                    .when(studySessionDomainService).validateSessionOwnership(testSession, testUser);
 
             // when & then
             assertThatThrownBy(() -> studyService.getSession(testUser, SESSION_ID))
@@ -471,7 +498,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
             // given
             Pageable pageable = PageRequest.of(0, 20, Sort.by(Sort.Direction.DESC, "startedAt"));
             Page<StudySession> sessions = new PageImpl<>(List.of(testSession), pageable, 1);
-            given(studyDomainService.findSessionHistory(testUser, pageable)).willReturn(sessions);
+            given(studySessionDomainService.findSessionHistory(testUser, pageable)).willReturn(sessions);
 
             // when
             Page<SessionResponse> result = studyService.getSessionHistory(testUser, pageable);
@@ -490,9 +517,9 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("세션 상세 통계를 조회한다")
         void getSessionStats_success() {
             // given
-            given(studyDomainService.findSessionById(SESSION_ID)).willReturn(testSession);
-            doNothing().when(studyDomainService).validateSessionOwnership(testSession, testUser);
-            given(studyDomainService.findRecordsBySession(testSession)).willReturn(List.of(testRecord));
+            given(studySessionDomainService.findSessionById(SESSION_ID)).willReturn(testSession);
+            doNothing().when(studySessionDomainService).validateSessionOwnership(testSession, testUser);
+            given(studyRecordDomainService.findRecordsBySession(testSession)).willReturn(List.of(testRecord));
 
             // when
             SessionStatsResponse result = studyService.getSessionStats(testUser, SESSION_ID);
