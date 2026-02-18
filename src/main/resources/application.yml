@@ -86,6 +86,9 @@ management:
 app:
   ai:
     provider: ${APP_AI_PROVIDER}
+    recommendation:
+      min-studied-cards: 10
+      min-recommendation-cards: 3
     log-retention:
       cleanup-cron: "0 30 4 * * *" # 매일 오전 4시 30분
       recommendation-days: 30

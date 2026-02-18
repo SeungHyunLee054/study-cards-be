@@ -8,6 +8,7 @@ import com.example.study_cards.domain.card.entity.Card;
 import com.example.study_cards.domain.category.entity.Category;
 import com.example.study_cards.domain.study.model.CategoryAccuracy;
 import com.example.study_cards.domain.study.entity.StudyRecord;
+import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.TotalAndCorrect;
 import com.example.study_cards.domain.study.service.StudyRecordDomainService;
 import com.example.study_cards.domain.study.service.StudyRecordDomainService.ScoredRecord;
 import com.example.study_cards.domain.subscription.entity.BillingCycle;
@@ -21,6 +22,7 @@ import com.example.study_cards.infra.ai.service.AiGenerationService;
 import com.example.study_cards.infra.redis.service.AiReviewQuotaService;
 import com.example.study_cards.support.BaseUnitTest;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
@@ -59,6 +61,12 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
 
     @InjectMocks
     private StudyAiRecommendationService studyAiRecommendationService;
+
+    @BeforeEach
+    void setUp() {
+        ReflectionTestUtils.setField(studyAiRecommendationService, "minStudiedCards", 1);
+        ReflectionTestUtils.setField(studyAiRecommendationService, "minRecommendationCards", 1);
+    }
 
     @Nested
     @DisplayName("getAiRecommendations")
@@ -100,6 +108,8 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                     .willReturn(List.of(new ScoredRecord(record, 900)));
             given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(studyRecordDomainService.countTotalAndCorrect(user))
+                    .willReturn(new TotalAndCorrect(20L, 10L));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
                     .willReturn(new AiReviewQuotaService.ReviewQuota(100, 1, 99, LocalDateTime.now().plusDays(20)));
@@ -116,6 +126,7 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.aiUsed()).isTrue();
             assertThat(response.algorithmFallback()).isFalse();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.NONE);
             assertThat(response.recommendations()).hasSize(1);
             assertThat(response.weakConcepts()).isNotEmpty();
             assertThat(response.reviewStrategy()).isNotBlank();
@@ -143,6 +154,8 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                     .willReturn(List.of(new ScoredRecord(record, 900)));
             given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(studyRecordDomainService.countTotalAndCorrect(user))
+                    .willReturn(new TotalAndCorrect(20L, 10L));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(false);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
                     .willReturn(new AiReviewQuotaService.ReviewQuota(100, 100, 0, LocalDateTime.now().plusDays(20)));
@@ -153,6 +166,7 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.aiUsed()).isFalse();
             assertThat(response.algorithmFallback()).isTrue();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.QUOTA_EXCEEDED);
             assertThat(response.recommendations()).hasSize(1);
             assertThat(response.quota().remaining()).isZero();
         }
@@ -177,6 +191,8 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                     .willReturn(List.of(new ScoredRecord(record, 900)));
             given(studyRecordDomainService.calculateCategoryAccuracy(adminUser))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(studyRecordDomainService.countTotalAndCorrect(adminUser))
+                    .willReturn(new TotalAndCorrect(20L, 10L));
             given(aiGenerationService.generateContent(any()))
                     .willReturn("""
                             {
@@ -191,6 +207,7 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.aiUsed()).isTrue();
             assertThat(response.algorithmFallback()).isFalse();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.NONE);
             assertThat(response.quota().limit()).isEqualTo(Integer.MAX_VALUE);
             assertThat(response.quota().remaining()).isEqualTo(Integer.MAX_VALUE);
             verify(subscriptionDomainService, never()).getSubscription(adminUser.getId());
@@ -220,6 +237,8 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                     .willReturn(List.of(new ScoredRecord(record, 900)));
             given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(studyRecordDomainService.countTotalAndCorrect(user))
+                    .willReturn(new TotalAndCorrect(20L, 10L));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
                     .willReturn(new AiReviewQuotaService.ReviewQuota(100, 2, 98, LocalDateTime.now().plusDays(20)));
@@ -231,6 +250,7 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.aiUsed()).isFalse();
             assertThat(response.algorithmFallback()).isTrue();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.AI_ERROR);
             assertThat(response.reviewStrategy()).isNotBlank();
             verify(aiReviewQuotaService).releaseSlot(user.getId(), subscription);
         }
@@ -257,6 +277,8 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
                     .willReturn(List.of(new ScoredRecord(record, 900)));
             given(studyRecordDomainService.calculateCategoryAccuracy(user))
                     .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 20L, 10L, 50.0)));
+            given(studyRecordDomainService.countTotalAndCorrect(user))
+                    .willReturn(new TotalAndCorrect(20L, 10L));
             given(aiReviewQuotaService.tryAcquireSlot(anyLong(), any())).willReturn(true);
             given(aiReviewQuotaService.getQuota(anyLong(), any()))
                     .willReturn(new AiReviewQuotaService.ReviewQuota(100, 3, 97, LocalDateTime.now().plusDays(20)));
@@ -268,6 +290,7 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.aiUsed()).isFalse();
             assertThat(response.algorithmFallback()).isTrue();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.AI_ERROR);
             verify(aiReviewQuotaService).releaseSlot(user.getId(), subscription);
         }
 
@@ -292,9 +315,51 @@ class StudyAiRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.aiUsed()).isFalse();
             assertThat(response.algorithmFallback()).isFalse();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.NO_DUE_CARDS);
             assertThat(response.recommendations()).isEmpty();
             verify(aiReviewQuotaService, never()).tryAcquireSlot(anyLong(), any());
             verify(aiGenerationService, never()).generateContent(any());
+            verify(aiGenerationLogDomainService).save(any());
+        }
+
+        @Test
+        @DisplayName("학습량이 부족하면 AI 호출 없이 폴백하고 히스토리를 저장한다")
+        void getAiRecommendations_insufficientStudyData_returnsFallbackWithoutAiCall() {
+            // given
+            User user = createUser();
+            Subscription subscription = createSubscription(user);
+            ReflectionTestUtils.setField(studyAiRecommendationService, "minStudiedCards", 10);
+
+            Card card = createCard();
+            StudyRecord record = StudyRecord.builder()
+                    .user(user)
+                    .card(card)
+                    .isCorrect(false)
+                    .nextReviewDate(LocalDate.now())
+                    .efFactor(1.8)
+                    .build();
+
+            given(subscriptionDomainService.getEffectivePlan(user)).willReturn(SubscriptionPlan.PRO);
+            given(subscriptionDomainService.getSubscription(user.getId())).willReturn(subscription);
+            given(studyRecordDomainService.findPrioritizedDueRecords(user, 20))
+                    .willReturn(List.of(new ScoredRecord(record, 900)));
+            given(studyRecordDomainService.calculateCategoryAccuracy(user))
+                    .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 2L, 1L, 50.0)));
+            given(studyRecordDomainService.countTotalAndCorrect(user))
+                    .willReturn(new TotalAndCorrect(2L, 1L));
+            given(aiReviewQuotaService.getQuota(anyLong(), any()))
+                    .willReturn(new AiReviewQuotaService.ReviewQuota(100, 10, 90, LocalDateTime.now().plusDays(20)));
+
+            // when
+            AiRecommendationResponse response = studyAiRecommendationService.getAiRecommendations(user, 20);
+
+            // then
+            assertThat(response.aiUsed()).isFalse();
+            assertThat(response.algorithmFallback()).isFalse();
+            assertThat(response.fallbackReason()).isEqualTo(AiRecommendationResponse.FallbackReason.INSUFFICIENT_STUDY_DATA);
+            verify(aiReviewQuotaService, never()).tryAcquireSlot(anyLong(), any());
+            verify(aiGenerationService, never()).generateContent(any());
+            verify(aiGenerationLogDomainService).save(any());
         }
     }
 

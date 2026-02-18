@@ -25,6 +25,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +33,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -41,10 +43,13 @@ public class StudyAiRecommendationService {
 
     private static final int UNLIMITED_COUNT = Integer.MAX_VALUE;
     private static final LocalDateTime UNLIMITED_RESET_AT = LocalDateTime.of(2099, 12, 31, 23, 59, 59);
+    private static final int DEFAULT_MIN_STUDIED_CARDS = 10;
+    private static final int DEFAULT_MIN_RECOMMENDATION_CARDS = 3;
     private static final List<AiGenerationType> AI_RECOMMENDATION_LOG_TYPES =
             List.of(AiGenerationType.RECOMMENDATION, AiGenerationType.WEAKNESS_ANALYSIS);
     private static final int MAX_WEAK_CONCEPTS = 5;
     private static final int MAX_PROMPT_CARD_COUNT = 8;
+    private static final String RULE_BASED_MODEL = "rule-based";
 
     private final StudyRecordDomainService studyRecordDomainService;
     private final SubscriptionDomainService subscriptionDomainService;
@@ -52,6 +57,12 @@ public class StudyAiRecommendationService {
     private final AiGenerationService aiGenerationService;
     private final AiGenerationLogDomainService aiGenerationLogDomainService;
     private final ObjectMapper objectMapper;
+
+    @Value("${app.ai.recommendation.min-studied-cards:10}")
+    private int minStudiedCards;
+
+    @Value("${app.ai.recommendation.min-recommendation-cards:3}")
+    private int minRecommendationCards;
 
     @Transactional
     public AiRecommendationResponse getAiRecommendations(User user, int limit) {
@@ -63,22 +74,82 @@ public class StudyAiRecommendationService {
 
         Subscription subscription = getSubscriptionIfNeeded(user, isAdmin);
 
-        List<RecommendedCard> recommendations = toRecommendedCards(user, limit);
+        int normalizedLimit = normalizeRequestLimit(limit);
+        int requiredStudyCount = normalizePositiveThreshold(
+                "min-studied-cards", minStudiedCards, DEFAULT_MIN_STUDIED_CARDS
+        );
+        int requiredRecommendationPool = normalizePositiveThreshold(
+                "min-recommendation-cards", minRecommendationCards, DEFAULT_MIN_RECOMMENDATION_CARDS
+        );
+
+        int recommendationPoolSize = Math.max(normalizedLimit, requiredRecommendationPool);
+        List<RecommendedCard> recommendationPool = toRecommendedCards(user, recommendationPoolSize);
+        List<RecommendedCard> recommendations = recommendationPool.stream()
+                .limit(normalizedLimit)
+                .toList();
         List<CategoryAccuracy> accuracies = studyRecordDomainService.calculateCategoryAccuracy(user);
         List<AiRecommendationResponse.WeakConcept> ruleWeakConcepts = buildRuleWeakConcepts(accuracies);
         String fallbackStrategy = buildFallbackStrategy(ruleWeakConcepts, recommendations);
 
-        if (recommendations.isEmpty()) {
+        if (recommendationPool.isEmpty()) {
+            saveFallbackLog(user, recommendations.size(), fallbackStrategy, AiRecommendationResponse.FallbackReason.NO_DUE_CARDS);
             AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
-            return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, false, quota);
+            return buildFallbackResponse(
+                    recommendations,
+                    ruleWeakConcepts,
+                    fallbackStrategy,
+                    false,
+                    AiRecommendationResponse.FallbackReason.NO_DUE_CARDS,
+                    quota
+            );
+        }
+
+        long totalStudyCount = resolveTotalStudyCount(user);
+        if (totalStudyCount < requiredStudyCount) {
+            saveFallbackLog(user, recommendations.size(), fallbackStrategy, AiRecommendationResponse.FallbackReason.INSUFFICIENT_STUDY_DATA);
+            AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
+            return buildFallbackResponse(
+                    recommendations,
+                    ruleWeakConcepts,
+                    fallbackStrategy,
+                    false,
+                    AiRecommendationResponse.FallbackReason.INSUFFICIENT_STUDY_DATA,
+                    quota
+            );
+        }
+
+        if (recommendationPool.size() < requiredRecommendationPool) {
+            saveFallbackLog(
+                    user,
+                    recommendations.size(),
+                    fallbackStrategy,
+                    AiRecommendationResponse.FallbackReason.INSUFFICIENT_RECOMMENDATION_POOL
+            );
+            AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
+            return buildFallbackResponse(
+                    recommendations,
+                    ruleWeakConcepts,
+                    fallbackStrategy,
+                    false,
+                    AiRecommendationResponse.FallbackReason.INSUFFICIENT_RECOMMENDATION_POOL,
+                    quota
+            );
         }
 
         if (!tryAcquireQuotaIfNeeded(user, subscription, isAdmin)) {
+            saveFallbackLog(user, recommendations.size(), fallbackStrategy, AiRecommendationResponse.FallbackReason.QUOTA_EXCEEDED);
             AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
-            return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, true, quota);
+            return buildFallbackResponse(
+                    recommendations,
+                    ruleWeakConcepts,
+                    fallbackStrategy,
+                    true,
+                    AiRecommendationResponse.FallbackReason.QUOTA_EXCEEDED,
+                    quota
+            );
         }
 
-        String prompt = buildAiPrompt(accuracies, recommendations, ruleWeakConcepts);
+        String prompt = buildAiPrompt(accuracies, recommendationPool, ruleWeakConcepts);
 
         try {
             String aiResponse = aiGenerationService.generateContent(prompt);
@@ -98,13 +169,21 @@ public class StudyAiRecommendationService {
                     reviewStrategy,
                     true,
                     false,
+                    AiRecommendationResponse.FallbackReason.NONE,
                     quota
             );
         } catch (Exception e) {
             releaseQuotaIfNeeded(user, subscription, isAdmin);
-            saveFailureLog(user, prompt, e.getMessage(), recommendations.size());
+            saveFailureLog(user, prompt, e.getMessage(), recommendations.size(), fallbackStrategy);
             AiRecommendationResponse.Quota quota = resolveQuota(user, subscription, isAdmin);
-            return buildFallbackResponse(recommendations, ruleWeakConcepts, fallbackStrategy, true, quota);
+            return buildFallbackResponse(
+                    recommendations,
+                    ruleWeakConcepts,
+                    fallbackStrategy,
+                    true,
+                    AiRecommendationResponse.FallbackReason.AI_ERROR,
+                    quota
+            );
         }
     }
 
@@ -252,6 +331,7 @@ public class StudyAiRecommendationService {
             List<AiRecommendationResponse.WeakConcept> weakConcepts,
             String strategy,
             boolean algorithmFallback,
+            AiRecommendationResponse.FallbackReason fallbackReason,
             AiRecommendationResponse.Quota quota
     ) {
         return AiRecommendationResponse.of(
@@ -260,6 +340,7 @@ public class StudyAiRecommendationService {
                 strategy,
                 false,
                 algorithmFallback,
+                fallbackReason,
                 quota
         );
     }
@@ -329,20 +410,86 @@ public class StudyAiRecommendationService {
         }
     }
 
-    private void saveFailureLog(User user, String prompt, String errorMessage, int recommendationCount) {
+    private void saveFailureLog(
+            User user,
+            String prompt,
+            String errorMessage,
+            int recommendationCount,
+            String fallbackStrategy
+    ) {
         try {
             aiGenerationLogDomainService.save(AiGenerationLog.builder()
                     .user(user)
-                    .type(AiGenerationType.WEAKNESS_ANALYSIS)
+                    .type(AiGenerationType.RECOMMENDATION)
                     .prompt(prompt)
                     .model(aiGenerationService.getDefaultModel())
                     .cardsGenerated(recommendationCount)
                     .success(false)
-                    .errorMessage(errorMessage)
+                    .response(buildFallbackResponsePayload(AiRecommendationResponse.FallbackReason.AI_ERROR, fallbackStrategy))
+                    .errorMessage(AiRecommendationResponse.FallbackReason.AI_ERROR + ": " + errorMessage)
                     .build());
         } catch (Exception e) {
             log.warn("[AI] 복습 실패 로그 저장 실패: {}", e.getMessage());
         }
+    }
+
+    private void saveFallbackLog(
+            User user,
+            int recommendationCount,
+            String fallbackStrategy,
+            AiRecommendationResponse.FallbackReason fallbackReason
+    ) {
+        try {
+            aiGenerationLogDomainService.save(AiGenerationLog.builder()
+                    .user(user)
+                    .type(AiGenerationType.RECOMMENDATION)
+                    .model(RULE_BASED_MODEL)
+                    .cardsGenerated(recommendationCount)
+                    .success(false)
+                    .response(buildFallbackResponsePayload(fallbackReason, fallbackStrategy))
+                    .errorMessage("fallback:" + fallbackReason)
+                    .build());
+        } catch (Exception e) {
+            log.warn("[AI] 복습 폴백 로그 저장 실패: {}", e.getMessage());
+        }
+    }
+
+    private String buildFallbackResponsePayload(
+            AiRecommendationResponse.FallbackReason fallbackReason,
+            String reviewStrategy
+    ) {
+        try {
+            return objectMapper.writeValueAsString(Map.of(
+                    "fallbackReason", fallbackReason.name(),
+                    "reviewStrategy", reviewStrategy
+            ));
+        } catch (Exception e) {
+            return "{\"fallbackReason\":\"" + fallbackReason.name() + "\",\"reviewStrategy\":\"" + reviewStrategy + "\"}";
+        }
+    }
+
+    private long resolveTotalStudyCount(User user) {
+        var totalAndCorrect = studyRecordDomainService.countTotalAndCorrect(user);
+        if (totalAndCorrect == null || totalAndCorrect.totalCount() == null) {
+            return 0L;
+        }
+        return totalAndCorrect.totalCount();
+    }
+
+    private int normalizeRequestLimit(int limit) {
+        if (limit < 1) {
+            return 1;
+        }
+        return limit;
+    }
+
+    private int normalizePositiveThreshold(String propertyName, int configured, int defaultValue) {
+        if (configured < 1) {
+            log.warn("잘못된 AI 추천 최소 조건 설정({}={}), {}으로 보정합니다.",
+                    propertyName, configured, defaultValue);
+            return defaultValue;
+        }
+        return configured;
     }
 
     private record ParsedAiReview(

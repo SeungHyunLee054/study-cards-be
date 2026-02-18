@@ -10,6 +10,7 @@ public record AiRecommendationResponse(
         String reviewStrategy,
         boolean aiUsed,
         boolean algorithmFallback,
+        FallbackReason fallbackReason,
         Quota quota
 ) {
     public record WeakConcept(
@@ -26,12 +27,22 @@ public record AiRecommendationResponse(
     ) {
     }
 
+    public enum FallbackReason {
+        NONE,
+        NO_DUE_CARDS,
+        INSUFFICIENT_STUDY_DATA,
+        INSUFFICIENT_RECOMMENDATION_POOL,
+        QUOTA_EXCEEDED,
+        AI_ERROR
+    }
+
     public static AiRecommendationResponse of(
             List<RecommendationResponse.RecommendedCard> recommendations,
             List<WeakConcept> weakConcepts,
             String reviewStrategy,
             boolean aiUsed,
             boolean algorithmFallback,
+            FallbackReason fallbackReason,
             Quota quota
     ) {
         return new AiRecommendationResponse(
@@ -41,6 +52,7 @@ public record AiRecommendationResponse(
                 reviewStrategy,
                 aiUsed,
                 algorithmFallback,
+                fallbackReason,
                 quota
         );
     }
