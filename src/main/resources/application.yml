@@ -86,6 +86,8 @@ management:
 app:
   ai:
     provider: ${APP_AI_PROVIDER}
+    upload:
+      max-file-size-bytes: 5242880 # 5MB
     recommendation:
       min-studied-cards: 10
       min-recommendation-cards: 3

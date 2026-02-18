@@ -5,6 +5,7 @@ import com.example.study_cards.domain.ai.exception.AiException;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -16,11 +17,20 @@ import java.util.Locale;
 @Service
 public class AiSourceTextExtractorService {
 
+    private static final long DEFAULT_MAX_UPLOAD_FILE_SIZE_BYTES = 5L * 1024L * 1024L;
     private static final int MAX_SOURCE_LENGTH = 5000;
+
+    @Value("${app.ai.upload.max-file-size-bytes:5242880}")
+    private long maxUploadFileSizeBytes = DEFAULT_MAX_UPLOAD_FILE_SIZE_BYTES;
 
     public String extractText(MultipartFile file) {
         if (file == null || file.isEmpty()) {
             throw new AiException(AiErrorCode.EMPTY_EXTRACTED_TEXT);
+        }
+
+        long maxUploadSize = normalizeMaxUploadFileSizeBytes();
+        if (file.getSize() > maxUploadSize) {
+            throw new AiException(AiErrorCode.FILE_SIZE_EXCEEDED);
         }
 
         String extracted;
@@ -41,6 +51,15 @@ public class AiSourceTextExtractorService {
             return normalized.substring(0, MAX_SOURCE_LENGTH);
         }
         return normalized;
+    }
+
+    private long normalizeMaxUploadFileSizeBytes() {
+        if (maxUploadFileSizeBytes < 1) {
+            log.warn("잘못된 파일 업로드 제한 설정(app.ai.upload.max-file-size-bytes={}), 기본값({})으로 보정합니다.",
+                    maxUploadFileSizeBytes, DEFAULT_MAX_UPLOAD_FILE_SIZE_BYTES);
+            return DEFAULT_MAX_UPLOAD_FILE_SIZE_BYTES;
+        }
+        return maxUploadFileSizeBytes;
     }
 
     private boolean isPdf(MultipartFile file) {
