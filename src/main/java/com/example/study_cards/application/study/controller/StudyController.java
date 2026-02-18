@@ -2,6 +2,7 @@ package com.example.study_cards.application.study.controller;
 
 import com.example.study_cards.application.study.dto.request.StudyAnswerRequest;
 import com.example.study_cards.application.study.dto.response.*;
+import com.example.study_cards.application.study.service.StudyAiRecommendationService;
 import com.example.study_cards.application.study.service.StudyRecommendationService;
 import com.example.study_cards.application.study.service.StudyService;
 import com.example.study_cards.domain.user.service.UserDomainService;
@@ -25,12 +26,13 @@ public class StudyController {
 
     private final StudyService studyService;
     private final StudyRecommendationService studyRecommendationService;
+    private final StudyAiRecommendationService studyAiRecommendationService;
     private final UserDomainService userDomainService;
 
     @GetMapping("/cards")
     public ResponseEntity<Page<StudyCardResponse>> getTodayCards(
             @AuthenticationPrincipal CustomUserDetails userDetails,
-            @RequestParam(required = false, defaultValue = "CS") String category,
+            @RequestParam(required = false) String category,
             @PageableDefault(size = 20, sort = "efFactor", direction = Sort.Direction.ASC) Pageable pageable) {
         User user = userDomainService.findById(userDetails.userId());
         Page<StudyCardResponse> cards = studyService.getTodayCards(user, category, pageable);
@@ -95,6 +97,15 @@ public class StudyController {
             @RequestParam(required = false, defaultValue = "20") int limit) {
         User user = userDomainService.findById(userDetails.userId());
         RecommendationResponse result = studyRecommendationService.getRecommendations(user, limit);
+        return ResponseEntity.ok(result);
+    }
+
+    @GetMapping("/recommendations/ai")
+    public ResponseEntity<AiRecommendationResponse> getAiRecommendations(
+            @AuthenticationPrincipal CustomUserDetails userDetails,
+            @RequestParam(required = false, defaultValue = "20") int limit) {
+        User user = userDomainService.findById(userDetails.userId());
+        AiRecommendationResponse result = studyAiRecommendationService.getAiRecommendations(user, limit);
         return ResponseEntity.ok(result);
     }
 

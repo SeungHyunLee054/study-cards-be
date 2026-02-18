@@ -124,7 +124,7 @@ class StudyControllerTest extends BaseIntegrationTest {
                                     headerWithName("Authorization").description("Bearer 액세스 토큰")
                             ),
                             queryParameters(
-                                    parameterWithName("category").description("카테고리 코드 (기본값: CS)").optional()
+                                    parameterWithName("category").description("카테고리 코드 (미지정 시 전체)").optional()
                             ),
                             responseFields(
                                     fieldWithPath("content").type(JsonFieldType.ARRAY).description("학습 카드 목록"),
@@ -432,6 +432,26 @@ class StudyControllerTest extends BaseIntegrationTest {
         @DisplayName("인증 없이 요청하면 401을 반환한다")
         void getRecommendations_unauthorized_returns401() throws Exception {
             mockMvc.perform(get("/api/study/recommendations"))
+                    .andExpect(status().isUnauthorized());
+        }
+    }
+
+    @Nested
+    @DisplayName("GET /api/study/recommendations/ai")
+    class GetAiRecommendationsTest {
+
+        @Test
+        @DisplayName("FREE 플랜 사용자는 AI 추천 조회 시 403을 반환한다")
+        void getAiRecommendations_freePlan_returns403() throws Exception {
+            mockMvc.perform(get("/api/study/recommendations/ai")
+                            .header("Authorization", "Bearer " + accessToken))
+                    .andExpect(status().isForbidden());
+        }
+
+        @Test
+        @DisplayName("인증 없이 요청하면 401을 반환한다")
+        void getAiRecommendations_unauthorized_returns401() throws Exception {
+            mockMvc.perform(get("/api/study/recommendations/ai"))
                     .andExpect(status().isUnauthorized());
         }
     }

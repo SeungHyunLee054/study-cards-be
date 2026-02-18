@@ -44,7 +44,10 @@ public class StudyService {
     private final NotificationService notificationService;
 
     public Page<StudyCardResponse> getTodayCards(User user, String categoryCode, Pageable pageable) {
-        Category category = categoryCode != null ? categoryDomainService.findByCodeOrNull(categoryCode) : null;
+        String normalizedCategoryCode = categoryCode != null ? categoryCode.trim() : null;
+        Category category = (normalizedCategoryCode == null || normalizedCategoryCode.isEmpty())
+                ? null
+                : categoryDomainService.findByCode(normalizedCategoryCode);
         List<Category> categoryScope = category != null ? categoryDomainService.findSelfAndDescendants(category) : null;
         List<StudyCardItem> cards = studyDomainService.findTodayAllStudyCards(user, categoryScope, pageable.getPageSize());
 

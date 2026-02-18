@@ -3,21 +3,15 @@ package com.example.study_cards.application.study.service;
 import com.example.study_cards.application.study.dto.response.CategoryAccuracyResponse;
 import com.example.study_cards.application.study.dto.response.RecommendationResponse;
 import com.example.study_cards.application.study.dto.response.RecommendationResponse.RecommendedCard;
-import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
 import com.example.study_cards.domain.study.service.StudyDomainService;
 import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRecord;
-import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
-import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.ai.service.AiGenerationService;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
-@Slf4j
 @RequiredArgsConstructor
 @Service
 @Transactional(readOnly = true)
@@ -26,24 +20,15 @@ public class StudyRecommendationService {
     private static final int DEFAULT_RECOMMENDATION_LIMIT = 20;
 
     private final StudyDomainService studyDomainService;
-    private final SubscriptionDomainService subscriptionDomainService;
-    private final AiGenerationService aiGenerationService;
 
     public RecommendationResponse getRecommendations(User user, int limit) {
-        SubscriptionPlan plan = subscriptionDomainService.getEffectivePlan(user);
-
         List<ScoredRecord> scoredRecords = studyDomainService.findPrioritizedDueRecords(user, limit);
 
         List<RecommendedCard> recommendations = scoredRecords.stream()
                 .map(sr -> RecommendedCard.from(sr.record(), sr.score()))
                 .toList();
 
-        String aiExplanation = null;
-        if (plan.isCanUseAiRecommendations() && !recommendations.isEmpty()) {
-            aiExplanation = generateAiExplanation(user, recommendations);
-        }
-
-        return RecommendationResponse.of(recommendations, aiExplanation);
+        return RecommendationResponse.of(recommendations, buildRecommendationExplanation(recommendations));
     }
 
     public RecommendationResponse getRecommendations(User user) {
@@ -56,36 +41,29 @@ public class StudyRecommendationService {
                 .toList();
     }
 
-    private String generateAiExplanation(User user, List<RecommendedCard> recommendations) {
-        try {
-            List<CategoryAccuracy> accuracies = studyDomainService.calculateCategoryAccuracy(user);
-
-            StringBuilder prompt = new StringBuilder();
-            prompt.append("다음 학습 데이터를 분석하여 한국어로 1~2문장의 간결한 복습 추천 메시지를 작성하세요.\n\n");
-
-            if (!accuracies.isEmpty()) {
-                prompt.append("카테고리별 정답률:\n");
-                for (CategoryAccuracy ca : accuracies) {
-                    prompt.append("- ").append(ca.categoryName()).append(": ")
-                            .append(ca.accuracy()).append("%\n");
-                }
-            }
-
-            prompt.append("\n오늘 복습 추천 카드 ").append(recommendations.size()).append("개 중:\n");
-            int highPriorityCount = (int) recommendations.stream()
-                    .filter(r -> r.priorityScore() >= 500).count();
-            int wrongCount = (int) recommendations.stream()
-                    .filter(r -> r.lastCorrect() != null && !r.lastCorrect()).count();
-
-            prompt.append("- 긴급 복습 필요: ").append(highPriorityCount).append("개\n");
-            prompt.append("- 최근 오답: ").append(wrongCount).append("개\n");
-            prompt.append("\n예시: '최근 네트워크 개념에서 연속 오답이 발생했습니다. TCP/IP 관련 카드를 우선 복습하세요.'\n");
-            prompt.append("메시지만 출력하세요. 부가 설명 없이 핵심만 작성하세요.");
-
-            return aiGenerationService.generateContent(prompt.toString());
-        } catch (Exception e) {
-            log.warn("[AI] 복습 추천 메시지 생성 실패: {}", e.getMessage());
+    private String buildRecommendationExplanation(List<RecommendedCard> recommendations) {
+        if (recommendations.isEmpty()) {
             return null;
         }
+
+        int topCount = Math.min(5, recommendations.size());
+        long urgentCount = recommendations.stream()
+                .filter(card -> card.priorityScore() >= 500)
+                .count();
+        long recentWrongCount = recommendations.stream()
+                .filter(card -> Boolean.FALSE.equals(card.lastCorrect()))
+                .count();
+
+        if (urgentCount > 0) {
+            return "우선순위가 높은 카드 " + urgentCount + "개를 먼저 복습하고 상위 "
+                    + topCount + "개를 완료하세요.";
+        }
+
+        if (recentWrongCount > 0) {
+            return "최근 오답 카드 " + recentWrongCount + "개를 먼저 다시 풀고 상위 "
+                    + topCount + "개를 복습하세요.";
+        }
+
+        return "추천 카드 상위 " + topCount + "개를 순서대로 복습하세요.";
     }
 }

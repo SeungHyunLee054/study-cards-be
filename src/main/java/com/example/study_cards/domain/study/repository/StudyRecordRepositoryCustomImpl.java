@@ -15,7 +15,9 @@ import lombok.RequiredArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static com.example.study_cards.domain.card.entity.QCard.card;
@@ -488,7 +490,9 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 studyRecord.isCorrect
         );
 
-        return queryFactory
+        Map<Long, CategoryAccuracyAccumulator> accumulators = new LinkedHashMap<>();
+
+        queryFactory
                 .select(
                         card.category.id,
                         card.category.code,
@@ -509,16 +513,59 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                 .map(tuple -> {
                     Long total = toNullableLong(tuple.get(3, Object.class));
                     Long correct = toNullableLong(tuple.get(4, Object.class));
-                    double accuracy = total > 0 ? (correct * 100.0) / total : 0.0;
-                    return new CategoryAccuracy(
+                    return new CategoryAccuracyAccumulator(
                             tuple.get(card.category.id),
                             tuple.get(card.category.code),
                             tuple.get(card.category.name),
                             total,
-                            correct,
-                            Math.round(accuracy * 10.0) / 10.0
+                            correct
                     );
                 })
+                .forEach(acc -> accumulators.put(acc.categoryId, acc));
+
+        queryFactory
+                .select(
+                        userCard.category.id,
+                        userCard.category.code,
+                        userCard.category.name,
+                        studyRecord.count(),
+                        correctCountExpr
+                )
+                .from(studyRecord)
+                .join(studyRecord.userCard, userCard)
+                .join(userCard.category, category)
+                .where(
+                        studyRecord.user.eq(user),
+                        userCard.category.status.eq(CategoryStatus.ACTIVE)
+                )
+                .groupBy(userCard.category.id, userCard.category.code, userCard.category.name)
+                .fetch()
+                .forEach(tuple -> {
+                    Long categoryId = tuple.get(userCard.category.id);
+                    if (categoryId == null) {
+                        return;
+                    }
+
+                    Long total = toNullableLong(tuple.get(3, Object.class));
+                    Long correct = toNullableLong(tuple.get(4, Object.class));
+
+                    accumulators.compute(categoryId, (id, existing) -> {
+                        if (existing == null) {
+                            return new CategoryAccuracyAccumulator(
+                                    id,
+                                    tuple.get(userCard.category.code),
+                                    tuple.get(userCard.category.name),
+                                    total,
+                                    correct
+                            );
+                        }
+                        existing.add(total, correct);
+                        return existing;
+                    });
+                });
+
+        return accumulators.values().stream()
+                .map(CategoryAccuracyAccumulator::toResponse)
                 .toList();
     }
 
@@ -549,5 +596,44 @@ public class StudyRecordRepositoryCustomImpl implements StudyRecordRepositoryCus
                         studyRecord.card.status.eq(CardStatus.ACTIVE)
                                 .and(studyRecord.card.category.status.eq(CategoryStatus.ACTIVE))
                 );
+    }
+
+    private static class CategoryAccuracyAccumulator {
+        private final Long categoryId;
+        private final String categoryCode;
+        private final String categoryName;
+        private long totalCount;
+        private long correctCount;
+
+        private CategoryAccuracyAccumulator(
+                Long categoryId,
+                String categoryCode,
+                String categoryName,
+                long totalCount,
+                long correctCount
+        ) {
+            this.categoryId = categoryId;
+            this.categoryCode = categoryCode;
+            this.categoryName = categoryName;
+            this.totalCount = totalCount;
+            this.correctCount = correctCount;
+        }
+
+        private void add(long totalCount, long correctCount) {
+            this.totalCount += totalCount;
+            this.correctCount += correctCount;
+        }
+
+        private CategoryAccuracy toResponse() {
+            double accuracy = totalCount > 0 ? (correctCount * 100.0) / totalCount : 0.0;
+            return new CategoryAccuracy(
+                    categoryId,
+                    categoryCode,
+                    categoryName,
+                    totalCount,
+                    correctCount,
+                    Math.round(accuracy * 10.0) / 10.0
+            );
+        }
     }
 }

@@ -8,10 +8,7 @@ import com.example.study_cards.domain.study.entity.StudyRecord;
 import com.example.study_cards.domain.study.repository.StudyRecordRepositoryCustom.CategoryAccuracy;
 import com.example.study_cards.domain.study.service.StudyDomainService;
 import com.example.study_cards.domain.study.service.StudyDomainService.ScoredRecord;
-import com.example.study_cards.domain.subscription.entity.SubscriptionPlan;
-import com.example.study_cards.domain.subscription.service.SubscriptionDomainService;
 import com.example.study_cards.domain.user.entity.User;
-import com.example.study_cards.infra.ai.service.AiGenerationService;
 import com.example.study_cards.support.BaseUnitTest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -25,21 +22,12 @@ import java.time.LocalDate;
 import java.util.List;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 
 class StudyRecommendationServiceUnitTest extends BaseUnitTest {
 
     @Mock
     private StudyDomainService studyDomainService;
-
-    @Mock
-    private SubscriptionDomainService subscriptionDomainService;
-
-    @Mock
-    private AiGenerationService aiGenerationService;
 
     @InjectMocks
     private StudyRecommendationService studyRecommendationService;
@@ -79,14 +67,13 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
     class GetRecommendationsTest {
 
         @Test
-        @DisplayName("FREE 플랜은 AI 설명 없이 추천 반환")
-        void getRecommendations_freePlan_noAiExplanation() {
+        @DisplayName("추천 결과를 반환하고 설명 메시지를 포함한다")
+        void getRecommendations_returnsWithExplanation() {
             // given
             StudyRecord record = StudyRecord.builder()
                     .user(testUser).card(testCard).isCorrect(false)
                     .nextReviewDate(LocalDate.now()).efFactor(2.0).build();
 
-            given(subscriptionDomainService.getEffectivePlan(testUser)).willReturn(SubscriptionPlan.FREE);
             given(studyDomainService.findPrioritizedDueRecords(testUser, 20))
                     .willReturn(List.of(new ScoredRecord(record, 500)));
 
@@ -95,41 +82,13 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
 
             // then
             assertThat(response.recommendations()).hasSize(1);
-            assertThat(response.aiExplanation()).isNull();
-            verify(aiGenerationService, never()).generateContent(anyString());
-        }
-
-        @Test
-        @DisplayName("PRO 플랜은 AI 설명 포함하여 추천 반환")
-        void getRecommendations_proPlan_withAiExplanation() {
-            // given
-            StudyRecord record = StudyRecord.builder()
-                    .user(testUser).card(testCard).isCorrect(false)
-                    .nextReviewDate(LocalDate.now()).efFactor(1.5).build();
-
-            given(subscriptionDomainService.getEffectivePlan(testUser)).willReturn(SubscriptionPlan.PRO);
-            given(studyDomainService.findPrioritizedDueRecords(testUser, 20))
-                    .willReturn(List.of(new ScoredRecord(record, 1300)));
-            given(studyDomainService.calculateCategoryAccuracy(testUser))
-                    .willReturn(List.of(new CategoryAccuracy(1L, "CS", "컴퓨터 과학", 10L, 7L, 70.0)));
-            given(aiGenerationService.generateContent(anyString()))
-                    .willReturn("컴퓨터 과학 카테고리에서 오답이 많습니다. 우선 복습하세요.");
-
-            // when
-            RecommendationResponse response = studyRecommendationService.getRecommendations(testUser, 20);
-
-            // then
-            assertThat(response.recommendations()).hasSize(1);
-            assertThat(response.aiExplanation()).isNotNull();
-            assertThat(response.recommendations().get(0).priorityScore()).isEqualTo(1300);
-            verify(aiGenerationService).generateContent(anyString());
+            assertThat(response.aiExplanation()).isNotBlank();
         }
 
         @Test
         @DisplayName("복습할 카드가 없으면 빈 목록 반환")
         void getRecommendations_noCards_returnsEmpty() {
             // given
-            given(subscriptionDomainService.getEffectivePlan(testUser)).willReturn(SubscriptionPlan.FREE);
             given(studyDomainService.findPrioritizedDueRecords(testUser, 20))
                     .willReturn(List.of());
 
@@ -139,29 +98,6 @@ class StudyRecommendationServiceUnitTest extends BaseUnitTest {
             // then
             assertThat(response.recommendations()).isEmpty();
             assertThat(response.totalCount()).isEqualTo(0);
-        }
-
-        @Test
-        @DisplayName("AI 설명 생성 실패 시 null 반환")
-        void getRecommendations_aiFailure_returnsNullExplanation() {
-            // given
-            StudyRecord record = StudyRecord.builder()
-                    .user(testUser).card(testCard).isCorrect(false)
-                    .nextReviewDate(LocalDate.now()).efFactor(2.0).build();
-
-            given(subscriptionDomainService.getEffectivePlan(testUser)).willReturn(SubscriptionPlan.PRO);
-            given(studyDomainService.findPrioritizedDueRecords(testUser, 20))
-                    .willReturn(List.of(new ScoredRecord(record, 500)));
-            given(studyDomainService.calculateCategoryAccuracy(testUser))
-                    .willReturn(List.of());
-            given(aiGenerationService.generateContent(anyString()))
-                    .willThrow(new RuntimeException("API 호출 실패"));
-
-            // when
-            RecommendationResponse response = studyRecommendationService.getRecommendations(testUser, 20);
-
-            // then
-            assertThat(response.recommendations()).hasSize(1);
             assertThat(response.aiExplanation()).isNull();
         }
     }

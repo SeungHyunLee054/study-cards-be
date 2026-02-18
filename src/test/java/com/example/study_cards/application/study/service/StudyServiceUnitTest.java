@@ -175,7 +175,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("카테고리 코드로 오늘의 학습 카드를 페이지네이션하여 조회한다")
         void getTodayCards_withCategoryCode_returnsCards() {
             // given
-            given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
+            given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
             given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(List.of(testCategory)), anyInt()))
                     .willReturn(List.of(StudyCardItem.ofCard(testCard)));
@@ -208,7 +208,7 @@ class StudyServiceUnitTest extends BaseUnitTest {
         @DisplayName("UserCard와 Card가 혼합되어 반환된다")
         void getTodayCards_withMixedCards_returnsUserCardFirst() {
             // given
-            given(categoryDomainService.findByCodeOrNull("CS")).willReturn(testCategory);
+            given(categoryDomainService.findByCode("CS")).willReturn(testCategory);
             given(categoryDomainService.findSelfAndDescendants(testCategory)).willReturn(List.of(testCategory));
             given(studyDomainService.findTodayAllStudyCards(eq(testUser), eq(List.of(testCategory)), anyInt()))
                     .willReturn(List.of(
