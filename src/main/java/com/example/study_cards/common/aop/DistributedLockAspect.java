@@ -23,8 +23,8 @@ public class DistributedLockAspect {
         String key = distributedLock.key();
         Duration ttl = Duration.ofMinutes(distributedLock.ttlMinutes());
 
-        String lockValue = distributedLockService.tryLock(key, ttl);
-        if (lockValue == null) {
+        boolean acquired = distributedLockService.tryLock(key, ttl);
+        if (!acquired) {
             log.info("Failed to acquire lock '{}', skipping execution of {}", key, joinPoint.getSignature().getName());
             return null;
         }
@@ -32,7 +32,7 @@ public class DistributedLockAspect {
         try {
             return joinPoint.proceed();
         } finally {
-            distributedLockService.unlock(key, lockValue);
+            distributedLockService.unlock(key);
         }
     }
 }

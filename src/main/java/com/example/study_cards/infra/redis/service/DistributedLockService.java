@@ -2,13 +2,12 @@ package com.example.study_cards.infra.redis.service;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.data.redis.core.RedisTemplate;
-import org.springframework.data.redis.core.script.DefaultRedisScript;
+import org.redisson.api.RLock;
+import org.redisson.api.RedissonClient;
 import org.springframework.stereotype.Service;
 
 import java.time.Duration;
-import java.util.List;
-import java.util.UUID;
+import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -17,25 +16,29 @@ public class DistributedLockService {
 
     private static final String LOCK_PREFIX = "lock:";
 
-    private static final String UNLOCK_SCRIPT =
-            "if redis.call('get', KEYS[1]) == ARGV[1] then " +
-            "  return redis.call('del', KEYS[1]) " +
-            "else " +
-            "  return 0 " +
-            "end";
+    private final RedissonClient redissonClient;
 
-    private final RedisTemplate<String, Object> redisTemplate;
+    public boolean tryLock(String lockName, Duration ttl) {
+        RLock lock = redissonClient.getLock(LOCK_PREFIX + lockName);
 
-    public String tryLock(String lockName, Duration ttl) {
-        String key = LOCK_PREFIX + lockName;
-        String lockValue = UUID.randomUUID().toString();
-        Boolean acquired = redisTemplate.opsForValue().setIfAbsent(key, lockValue, ttl);
-        return Boolean.TRUE.equals(acquired) ? lockValue : null;
+        // 기존 SETNX 기반 동작과 동일하게 같은 스레드의 재진입도 실패로 처리한다.
+        if (lock.isHeldByCurrentThread()) {
+            return false;
+        }
+
+        try {
+            return lock.tryLock(0, ttl.toMillis(), TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.warn("Interrupted while acquiring lock: {}", lockName, e);
+            return false;
+        }
     }
 
-    public void unlock(String lockName, String lockValue) {
-        String key = LOCK_PREFIX + lockName;
-        DefaultRedisScript<Long> script = new DefaultRedisScript<>(UNLOCK_SCRIPT, Long.class);
-        redisTemplate.execute(script, List.of(key), lockValue);
+    public void unlock(String lockName) {
+        RLock lock = redissonClient.getLock(LOCK_PREFIX + lockName);
+        if (lock.isHeldByCurrentThread()) {
+            lock.unlock();
+        }
     }
 }

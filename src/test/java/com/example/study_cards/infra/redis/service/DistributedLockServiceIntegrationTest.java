@@ -40,27 +40,28 @@ class DistributedLockServiceIntegrationTest extends BaseIntegrationTest {
         @DisplayName("락 획득에 성공한다")
         void tryLock_success() {
             // when
-            String lockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+            boolean acquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
 
             // then
-            assertThat(lockValue).isNotNull();
+            assertThat(acquired).isTrue();
 
-            distributedLockService.unlock(TEST_LOCK, lockValue);
+            distributedLockService.unlock(TEST_LOCK);
         }
 
         @Test
         @DisplayName("이미 락이 존재하면 획득에 실패한다")
         void tryLock_alreadyLocked_fails() {
             // given
-            String lockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+            boolean acquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
 
             // when
-            String secondLockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+            boolean secondAcquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
 
             // then
-            assertThat(secondLockValue).isNull();
+            assertThat(acquired).isTrue();
+            assertThat(secondAcquired).isFalse();
 
-            distributedLockService.unlock(TEST_LOCK, lockValue);
+            distributedLockService.unlock(TEST_LOCK);
         }
     }
 
@@ -72,32 +73,29 @@ class DistributedLockServiceIntegrationTest extends BaseIntegrationTest {
         @DisplayName("락 해제 후 다시 획득할 수 있다")
         void unlock_thenReacquire_success() {
             // given
-            String lockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
-            distributedLockService.unlock(TEST_LOCK, lockValue);
+            boolean acquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+            assertThat(acquired).isTrue();
+            distributedLockService.unlock(TEST_LOCK);
 
             // when
-            String newLockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+            boolean reAcquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
 
             // then
-            assertThat(newLockValue).isNotNull();
+            assertThat(reAcquired).isTrue();
 
-            distributedLockService.unlock(TEST_LOCK, newLockValue);
+            distributedLockService.unlock(TEST_LOCK);
         }
 
         @Test
-        @DisplayName("다른 소유자의 락은 해제할 수 없다")
-        void unlock_differentOwner_fails() {
-            // given
-            String lockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+        @DisplayName("락 미보유 상태에서 unlock 호출 시 예외가 발생하지 않는다")
+        void unlock_withoutOwnership_noException() {
+            // when
+            distributedLockService.unlock(TEST_LOCK);
 
-            // when - 잘못된 lockValue로 해제 시도
-            distributedLockService.unlock(TEST_LOCK, "wrong-value");
-
-            // then - 락이 여전히 존재하므로 재획득 불가
-            String secondLockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
-            assertThat(secondLockValue).isNull();
-
-            distributedLockService.unlock(TEST_LOCK, lockValue);
+            // then
+            boolean acquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+            assertThat(acquired).isTrue();
+            distributedLockService.unlock(TEST_LOCK);
         }
     }
 
@@ -114,8 +112,9 @@ class DistributedLockServiceIntegrationTest extends BaseIntegrationTest {
             // when & then
             await().atMost(Duration.ofSeconds(3))
                     .untilAsserted(() -> {
-                        String lockValue = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
-                        assertThat(lockValue).isNotNull();
+                        boolean acquired = distributedLockService.tryLock(TEST_LOCK, Duration.ofMinutes(1));
+                        assertThat(acquired).isTrue();
+                        distributedLockService.unlock(TEST_LOCK);
                     });
         }
     }
