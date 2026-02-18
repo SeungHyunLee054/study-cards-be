@@ -7,7 +7,7 @@ on:
 
 concurrency:
   group: build-production
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   test:
@@ -46,9 +46,9 @@ jobs:
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
-          java-version: '17'
-          distribution: 'temurin'
-          cache: 'gradle'
+          java-version: "17"
+          distribution: "temurin"
+          cache: "gradle"
 
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
@@ -86,6 +86,21 @@ jobs:
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Backup latest tag as previous
+        continue-on-error: true
+        env:
+          IMAGE_NAME: ${{ secrets.DOCKER_USERNAME }}/study-cards-app
+        run: |
+          set -euo pipefail
+
+          if docker pull "${IMAGE_NAME}:latest"; then
+            docker tag "${IMAGE_NAME}:latest" "${IMAGE_NAME}:previous"
+            docker push "${IMAGE_NAME}:previous"
+            echo "Backed up latest as previous."
+          else
+            echo "No latest image found. Skipping previous backup."
+          fi
 
       - name: Extract Docker image metadata
         id: meta
@@ -128,42 +143,42 @@ jobs:
           KEEP_COUNT: 5
         run: |
           set -euo pipefail
-          
+
           echo "Authenticating to DockerHub API..."
           TOKEN=$(curl -fsS -H "Content-Type: application/json" \
             -X POST https://hub.docker.com/v2/users/login/ \
             -d "{\"username\":\"${DOCKERHUB_USERNAME}\",\"password\":\"${DOCKERHUB_PASSWORD}\"}" \
             | jq -r '.token')
-          
+
           if [ -z "${TOKEN}" ] || [ "${TOKEN}" = "null" ]; then
             echo "Failed to get DockerHub API token."
             exit 1
           fi
-          
+
           AUTH_HEADER="Authorization: Bearer ${TOKEN}"
-          
+
           NEXT_URL="https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/${DOCKERHUB_REPOSITORY}/tags?page_size=100"
           TAG_ROWS_FILE="$(mktemp)"
-          
+
           while [ -n "${NEXT_URL}" ] && [ "${NEXT_URL}" != "null" ]; do
             RESPONSE=$(curl -fsS -H "${AUTH_HEADER}" "${NEXT_URL}")
             echo "${RESPONSE}" | jq -r '.results[] | select(.name | startswith("sha-")) | "\(.last_updated)\t\(.name)"' >> "${TAG_ROWS_FILE}"
             NEXT_URL=$(echo "${RESPONSE}" | jq -r '.next')
           done
-          
+
           if [ ! -s "${TAG_ROWS_FILE}" ]; then
             echo "No SHA tags found. Nothing to clean."
             exit 0
           fi
-          
+
           mapfile -t SHA_TAGS < <(sort -r "${TAG_ROWS_FILE}" | cut -f2)
           TOTAL_COUNT=${#SHA_TAGS[@]}
-          
+
           if [ "${TOTAL_COUNT}" -le "${KEEP_COUNT}" ]; then
             echo "SHA tags: ${TOTAL_COUNT}. No cleanup needed."
             exit 0
           fi
-          
+
           retry() {
             local n=0
             local max=5
@@ -178,15 +193,15 @@ jobs:
               delay=$((delay*2))
             done
           }
-          
+
           DELETE_COUNT=$((TOTAL_COUNT - KEEP_COUNT))
           echo "Total SHA tags: ${TOTAL_COUNT}, deleting old ${DELETE_COUNT} tags."
-          
+
           for TAG in "${SHA_TAGS[@]:${KEEP_COUNT}}"; do
             echo "Deleting tag: ${TAG}"
             retry curl -fsS -X DELETE \
               -H "${AUTH_HEADER}" \
               "https://hub.docker.com/v2/repositories/${DOCKERHUB_USERNAME}/${DOCKERHUB_REPOSITORY}/tags/${TAG}/"
           done
-          
+
           echo "DockerHub SHA tag cleanup complete."
