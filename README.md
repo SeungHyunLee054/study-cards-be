@@ -9,11 +9,11 @@ SM-2 알고리즘 기반 간격 반복 학습 플래시카드 서비스의 백�
 - **간격 반복 학습**: SM-2 알고리즘 기반 EF Factor, 복습 간격 자동 계산
 - **플래시카드 관리**: 공용 카드(Card) 및 사용자 정의 카드(UserCard) 지원
 - **AI 카드 생성**: 텍스트/파일(PDF, TXT, MD) 기반 플래시카드 자동 생성 (구독 플랜별 생성 한도 관리)
-- **AI 복습 추천**: 취약 개념/복습 전략 생성 API 제공 (PRO 플랜 전용, 실패 시 알고리즘 폴백)
+- **AI 복습 추천**: 취약 개념/복습 전략 생성 및 추천 이력 조회 API 제공 (PRO 플랜 전용, 실패 시 알고리즘 폴백)
 - **북마크**: 공용 카드 및 사용자 카드 북마크 관리
 - **카테고리 관리**: 계층형 카테고리 구조 (parent-child)
 - **학습 통계 및 대시보드**: 학습 기록, 통계, 카테고리별 정확도, 대시보드 제공
-- **구독 및 결제**: Toss Payments 기반 구독 결제 및 자동 갱신
+- **구독 및 결제**: Toss Payments 기반 구독 결제, 자동 갱신 해제/재개 지원
 - **이메일 인증**: 회원가입 시 이메일 인증 코드 검증
 - **푸시 알림**: FCM 기반 일일 복습 알림, 구독/결제/스트릭 알림
 - **사용자 인증**: JWT 기반 인증 + OAuth2 소셜 로그인 (Google, Kakao, Naver)
@@ -94,9 +94,9 @@ SM-2 알고리즘 기반 간격 반복 학습 플래시카드 서비스의 백�
 
 ## API 문서
 
-Swagger UI: `/swagger-ui.html`
+Swagger UI (실행 중 최신 스펙): `/swagger-ui.html`
 
-상세 API 명세: [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md)
+상세 API 명세 (가독성 중심 문서): [docs/API_SPECIFICATION.md](docs/API_SPECIFICATION.md)
 
 ### 인증/토큰 정책
 
@@ -116,10 +116,10 @@ Swagger UI: `/swagger-ui.html`
 | UserCard | 사용자 정의 카드 CRUD |
 | Category | 카테고리 관리 |
 | Bookmark | 카드 북마크 관리 |
-| Study | 학습 세션, SM-2 평가, 추천 카드, AI 복습 추천, 카테고리별 정확도 |
+| Study | 학습 세션, SM-2 평가, 추천 카드, AI 복습 추천/이력 조회, 카테고리별 정확도 |
 | Stats | 학습 통계 조회 |
 | Dashboard | 대시보드 데이터 |
-| Subscription | 구독 플랜 관리 (FREE / PRO) |
+| Subscription | 구독 플랜 관리, 자동 갱신 해제/재개 (FREE / PRO) |
 | Payment | Toss Payments 결제, 빌링키 자동 갱신, 결제 내역 |
 | AI | 사용자 AI 카드 생성(텍스트/파일), 생성 한도 조회 |
 | Generation | 관리자 AI 문제 생성 |

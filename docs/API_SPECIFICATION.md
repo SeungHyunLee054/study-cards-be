@@ -2,7 +2,7 @@
 
 > Base URL: `/api`
 > 인증: JWT Bearer Token (Authorization 헤더)
-> Last Updated: `2026-02-18`
+> Last Updated: `2026-02-19`
 
 ---
 
@@ -988,7 +988,67 @@ GET /api/study/recommendations/ai
 
 ---
 
-### 7.5 카테고리별 정확도 조회
+### 7.5 AI 복습 추천 이력 조회
+```
+GET /api/study/recommendations/ai/history
+```
+
+> 인증 필요
+> AI 추천/취약점 분석 로그를 최신순으로 조회합니다.
+
+**Query Parameters**
+| 파라미터 | 기본값 | 설명 |
+|---------|--------|------|
+| page | 0 | 페이지 번호 (0부터 시작) |
+| size | 20 | 페이지 크기 |
+| sort | createdAt,desc | 정렬 기준 |
+
+**Response** `200 OK`
+```json
+{
+  "content": [
+    {
+      "id": 1,
+      "type": "RECOMMENDATION",
+      "model": "gpt-5-mini",
+      "cardsGenerated": 5,
+      "success": true,
+      "errorMessage": null,
+      "prompt": "추천 프롬프트",
+      "response": "{\"reviewStrategy\":\"기본 전략\"}",
+      "createdAt": "2026-02-19T10:00:00"
+    },
+    {
+      "id": 2,
+      "type": "WEAKNESS_ANALYSIS",
+      "model": "gpt-5-mini",
+      "cardsGenerated": 5,
+      "success": false,
+      "errorMessage": "파싱 실패",
+      "prompt": "분석 프롬프트",
+      "response": null,
+      "createdAt": "2026-02-19T09:59:00"
+    }
+  ],
+  "totalElements": 2,
+  "page": 0,
+  "size": 20,
+  "totalPages": 1,
+  "hasNext": false,
+  "hasPrevious": false,
+  "isFirst": true,
+  "isLast": true
+}
+```
+
+| type | 설명 |
+|------|------|
+| RECOMMENDATION | AI 복습 추천 생성 로그 |
+| WEAKNESS_ANALYSIS | 취약 개념 분석 로그 |
+
+---
+
+### 7.6 카테고리별 정확도 조회
 ```
 GET /api/study/category-accuracy
 ```
@@ -1482,6 +1542,66 @@ POST /api/subscriptions/cancel
 > 실제 동작은 "구독 해지"가 아니라 **자동 갱신 해제**입니다.
 > 월간(MONTHLY) 구독 + billingKey 존재 시에만 처리됩니다.
 > 연간(YEARLY) 선결제는 해당 API로 취소할 수 없습니다.
+
+---
+
+### 12.4 구독 재개 (자동 갱신 재활성화)
+```
+POST /api/subscriptions/resume
+```
+```
+POST /api/subscriptions/reactivate
+```
+
+> 인증 필요
+> 두 경로는 동일 동작입니다.
+
+**Request Body** (선택)
+```json
+{
+  "authKey": "toss_auth_key"
+}
+```
+
+| 필드 | 타입 | 필수 | 설명 |
+|-----|------|------|------|
+| authKey | String | X | 빌링키가 없는 경우 Toss에서 발급받은 인증 키 |
+
+**Response** `200 OK` (SubscriptionResponse)
+
+> 월간(MONTHLY) 활성 구독에서 자동 갱신이 해제된 상태일 때만 재개됩니다.
+> billingKey가 이미 있으면 `authKey` 없이 재개 가능합니다.
+> billingKey가 없으면 `authKey` + customerKey 기반으로 빌링키를 재발급합니다.
+> 연간(YEARLY) 선결제는 해당 API로 재개할 수 없습니다.
+
+**실패 응답**
+- `400 Bad Request`: `SUBSCRIPTION_NOT_ACTIVE`
+- `400 Bad Request`: `AUTO_RENEWAL_ALREADY_ENABLED`
+- `400 Bad Request`: `AUTO_RENEWAL_CANNOT_BE_RESUMED`
+- `400 Bad Request`: `YEARLY_SUBSCRIPTION_CANNOT_BE_RESUMED`
+
+---
+
+### 12.5 구독 재개 사전 정보 조회
+```
+POST /api/subscriptions/resume/prepare
+```
+
+> 인증 필요
+> 구독 재개 전 빌링키 재발급에 필요한 `customerKey`를 조회합니다.
+
+**Response** `200 OK`
+```json
+{
+  "customerKey": "CK_DEF456UVW"
+}
+```
+
+**실패 응답**
+- `400 Bad Request`: `SUBSCRIPTION_NOT_ACTIVE`
+- `400 Bad Request`: `AUTO_RENEWAL_ALREADY_ENABLED`
+- `400 Bad Request`: `AUTO_RENEWAL_CANNOT_BE_RESUMED`
+- `400 Bad Request`: `YEARLY_SUBSCRIPTION_CANNOT_BE_RESUMED`
 
 ---
 
@@ -2250,7 +2370,10 @@ Toss Payments에서 결제 상태 변경 시 호출
 | SUBSCRIPTION_NOT_ACTIVE | 400 | 구독이 활성 상태가 아님 |
 | SUBSCRIPTION_ALREADY_CANCELED | 400 | 이미 취소된 구독 |
 | AUTO_RENEWAL_ALREADY_DISABLED | 400 | 자동 갱신이 이미 해제됨 |
+| AUTO_RENEWAL_ALREADY_ENABLED | 400 | 자동 갱신이 이미 활성화됨 |
+| AUTO_RENEWAL_CANNOT_BE_RESUMED | 400 | 자동 갱신 재개 불가 (카드 재등록 필요) |
 | YEARLY_SUBSCRIPTION_CANNOT_BE_CANCELED | 400 | 연간 선결제는 자동 갱신 해제 대상 아님 |
+| YEARLY_SUBSCRIPTION_CANNOT_BE_RESUMED | 400 | 연간 선결제는 자동 갱신 재개 대상 아님 |
 | SUBSCRIPTION_EXPIRED | 400 | 만료된 구독 |
 | INVALID_PLAN_CHANGE | 400 | 유효하지 않은 플랜 변경 |
 | FREE_PLAN_NOT_PURCHASABLE | 400 | 무료 플랜은 구매 불가 |
